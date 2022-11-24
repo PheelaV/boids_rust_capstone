@@ -1,20 +1,17 @@
-use nannou::prelude::*;
+// use nannou::prelude::*;
 
-pub struct Options {
-    pub init_boids: usize,
-    pub init_width: u32,
-    pub init_height: u32,
-    pub run_options: RunOptions,
-    pub initiation_strat: InitiationStrategy,
-    pub record_locations: bool,
-    pub no_boids: u32,
-}
+// pub struct Options {
+
+// }
 
 // #[derive(Debug, Clone, Copy)]
 
 
 #[derive(Debug)]
 pub struct RunOptions {
+    pub init_boids: u32,
+    pub initiation_strat: InitiationStrategy,
+
     pub baseline_speed: f32,
     pub min_speed: f32,
     pub max_speed: f32,
@@ -39,23 +36,33 @@ pub struct RunOptions {
     pub separation_on: bool,
 
     pub window: WindowSize,
+    pub save_options: SaveOptions,
 
     pub size: f32,
     pub boundary: Boundary,
     pub distance: Distance,
 
     pub clicked_boid_id: u32,
-    pub no_boids: u32,
 
-    pub impl_mode: bool,
+    // for testing
+    pub allignment_impl_mode: bool,
+    pub cohesion_impl_mode: bool,
+    pub separation_impl_mode: bool,
+    pub col_by_neighbour: bool,
 
     pub field_of_vision_on: bool,
     /// Fiels of vision in radians, [0, π]
     pub field_of_vision_half_rad: f32,
     pub field_of_vision_deg: f32,
+
+    pub sample_rate: u32,
 }
 
-pub fn get_run_options(win: &Rect) -> RunOptions {
+pub fn get_run_options() -> RunOptions {
+        let init_boids = 256;
+        let init_height = 600.0;
+        let init_width = 2800.0;
+
         let baseline_speed = 1.0;
 
         let min_speed = 0.65;
@@ -81,10 +88,15 @@ pub fn get_run_options(win: &Rect) -> RunOptions {
         let separation_on = true;
 
         let field_of_vision_on = true;
-        let field_of_vision_half_rad = 3./4. * PI / 2.;
+        let field_of_vision_half_rad = 3./4. * std::f32::consts::PI / 2.;
         let field_of_vision_deg = 1. * 180. + 1.;
 
+        let sample_rate = 1_u32;
+
     RunOptions {
+        init_boids,
+        // initiation_strat: InitiationStrategy::CircleCircumferenceIn,
+        initiation_strat: InitiationStrategy::RandomRandom,
         baseline_speed,
         min_speed,
         max_speed,
@@ -102,23 +114,31 @@ pub fn get_run_options(win: &Rect) -> RunOptions {
         alignment_on,
         cohesion_on,
         separation_on,        
-        window: WindowSize {
-            win_left: win.left(),
-            win_right: win.right(),
-            win_top: win.top(),
-            win_bottom: win.bottom(),
-            win_h: win.h(),
-            win_w: win.w(),
-        },
+        window: self::get_window_size(init_width, init_height),
+        save_options: SaveOptions { save_locations: false, save_locations_path: None, save_locations_timestamp: true },
         size: 8.,
         boundary: Boundary::Thoroidal,
         distance: Distance::EucEnclosed,
         clicked_boid_id: std::u32::MAX,
-        no_boids: 2,
-        impl_mode: false,
+        allignment_impl_mode: false,
+        cohesion_impl_mode: false,
+        separation_impl_mode: false,
+        col_by_neighbour: false,
         field_of_vision_on,
         field_of_vision_half_rad,
-        field_of_vision_deg
+        field_of_vision_deg,
+        sample_rate
+    }
+}
+
+pub fn get_window_size(init_width: f32, init_height: f32) -> WindowSize {
+    WindowSize {
+        win_left: init_width / -2.,
+        win_right: init_width / 2.,
+        win_top: init_height / 2.,
+        win_bottom: init_height / -2.,
+        win_h: init_height,
+        win_w: init_width,
     }
 }
 
@@ -138,6 +158,7 @@ pub struct WindowSize {
         pub win_w: f32,
 }
 
+#[derive(Debug)]
 pub enum InitiationStrategy {
     CircleCenterOut,
     CircleCircumferenceIn,
@@ -152,10 +173,18 @@ pub enum Boundary {
     Thoroidal,
     Absorbing,
     Reflective,
+    Repulsive
 }
 
 #[derive(Debug, PartialEq)]
 pub enum Distance {
     EucThoroidal,
     EucEnclosed,
+}
+
+#[derive(Debug)]
+pub struct SaveOptions {
+    pub save_locations: bool,
+    pub save_locations_path: Option<String>,
+    pub save_locations_timestamp: bool,
 }

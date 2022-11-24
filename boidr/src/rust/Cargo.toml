@@ -1,0 +1,13 @@
+[package]
+name = 'boidr'
+version = '0.1.0'
+edition = '2018'
+resolver = "2"
+
+[lib]
+crate-type = [ 'staticlib' ]
+
+[dependencies]
+extendr-api = '*'
+boids_lib = { path = "/Users/filipvlcek/Source/Repos/boids_rust/boids_lib"}
+# boids_test_lib = { path = "./../../../boids_test_lib"}

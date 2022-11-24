@@ -1,0 +1,17 @@
+# LIBDIR = ./rust/target/release
+LIBDIR = ../../target/release 
+STATLIB = $(LIBDIR)/libboidr.a
+PKG_LIBS = -L$(LIBDIR) -lboidr
+
+all: C_clean
+
+$(SHLIB): $(STATLIB)
+
+$(STATLIB):
+	cargo build --lib --release --manifest-path=./rust/Cargo.toml
+
+C_clean:
+	rm -Rf $(SHLIB) $(STATLIB) $(OBJECTS)
+
+clean:
+	rm -Rf $(SHLIB) $(STATLIB) $(OBJECTS) rust/target

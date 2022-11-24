@@ -1,0 +1,11 @@
+Package: boidr
+Title: Generates Data About Boids Movement
+Version: 0.0.0.9000
+Authors@R: 
+    person("Filip", "V", , "first.last@example.com", role = c("aut", "cre"),
+           comment = c(ORCID = "YOUR-ORCID-ID"))
+Description: Generates data about movement of boids. Wraps a Rust implementation of the Boid algorithms, Crayg Reynolds '86. Provides an interface for R to control the initiation and runtime rules' setting.
+License: use_mit_license()
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.2.1

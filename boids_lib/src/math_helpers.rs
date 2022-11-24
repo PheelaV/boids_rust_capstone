@@ -42,13 +42,13 @@ pub fn thoroidal_distance_boid(b1: &Boid, b2: &Boid, window_size: &WindowSize) -
 }
 
 pub fn thoroidal_distance_sq_boid(b1: &Boid, b2: &Boid, window_size: &WindowSize) -> f32 {
-    thoroidal_distance_sq(b1.position.x, b2.position.x, b1.position.y, b2.position.y, window_size)
+    thoroidal_distance2_sq(b1.position.x, b2.position.x, b1.position.y, b2.position.y, window_size)
     // thoroidal_distance(b1.pos_x, b2.pos_x, b1.pos_y, b2.pos_y)
 }
 
 #[allow(dead_code)]
 pub fn thoroidal_distance(x1: f32, x2: f32, y1: f32, y2: f32, window_size: &WindowSize) -> f32 {
-    thoroidal_distance_sq(x1, x2, y1, y2, window_size).sqrt()
+    thoroidal_distance2_sq(x1, x2, y1, y2, window_size).sqrt()
 }
 
 // Thoroidal distance as per https://blog.demofox.org/2017/10/01/calculating-the-distance-between-points-in-wrap-around-toroidal-space/
@@ -76,12 +76,25 @@ pub fn thoroidal_distance_sq(x1: f32, x2: f32, y1: f32, y2: f32, window_size: &W
     return dx.powi(2) + dy.powi(2);
 }
 
-// TODO: test
+pub fn thoroidal_distance2_sq(x1: f32, x2: f32, y1: f32, y2: f32, window_size: &WindowSize) -> f32 {
+    let dx = 
+    (x1 - x2).abs()
+    .min((x1 - (x2 + window_size.win_w)).abs())
+    .min((x1 - (x2 - window_size.win_w)).abs());
+
+    let dy = 
+    (y1 - y2).abs()
+    .min((y1 - (y2 + window_size.win_h)).abs())
+    .min((y1 - (y2 - window_size.win_h)).abs());
+
+    return dx.powi(2) + dy.powi(2);
+}// TODO: test
 
 #[cfg(test)]
 mod tests {
     use approx::{assert_relative_eq};
-    use nannou::prelude::{vec2, Vec2};
+    use glam::Vec2;
+    // use nannou::prelude::{vec2, Vec2};
 
     use crate::options::{WindowSize};
 
@@ -103,10 +116,10 @@ mod tests {
     impl ThoroidialTestData {
         fn new() -> Self {
             ThoroidialTestData {
-                 a: vec2(3., 2.),
-                 b: vec2(0., 0.),
-                 c: vec2(-3., 3.),
-                 d: vec2(-3., -3.5)
+                 a: Vec2::new(3., 2.),
+                 b: Vec2::new(0., 0.),
+                 c: Vec2::new(-3., 3.),
+                 d: Vec2::new(-3., -3.5)
             }
         }
     }
