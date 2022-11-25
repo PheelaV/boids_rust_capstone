@@ -4,6 +4,8 @@ boids-data.csv
 CACHEDIR.TAG
 .rustc_info.json
 
+**/*.mp4
+
 /target
 
 # General
