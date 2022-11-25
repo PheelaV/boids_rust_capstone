@@ -14,6 +14,7 @@ pub struct BoidData {
     pub id: u32,
     pub x: f32,
     pub y: f32,
+    pub cluster_id: usize,
 }
 
 pub struct Birdwatcher{
@@ -46,7 +47,12 @@ impl Birdwatcher {
         let mut current_locations : Vec<BoidData> = 
             flock.boids.iter()
             .map(|b| {
-                BoidData{id: b.id, x: b.position.x, y:b.position.y}
+                BoidData{
+                    id: b.id, 
+                    x: b.position.x, 
+                    y:b.position.y,
+                    cluster_id: b.cluster_id
+                }
             })
             .collect();
      

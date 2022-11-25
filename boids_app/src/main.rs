@@ -1,4 +1,3 @@
-
 extern crate nannou;
 use std::{
     sync::atomic::{
@@ -116,6 +115,7 @@ fn model(app: &App) -> Model {
     run_options.field_of_vision_deg = config.field_of_vision;
 
     run_options.save_options = save_options;
+    run_options.dbscan_flock_clustering_on = config.dbscan_flock_clustering_on;
 
     let main_window = app
         .new_window()

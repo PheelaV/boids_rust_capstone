@@ -78,41 +78,40 @@ impl Flock {
     pub fn update(&mut self, run_options: &RunOptions) {
         let mut clone = self.boids.to_owned();
 
-        let test_data: Array2<f32> = clone.iter()
-        .map(|row| [row.position.x, row.position.y])
-        .collect::<Vec<_>>()
-        .into();
-        // let dataset: DatasetBase<_, _> = generate::blobs(20, &expected_centroids, &mut rng).into();
-        let test_dataset: DatasetBase<_, _> = test_data.into();
-        // let expected_centroids = array![[10., 10.], [1., 12.], [20., 30.], [-20., 30.],];        
-        let res =  Dbscan::params(3)
-        .tolerance(run_options.sensory_distance)
-        .transform(test_dataset)
-        .unwrap();
+        if run_options.dbscan_flock_clustering_on {
+            let test_data: Array2<f32> = clone.iter()
+            .map(|row| [row.position.x, row.position.y])
+            .collect::<Vec<_>>()
+            .into();
+            let test_dataset: DatasetBase<_, _> = test_data.into();
+            let res =  Dbscan::params(3)
+            .tolerance(run_options.sensory_distance)
+            .transform(test_dataset)
+            .unwrap();
+    
+            self.boids = res.targets.iter().zip(clone.iter_mut()).map(|pair| {
+                match pair.0 {
+                    Some(cluster) => {
+                        pair.1.cluster_id = *cluster + 1;
+                        pair.1.to_owned()
+                    },
+                    None => {
+                        pair.1.cluster_id = 0;
+                        pair.1.to_owned()
+                    },
+                }
+            }).collect::<Vec<Boid>>();
 
-        self.boids = res.targets.iter().zip(clone.iter_mut()).map(|pair| {
-            match pair.0 {
-                Some(cluster) => {
-                    pair.1.cluster_id = *cluster + 1;
-                    pair.1.to_owned()
-                },
-                None => {
-                    pair.1.cluster_id = 0;
-                    pair.1.to_owned()
-                },
-            }
-        }).collect::<Vec<Boid>>();
+            // let label_count = res.label_count().remove(0);
 
-        // println!("clusters: {count:2.}", count = res.label_count().len());
-        let label_count = res.label_count().remove(0);
-
-        println!();
-        println!("Result: ");
-        for (label, count) in label_count {
-            match label {
-                None => println!(" - {} noise points", count),
-                Some(i) => println!(" - {} points in cluster {}", count, i),
-            }
+            // println!();
+            // println!("Result: ");
+            // for (label, count) in label_count {
+            //     match label {
+            //         None => println!(" - {} noise points", count),
+            //         Some(i) => println!(" - {} points in cluster {}", count, i),
+            //     }
+            // }
         }
 
         let max_sensory_distance = 
@@ -178,3 +177,24 @@ impl Flock {
         self.boids = get_boids(&run_options);
     }
 }
+
+    // todo create a datastructure to build u preferences of the local boids for searching neighbours
+    // begin by getting rid of the copying above and put that into the datastructure
+    // continue on by usinr the same interface for the spatial hashingi
+
+    // the structure should be able to take a copy of the data to build its internal guts
+    // then a function for querying n-nearest neighbours should be made publicly available
+
+    // struct NaiveNeighbourFinder {
+    //     pub boids: Vec<Boid>
+    // }
+
+    // impl NaiveNeighbourFinder {
+    //     pub fn new(run_options: &RunOptions) -> Self {
+    //         let boids = get_boids(&run_options);
+    
+    //         Flock { 
+    //             boids,
+    //         }
+    //     } 
+    // }

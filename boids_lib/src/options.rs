@@ -56,12 +56,13 @@ pub struct RunOptions {
     pub field_of_vision_deg: f32,
 
     pub sample_rate: u32,
+    pub dbscan_flock_clustering_on: bool,
 }
 
 pub fn get_run_options() -> RunOptions {
         let init_boids = 256;
         let init_height = 600.0;
-        let init_width = 2800.0;
+        let init_width = 600.0;
 
         let baseline_speed = 1.0;
 
@@ -127,7 +128,8 @@ pub fn get_run_options() -> RunOptions {
         field_of_vision_on,
         field_of_vision_half_rad,
         field_of_vision_deg,
-        sample_rate
+        sample_rate,
+        dbscan_flock_clustering_on: false
     }
 }
 

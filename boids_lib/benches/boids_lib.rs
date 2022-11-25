@@ -1,38 +1,60 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use std::fmt;
 
-// fn fibonacci(n: u64) -> u64 {
-//     match n {
-//         0 => 1,
-//         1 => 1,
-//         n => fibonacci(n-1) + fibonacci(n-2),
-//     }
-// }
+use boids_lib::flock_base;
+use boids_lib::options;
+use criterion::BenchmarkId;
+use criterion::Criterion;
+use criterion::SamplingMode;
+use criterion::Throughput;
+use criterion::criterion_group;
+use criterion::criterion_main;
 
-fn fibonacci(n: u64) -> u64 {
-    let mut a = 0;
-    let mut b = 1;
+#[derive(Debug)]
+struct flock_bench {
+    no_boids: u32,
+    no_iter: u32
+}
 
-    match n {
-        0 => b,
-        _ => {
-            for _ in 0..n {
-                let c = a + b;
-                a = b;
-                b = c;
-            }
-            b
-        }
+impl fmt::Display for flock_bench {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "(no_boids: {}, no_iter: {})", self.no_boids, self.no_iter)
     }
 }
 
 
-fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("fib1 20", |b| b.iter(|| fibonacci(black_box(20))));
-    // c.bench_function("fib2 20", |b| b.iter(|| fibonacci2(black_box(20))));
+fn get_bench_params() -> Vec<flock_bench> {
+    static NO_BOIDS: u32 = 64;
 
+    let mut result : Vec<flock_bench> = Vec::new();
+
+    [128, 1024, 4096].iter().for_each(|no_boids|{
+        [NO_BOIDS, 2 * NO_BOIDS, 4 * NO_BOIDS, 8 * NO_BOIDS].iter().for_each(|no_iter|{
+            result.push(flock_bench{
+                no_iter: *no_iter ,
+                no_boids: *no_boids
+            })
+        }) 
+    });
+    result
+}
+fn from_elem(c: &mut Criterion) {
+    let mut group = c.benchmark_group("test_matrix");
+
+    for nn in get_bench_params().iter() {
+        // group.measurement_time(Duration::from_secs(40));
+        group.sampling_mode(SamplingMode::Flat);
+        // group.plot_config(Plot)
+        group.throughput(Throughput::Elements((nn.no_boids * nn.no_iter) as u64));
+        group.bench_with_input(BenchmarkId::from_parameter(nn), nn, |b, n| {
+            b.iter(|| flock_base(n.no_iter, {
+                let mut ro = options::get_run_options();
+                ro.init_boids = n.no_boids;
+                ro
+            }));
+        });
+    }
+    group.finish();
 }
 
-
-criterion_group!(benches, criterion_benchmark);
-// criterion_group!(benches, criterion_benchmark2);
+criterion_group!(benches, from_elem);
 criterion_main!(benches);

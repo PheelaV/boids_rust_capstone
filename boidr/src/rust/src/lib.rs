@@ -58,7 +58,8 @@ fn flock_detailed(
     separation_trs_coef: f32,
     min_speed: f32,
     max_speed: f32,
-    max_steering: f32) -> Robj {
+    max_steering: f32,
+    dbscan_clustering: bool) -> Robj {
 
     let mut run_options = get_run_options();
 
@@ -78,6 +79,7 @@ fn flock_detailed(
     run_options.min_speed = min_speed;
     run_options.max_speed = max_speed;
     run_options.max_steering = max_steering;
+    run_options.dbscan_flock_clustering_on = dbscan_clustering;
     
     flock_base(no_iter, run_options)
 }

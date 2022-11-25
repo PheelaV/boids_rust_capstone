@@ -27,7 +27,7 @@ pub struct Args{
 #[derive(ClapSerde, Serialize)]
 pub struct Config{
         
-    #[default(256)]
+    #[default(484)]
     #[arg(short = 'n', long)]
     /// number of boids
     pub no_boids: u32,
@@ -45,11 +45,11 @@ pub struct Config{
     #[arg(short = 't', long)]
     pub save_timestamp: bool,
    
-    #[default(800.)]
+    #[default(1200.)]
     #[arg(short = 'x', long)]
     pub init_width: f32,
     
-    #[default(600.)]
+    #[default(800.)]
     #[arg(short = 'y', long)]
     pub init_height: f32,
 
@@ -89,4 +89,7 @@ pub struct Config{
     #[default(180.)]
     #[arg(long = "fov")]
     pub field_of_vision: f32,
+    #[default(false)]
+    #[arg(long = "dbscan")]
+    pub dbscan_flock_clustering_on: bool,
 }
