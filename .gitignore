@@ -1,5 +1,8 @@
 
 /boidranalysis/Data/
+boids-data.csv
+CACHEDIR.TAG
+.rustc_info.json
 
 /target
 
