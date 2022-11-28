@@ -17,6 +17,236 @@ use crate::options::RunOptions;
 // hold spatial information about boids in and have traits for querying 2D, later 3D
 // information
 
+struct SpatHash1D{
+    pivots: Vec<SpatHashPiv>,
+    table: Vec<Boid>,
+    index: Vec<usize>,
+    settings: SpatialHashingTableSettings,
+    // accellerations: Vec<Vec2>
+}
+
+#[derive(Clone)]
+
+struct SpatHashPiv{
+    usg: usize,
+    init: Option<usize>,
+    fin: Option<usize>
+}
+
+impl Default for SpatHashPiv{
+    fn default() -> Self {
+        SpatHashPiv { usg: 0, init: None, fin: None }
+    }
+}
+
+// struct SpatHashIndex{
+//     entity: Boid,
+//     index: usize
+// }
+
+/// Implementation follows https://www.researchgate.net/publication/277870601_A_Hash_Table_Construction_Algorithm_for_Spatial_Hashing_Based_on_Linear_Memory
+impl SpatHash1D {
+    fn new(entities: &[Boid], run_options: &RunOptions) -> Self {
+        let settings = SpatialHashingTracker15D::get_tracker_settings(run_options);
+
+        SpatHash1D { 
+            // pivots: Vec::with_capacity(settings.cell_count),
+            // initialize vector with both capacity and values prefilled to simplify code in the update_table
+            pivots: vec![Default::default();settings.cell_count],
+            table: entities.to_vec(),
+            // index: Vec::with_capacity(run_options.init_boids as usize),
+            // initialize vector with both capacity and values prefilled to simplify code in the update_table
+            index: vec![0, run_options.init_boids as usize],
+            settings,
+            // accellerations: Vec::with_capacity(run_options.init_boids as usize),
+        }
+    }
+
+    pub fn view(&self) -> &Vec<Boid> {
+        &self.table
+    }
+
+    pub fn update(&mut self, run_options: &RunOptions){
+        self.update_loation(run_options);
+        self.update_table(run_options);
+    }
+
+    fn update_loation(&mut self, run_options: &RunOptions) {
+
+        let mut neighbours: Vec<&Boid> = Vec::with_capacity(32);
+        let mut accellerations: Vec<Vec2> = Vec::with_capacity(run_options.init_boids as usize);
+
+        // get neighbours and final accelleration per boid
+        for e in 0..self.table.len(){
+            neighbours.clear();
+
+            self.get_neighbours(&self.table[e], self.index[e], run_options, &mut neighbours);
+
+            // this blows up, because the vector is allocated with appropriate capacity, but is empty
+            // accellerations[e] = self.table[e].run_rules3(&neighbours, run_options);
+            // I will attempt to patch it with push to get rid of the overhead in pre-creating the Vec2s
+            // and rely on implicit order, which might cause issues, but should not as the for loop goes 
+            //sequentually through the entities
+            accellerations.push(self.table[e].run_rules3(&neighbours, run_options));
+        }
+
+        // apply the forces
+        // for e in 0..self.table.len(){
+        //     self.table[e].apply_force(accellerations[e]);
+        // }
+        println!("first acc: {}", accellerations.first().unwrap_or(&Vec2::new(0., 0.)));
+        println!("accs length: {}", accellerations.len());
+       accellerations.clear(); 
+        // self.update_table(&self.table, run_options)
+    }
+
+    fn update_table(&mut self, run_options: &RunOptions) {
+        // reset pivot metadata as we are in the next iterration, e.g., we do not want pivot.usg to linger from previous iterration
+        self.pivots.iter_mut()
+        .for_each(|pivot|{
+            pivot.usg = Default::default();
+            pivot.init = Default::default();
+            pivot.fin = Default::default();
+        });
+
+        for e in 0..self.table.len(){
+            let index = SpatialHashingTracker15D::get_table_index(
+                self.table[e].position.x,
+                self.table[e].position.y,
+                run_options.window.win_left,
+                run_options.window.win_right - 1.,
+                run_options.window.win_bottom,
+                run_options.window.win_top - 1.,
+                self.settings.x_cell_res,
+                self.settings.y_cell_res,
+                self.settings.x_cell_count,
+            );
+
+            // if we are dealing with the same entity, do not tick usage
+            // self.table[e].id == 
+            self.index[e] = index;
+            self.pivots[index].usg += 1;
+        }
+
+        let mut accum: usize = 0;
+        for p in 0..self.pivots.len() {
+            if self.pivots[p].usg > 0
+            {
+                self.pivots[p].init = Some(accum);
+                accum += self.pivots[p].usg;
+                self.pivots[p].fin = Some(accum);
+            } else {
+                self.pivots[p].init = None;
+                self.pivots[p].fin = None;
+            }
+        }
+
+        for e in 0..self.table.len(){
+            self.table[self.pivots[self.index[e]].fin.unwrap() - 1] = self.table[e];
+
+            self.pivots[self.index[e]].fin = Some(self.pivots[self.index[e]].fin.unwrap() - 1)
+        }
+    }
+
+    pub fn get_neighbours<'a>(&'a self, boid: &Boid, cell_index: usize, run_options: &RunOptions, neighbours:&mut Vec<&'a Boid>) {
+            // only add it once
+            let is_left = cell_index % self.settings.x_cell_count as usize == 0;
+            let is_right = (cell_index % 5) + 1 == self.settings.x_cell_count as usize;
+            let is_bottom = cell_index / self.settings.x_cell_count as usize == 0;
+            let is_top = cell_index as f32 >= (self.settings.y_cell_count - 1f32) * self.settings.x_cell_count;
+
+            const HOME: (i64, i64) = (0, 0);
+            // get the cell vectors as iterators
+            let range_cells = match (is_left, is_right, is_bottom, is_top) {
+                (true, false, true, false) => &[
+                    (0 as i64, 0 as i64), (0, 1), (1, 1), 
+                    (0, 0), (0, 0), (1, 0), 
+                    (0, 0), (0, 0), (0, 0),
+                ],
+                (true, false, false, true) => &[
+                    (0, 0), (0, 0), (0, 0), 
+                    (0, 0), (0, 0), (1, 0), 
+                    (0, 0), (0, -1), (0, -1),
+                ],
+                (true, false, false, false) => &[
+                    (0, 0), (0, 1), (1, 1), 
+                    (0, 0), (0, 0), (1, 0), 
+                    (0, 0), (0, -1), (1, -1),
+                ],
+                (false, true, true, false) => &[
+                    (-1, 1), (0, 1), (0, 0), 
+                    (-1, 0), (0, 0), (0, 0), 
+                    (0, 0), (0, 0), (0, 0),
+                ],
+                (false, true, false, true) => &[
+                    (0, 0), (0, 0), (0, 0), 
+                    (-1, 0), (0, 0), (0, 0), 
+                    (-1, -1), (0, -1), (0, 0),
+                ],
+                (false, true, false, false) => &[
+                    (-1, 1), (1, 1), (0, 0), 
+                    (-1, 0), (0, 0), (0, 0), 
+                    (-1, -1), (0, -1), (0, 0),
+                ],
+                // (false, false, true, true) => todo!(),
+                (false, false, true, false) => &[
+                    (-1, 1), (0, 1), (1, 1), 
+                    (-1, 0), (0, 0), (1, 0), 
+                    (0, 0), (0, 0), (0, 0),
+                ],
+                (false, false, false, true) => &[
+                    (0, 0), (0, 0), (0, 0), 
+                    (1, 0), (0, 0), (1, 0), 
+                    (-1, -1), (0, -1), (1, 0-1),
+                ],
+                (false, false, false, false) => &[
+                    (-1, 1), (0, 1), (1, 1), 
+                    (-1, 0), (0, 0), (1, 0), 
+                    (-1, -1), (0, -1), (1, -1),
+                ],
+                _ => panic!("it should not have come to this :")
+
+            }
+            // depending on the match, iterate neighbouring cells
+            .iter()
+            // filter out the out-of-bound cells, the home cells is used as a placeholder
+            .filter(|l| **l != (0, 0)) 
+            // always consider the boid's current 'home' cell
+            .chain(iter::once(&HOME))            
+            // convert to the table's 1D index
+            .map(|lookup| {
+                (cell_index as i64 + lookup.0 + lookup.1 * self.settings.x_cell_count as i64) as usize
+            });
+
+            // let res: Vec<&Boid> = Vec::new();
+            
+            for cell in range_cells{
+                // let a  = self.pivots[cell].init?;
+                if self.pivots[cell].usg == 0 {continue;}
+                for index in self.pivots[cell].init.unwrap()..(self.pivots[cell].init.unwrap() + self.pivots[cell].usg){
+                    if distance_dyn_boid(boid, &self.table[index], run_options) <= run_options.max_sensory_distance{
+                        // res.push(&self.table[index]);
+                        neighbours.push(&self.table[index])
+                    }
+                }
+            }
+
+            // .map(|index| -> std::slice::Iter<Boid> {
+            //     self.table[index as usize].iter()
+            // })
+            // // flatten into a single iterator
+            // .flatten()
+            // // filter boids within max sensory distance
+            // .filter(|b| distance_dyn_boid(boid, b, run_options) <= run_options.max_sensory_distance)
+            // // take out the neighbours and push them to the vector of neighbours
+            // .for_each(|b| neighbours.push(b));
+            // res
+        }
+}
+
+// if let Some(fin) = self.pivots[self.index[e]].fin {
+//     self.pivots[self.index[e]].fin = Some(fin - 1);
+// }
 /// A naive implementation of boids tracking, which uses an O(N^2) algorithm for
 /// finding boid's neighbours.
 struct BoidTracker {
@@ -34,7 +264,6 @@ struct SpatialHashingTracker15D {
     // pub accellerations: Vec<Vec2>
 
 }
-
 struct SpatialHashingTableSettings {
     pub x_range: f32,
     pub y_range: f32,
@@ -48,16 +277,6 @@ struct SpatialHashingTableSettings {
 impl SpatialHashingTracker15D {
     // The inspiration for mapping 
     pub fn new(run_options: &RunOptions) -> Self {
-        // let SpatialHashingTableSettings {
-        //     x_range,
-        //     y_range,
-        //     x_cell_count,
-        //     y_cell_count,
-        //     cell_count,
-        //     x_cell_res,
-        //     y_cell_res,
-        // } = SpatialHashingTracker15D::get_tracker_settings(run_options);
-
         let settings = SpatialHashingTracker15D::get_tracker_settings(run_options);
         
         SpatialHashingTracker15D {
@@ -456,7 +675,9 @@ impl SpatialHashingTracker15D {
 
 pub struct Flock {
     pub boids: Vec<Boid>,
-    tracker: SpatialHashingTracker15D,
+    // pub boids2: Vec<Boid>,
+    // tracker: SpatialHashingTracker15D,
+    tracker: SpatHash1D,
 }
 
 impl Flock {
@@ -465,21 +686,24 @@ impl Flock {
     " .\'`^\",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
     pub fn new(run_options: &RunOptions) -> Self {
         let boids = get_boids(&run_options);
+        // let boids = get_boids(&run_options);
         
         Flock {
             // boidss: Cell::new(boids.iter().map(|b| b.to_owned()).collect()),
+            tracker: SpatHash1D::new(&boids, run_options),
             boids,
-            tracker: SpatialHashingTracker15D::new(run_options)
+            // tracker: SpatialHashingTracker15D::new(run_options)
         }
     }
     
     
     pub fn update(&mut self, run_options: &RunOptions) {
+        self.tracker.update(run_options);
         // test_me();
         // panic!();
-        let table = SpatialHashingTracker15D::get_spatial_subdivision_table(self.boids.to_owned(), run_options);
-        
-        println!("table size: {}", table.len());
+
+        // let table = SpatialHashingTracker15D::get_spatial_subdivision_table(self.boids.to_owned(), run_options);
+        // println!("table size: {}", table.len());
         
         if run_options.dbscan_flock_clustering_on {
             let test_data: Array2<f32> = self
