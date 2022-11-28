@@ -20,7 +20,8 @@ flock_detailed(
   separation_trs_coef,
   min_speed,
   max_speed,
-  max_steering
+  max_steering,
+  dbscan_clustering
 )
 }
 \description{

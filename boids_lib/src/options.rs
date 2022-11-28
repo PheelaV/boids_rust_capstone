@@ -1,12 +1,3 @@
-// use nannou::prelude::*;
-
-// pub struct Options {
-
-// }
-
-// #[derive(Debug, Clone, Copy)]
-
-
 #[derive(Debug)]
 pub struct RunOptions {
     pub init_boids: u32,
@@ -22,6 +13,7 @@ pub struct RunOptions {
     pub separation_coefficient: f32,
 
     pub sensory_distance: f32,
+    pub max_sensory_distance: f32,
 
     pub allignment_treshold_distance: f32,
     pub cohesion_treshold_distance: f32,
@@ -59,7 +51,24 @@ pub struct RunOptions {
     pub dbscan_flock_clustering_on: bool,
 }
 
-pub fn get_run_options() -> RunOptions {
+impl RunOptions {
+    pub fn update_sensory_distances(&mut self) {
+        self.allignment_treshold_distance =
+            self.sensory_distance * self.allignment_treshold_coefficient;
+        self.cohesion_treshold_distance =
+            self.sensory_distance * self.cohesion_treshold_coefficient;
+        self.separation_treshold_distance =
+            self.sensory_distance * self.separation_treshold_coefficient;
+
+        self.max_sensory_distance = self.allignment_treshold_distance.max(
+            self.cohesion_treshold_distance
+                .max(self.separation_treshold_distance),
+        );
+    }
+}
+
+impl Default for RunOptions {
+    fn default() -> Self {
         let init_boids = 256;
         let init_height = 600.0;
         let init_width = 600.0;
@@ -75,6 +84,7 @@ pub fn get_run_options() -> RunOptions {
         let separation_coefficient = 4.1;
 
         let sensory_distance = 60.;
+        let max_sensory_distance = 60.;
 
         let allignment_treshold_distance = 200.;
         let cohesion_treshold_distance = 200.;
@@ -89,47 +99,57 @@ pub fn get_run_options() -> RunOptions {
         let separation_on = true;
 
         let field_of_vision_on = true;
-        let field_of_vision_half_rad = 3./4. * std::f32::consts::PI / 2.;
+        let field_of_vision_half_rad = 3. / 4. * std::f32::consts::PI / 2.;
         let field_of_vision_deg = 1. * 180. + 1.;
 
         let sample_rate = 1_u32;
 
-    RunOptions {
-        init_boids,
-        // initiation_strat: InitiationStrategy::CircleCircumferenceIn,
-        initiation_strat: InitiationStrategy::RandomRandom,
-        baseline_speed,
-        min_speed,
-        max_speed,
-        max_steering,
-        allignment_coefficient,
-        cohesion_coefficient,
-        separation_coefficient,
-        sensory_distance,
-        allignment_treshold_distance,
-        cohesion_treshold_distance,
-        separation_treshold_distance,
-        allignment_treshold_coefficient,
-        cohesion_treshold_coefficient,
-        separation_treshold_coefficient,
-        alignment_on,
-        cohesion_on,
-        separation_on,        
-        window: self::get_window_size(init_width, init_height),
-        save_options: SaveOptions { save_locations: false, save_locations_path: None, save_locations_timestamp: true },
-        size: 8.,
-        boundary: Boundary::Thoroidal,
-        distance: Distance::EucEnclosed,
-        clicked_boid_id: std::u32::MAX,
-        allignment_impl_mode: false,
-        cohesion_impl_mode: false,
-        separation_impl_mode: false,
-        col_by_neighbour: false,
-        field_of_vision_on,
-        field_of_vision_half_rad,
-        field_of_vision_deg,
-        sample_rate,
-        dbscan_flock_clustering_on: false
+        let mut res = RunOptions {
+            init_boids,
+            // initiation_strat: InitiationStrategy::CircleCircumferenceIn,
+            initiation_strat: InitiationStrategy::RandomRandom,
+            baseline_speed,
+            min_speed,
+            max_speed,
+            max_steering,
+            allignment_coefficient,
+            cohesion_coefficient,
+            separation_coefficient,
+            sensory_distance,
+            max_sensory_distance,
+            allignment_treshold_distance,
+            cohesion_treshold_distance,
+            separation_treshold_distance,
+            allignment_treshold_coefficient,
+            cohesion_treshold_coefficient,
+            separation_treshold_coefficient,
+            alignment_on,
+            cohesion_on,
+            separation_on,
+            window: self::get_window_size(init_width, init_height),
+            save_options: SaveOptions {
+                save_locations: false,
+                save_locations_path: None,
+                save_locations_timestamp: true,
+            },
+            size: 8.,
+            boundary: Boundary::Thoroidal,
+            distance: Distance::EucEnclosed,
+            clicked_boid_id: std::u32::MAX,
+            allignment_impl_mode: false,
+            cohesion_impl_mode: false,
+            separation_impl_mode: false,
+            col_by_neighbour: false,
+            field_of_vision_on,
+            field_of_vision_half_rad,
+            field_of_vision_deg,
+            sample_rate,
+            dbscan_flock_clustering_on: false,
+        };
+
+        res.update_sensory_distances();
+
+        res
     }
 }
 
@@ -146,18 +166,18 @@ pub fn get_window_size(init_width: f32, init_height: f32) -> WindowSize {
 
 #[derive(Debug)]
 pub struct WindowSize {
-        /// lowest x value
-        pub win_left: f32,
-        /// highest x value
-        pub win_right: f32,
-        /// highest y value
-        pub win_top: f32,
-        /// lowest y value
-        pub win_bottom: f32,
-        /// height
-        pub win_h: f32,
-        /// width
-        pub win_w: f32,
+    /// lowest x value
+    pub win_left: f32,
+    /// highest x value
+    pub win_right: f32,
+    /// highest y value
+    pub win_top: f32,
+    /// lowest y value
+    pub win_bottom: f32,
+    /// height
+    pub win_h: f32,
+    /// width
+    pub win_w: f32,
 }
 
 #[derive(Debug)]
@@ -167,7 +187,7 @@ pub enum InitiationStrategy {
     TwoWalls,
     RectangleIn,
     RandomIn,
-    RandomRandom
+    RandomRandom,
 }
 
 #[derive(Debug)]
@@ -175,7 +195,7 @@ pub enum Boundary {
     Thoroidal,
     Absorbing,
     Reflective,
-    Repulsive
+    Repulsive,
 }
 
 #[derive(Debug, PartialEq)]

@@ -1,7 +1,7 @@
 use std::fmt;
 
 use boids_lib::flock_base;
-use boids_lib::options;
+use boids_lib::options::RunOptions;
 use criterion::BenchmarkId;
 use criterion::Criterion;
 use criterion::SamplingMode;
@@ -27,8 +27,9 @@ fn get_bench_params() -> Vec<flock_bench> {
 
     let mut result : Vec<flock_bench> = Vec::new();
 
-    [128, 1024, 4096].iter().for_each(|no_boids|{
-        [NO_BOIDS, 2 * NO_BOIDS, 4 * NO_BOIDS, 8 * NO_BOIDS].iter().for_each(|no_iter|{
+    // [128, 1024, 4096].iter().for_each(|no_boids|{
+    [128, 512].iter().for_each(|no_boids|{
+        [NO_BOIDS, 2 * NO_BOIDS, 4 * NO_BOIDS].iter().for_each(|no_iter|{
             result.push(flock_bench{
                 no_iter: *no_iter ,
                 no_boids: *no_boids
@@ -47,7 +48,7 @@ fn from_elem(c: &mut Criterion) {
         group.throughput(Throughput::Elements((nn.no_boids * nn.no_iter) as u64));
         group.bench_with_input(BenchmarkId::from_parameter(nn), nn, |b, n| {
             b.iter(|| flock_base(n.no_iter, {
-                let mut ro = options::get_run_options();
+                let mut ro: RunOptions = Default::default();
                 ro.init_boids = n.no_boids;
                 ro
             }));

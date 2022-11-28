@@ -61,6 +61,54 @@ impl Boid {
         }
     }
 
+    pub fn run_rules2(& self, nearest_boids: Vec<&Boid>, run_options: &RunOptions) -> Vec2 {
+        let mut sum = Vec2::ZERO;
+        let filtered = if !run_options.field_of_vision_on 
+            { nearest_boids } 
+        else 
+            { self.filter_sight(&nearest_boids, run_options)};
+
+        // self.n_neighbours = filtered.len() as i32;
+
+        if run_options.separation_on {
+            sum += self.separation(&filtered, run_options);
+        }
+
+        if run_options.cohesion_on {
+            sum += self.cohesion(&filtered, run_options);
+        }
+
+        if run_options.alignment_on {
+            sum += self.alignment(&filtered, run_options);
+        }
+
+        sum
+    }
+
+    pub fn run_rules3(& self, nearest_boids: &Vec<&Boid>, run_options: &RunOptions) -> Vec2 {
+        let mut sum = Vec2::ZERO;
+        let filtered = if !run_options.field_of_vision_on 
+            { nearest_boids.to_owned() }  // todo: watchout for the copy here
+        else 
+            { self.filter_sight2(&nearest_boids, run_options)};
+
+        // self.n_neighbours = filtered.len() as i32;
+
+        if run_options.separation_on {
+            sum += self.separation(&filtered, run_options);
+        }
+
+        if run_options.cohesion_on {
+            sum += self.cohesion(&filtered, run_options);
+        }
+
+        if run_options.alignment_on {
+            sum += self.alignment(&filtered, run_options);
+        }
+
+        sum
+    }
+
     pub fn filter_sight<'a>(&self, others: &[&'a Boid], run_options: &RunOptions) -> Vec<&'a Boid> {
         let res: Vec<&Boid> = others.iter()
         .filter(|b_other| {
@@ -69,20 +117,39 @@ impl Boid {
             }
             
             let vec_to_other = b_other.position - self.position;
-            // let (x1, x2) = (self.position.x, b_other.position.x);
-            // let (y1, y2) = (self.position.y, b_other.position.y);
+            
+            if vec_to_other.length() < 0.01 {
+                return false;
+            }
+            
+            let atan2_self = self.velocity.y.atan2(self.velocity.x);
+            let atan2_other = vec_to_other.y.atan2(vec_to_other.x);
+            let mut atan2_diff = atan2_other - atan2_self;
+            
+            // normalize
+            atan2_diff = 
+            if atan2_diff > PI { 
+                atan2_diff - 2.*PI
+            } else if atan2_diff <= -1.* PI{
+                atan2_diff + 2.*PI
+            } else {atan2_diff};
 
-            // let dx = 
-            // (x1 - x2).abs()
-            // .min((x1 - (x2 + run_options.window.win_w)).abs())
-            // .min((x1 - (x2 - run_options.window.win_w)).abs());
-        
-            // let dy = 
-            // (y1 - y2).abs()
-            // .min((y1 - (y2 + run_options.window.win_h)).abs())
-            // .min((y1 - (y2 - run_options.window.win_h)).abs());
+            run_options.field_of_vision_on && atan2_diff.abs() < run_options.field_of_vision_half_rad  
+          })
+          .map(|b| {*b})
+        .collect();
 
-            // let vec_to_other = vec2(dx, dy);
+        res
+    }
+
+    pub fn filter_sight2<'a>(&self, others: &Vec<&'a Boid>, run_options: &RunOptions) -> Vec<&'a Boid> {
+        let res: Vec<&Boid> = others.iter()
+        .filter(|b_other| {
+            if self.id == b_other.id {
+                return false; 
+            }
+            
+            let vec_to_other = b_other.position - self.position;
             
             if vec_to_other.length() < 0.01 {
                 return false;
@@ -221,7 +288,7 @@ impl Boid {
         self.boundaries(run_options)
     }
 
-    fn apply_force(&mut self, force: Vec2) {
+    pub fn apply_force(&mut self, force: Vec2) {
         // println!("{:#?}", force);
         self.acceleration += force;
     }

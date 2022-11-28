@@ -27,7 +27,6 @@ use nannou_egui::{
 use boids_lib::boid::Boid;
 use boids_lib::flock::Flock;
 use boids_lib::options::{
-        get_run_options, 
         Distance, 
         RunOptions, 
         SaveOptions, 
@@ -87,7 +86,7 @@ fn model(app: &App) -> Model {
 
     // println!("{}", s.unwrap());
 
-    let mut run_options = get_run_options();
+    let mut run_options: RunOptions = Default::default();
 
     run_options.init_boids = config.no_boids;
     run_options.sample_rate = config.sample_rate;
@@ -312,9 +311,7 @@ fn update(app: &App, model: &mut Model, update: Update) {
         });
 
     // update sensory distances
-    run_options.allignment_treshold_distance = run_options.sensory_distance * run_options.allignment_treshold_coefficient;
-    run_options.cohesion_treshold_distance = run_options.sensory_distance * run_options.cohesion_treshold_coefficient;
-    run_options.separation_treshold_distance = run_options.sensory_distance * run_options.separation_treshold_coefficient;
+    run_options.update_sensory_distances();
     run_options.field_of_vision_half_rad = run_options.field_of_vision_deg * PI/360.;
 
     // update model
@@ -383,20 +380,33 @@ fn key_pressed(_app: &App, model: &mut Model, key: Key) -> () {
     } else if key == Key::Key3 { // turn separation on/off
         run_options.separation_on = !run_options.separation_on;
     } else if key == Key::D { // delete a boid from the flock
-        let id_delete = model.flock.delete_last();
-        match id_delete {
-            Some(x) => {
-                if run_options.clicked_boid_id == x {
-                    run_options.clicked_boid_id = std::u32::MAX;
-                }
-                run_options.init_boids -= 1;
-            },
-            None => {},
-        }
+        if run_options.init_boids == 1 {return}
 
+        let to_delete = run_options.init_boids / 2;
+        for _ in 0..to_delete{
+
+            let id_delete = model.flock.delete_last();
+            match id_delete {
+                Some(x) => {
+                    if run_options.clicked_boid_id == x {
+                        run_options.clicked_boid_id = std::u32::MAX;
+                    }
+                    // run_options.init_boids -= 1;
+                },
+                None => {},
+            }
+        }
+        run_options.init_boids /= 2;
+            
     } else if key == Key::I { // insert a boid into the flock
-        model.flock.insert(&run_options);
-        run_options.init_boids += 1;
+        // actually make the boid insertion
+        for _ in 0..run_options.init_boids {
+            model.flock.insert(&run_options);
+        }
+        // update the information about number of boids in the system
+        // run_options.init_boids += 1;
+        run_options.init_boids *= 2;
+        
     } else if key == Key::F1 { // alternative implementation of allignment
         run_options.allignment_impl_mode = !run_options.allignment_impl_mode;
     } else if key == Key::F2 { // alternative implementation of cohesion

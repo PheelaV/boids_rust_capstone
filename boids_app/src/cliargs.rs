@@ -27,7 +27,7 @@ pub struct Args{
 #[derive(ClapSerde, Serialize)]
 pub struct Config{
         
-    #[default(484)]
+    #[default(1)]
     #[arg(short = 'n', long)]
     /// number of boids
     pub no_boids: u32,

@@ -2,7 +2,7 @@ use boids_lib::{
     birdwatcher::Birdwatcher,
     flock::Flock,
     options::{
-        get_run_options, RunOptions, SaveOptions, self
+        RunOptions, SaveOptions, self
     },
 };
 use extendr_api::prelude::*;
@@ -17,7 +17,7 @@ struct TestData {
 #[extendr]
 fn flock(no_iter: u32, init_boids: u32, save_locations_path: String) -> () {
 
-    let mut run_options = get_run_options();
+    let mut run_options: RunOptions = Default::default();
 
     run_options.init_boids = init_boids;
 
@@ -29,7 +29,7 @@ fn flock(no_iter: u32, init_boids: u32, save_locations_path: String) -> () {
 /// executes flocking and returns a dataframe with the location data
 fn flock_return(no_iter: u32, init_boids: u32, save_locations_path: String, sample_rate: u32, init_width: f32, init_height: f32) -> Robj {
 
-    let mut run_options = get_run_options();
+    let mut run_options: RunOptions = Default::default();
 
     run_options.init_boids = init_boids;
     run_options.save_options = get_save_options(save_locations_path);
@@ -61,7 +61,7 @@ fn flock_detailed(
     max_steering: f32,
     dbscan_clustering: bool) -> Robj {
 
-    let mut run_options = get_run_options();
+    let mut run_options: RunOptions = Default::default();
 
     run_options.init_boids = init_boids;
     run_options.save_options = get_save_options(save_locations_path);
