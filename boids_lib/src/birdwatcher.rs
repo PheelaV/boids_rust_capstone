@@ -45,7 +45,7 @@ impl Birdwatcher {
         }
 
         let mut current_locations : Vec<BoidData> = 
-            flock.boids.iter()
+            flock.view().iter()
             .map(|b| {
                 BoidData{
                     id: b.id, 

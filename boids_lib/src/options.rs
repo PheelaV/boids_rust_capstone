@@ -49,6 +49,7 @@ pub struct RunOptions {
 
     pub sample_rate: u32,
     pub dbscan_flock_clustering_on: bool,
+    pub neighbours_cosidered: usize
 }
 
 impl RunOptions {
@@ -145,6 +146,7 @@ impl Default for RunOptions {
             field_of_vision_deg,
             sample_rate,
             dbscan_flock_clustering_on: false,
+            neighbours_cosidered: 7,
         };
 
         res.update_sensory_distances();

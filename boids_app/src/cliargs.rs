@@ -27,7 +27,7 @@ pub struct Args{
 #[derive(ClapSerde, Serialize)]
 pub struct Config{
         
-    #[default(1)]
+    #[default(2048)]
     #[arg(short = 'n', long)]
     /// number of boids
     pub no_boids: u32,
@@ -45,11 +45,11 @@ pub struct Config{
     #[arg(short = 't', long)]
     pub save_timestamp: bool,
    
-    #[default(1200.)]
+    #[default(1400.)]
     #[arg(short = 'x', long)]
     pub init_width: f32,
     
-    #[default(800.)]
+    #[default(900.)]
     #[arg(short = 'y', long)]
     pub init_height: f32,
 

@@ -281,7 +281,12 @@ fn update(app: &App, model: &mut Model, update: Update) {
 
             ui.horizontal(|ui| {
                 ui.label("size");
-                ui.add(egui::Slider::new(&mut run_options.size, 5.0..=60.))
+                ui.add(egui::Slider::new(&mut run_options.size, 1.0..=60.))
+            });
+
+            ui.horizontal(|ui| {
+                ui.label("no neighbours");
+                ui.add(egui::Slider::new(&mut run_options.neighbours_cosidered, 1..=60))
             });
 
             ui.horizontal(|ui| {
@@ -434,7 +439,7 @@ fn mouse_pressed(app: &App, model: &mut Model, _button: MouseButton) -> () {
 
     let mouse_click = vec2(app.mouse.x, app.mouse.y);
 
-    let clicked = model.flock.boids.iter()
+    let clicked = model.flock.view().iter()
     .filter(|b|{
         // get the distance from boid to click, if dist < size then boid is clicked
         let dist = b.position.distance(mouse_click);
@@ -460,8 +465,12 @@ pub trait Drawable {
 }
 impl Drawable for Flock {
     fn draw(&self, draw: &Draw, color: &Hsv, run_options: &RunOptions) {
-        for b in self.boids.iter() {
+        for b in self.view().iter() {
             b.draw(&draw, color, run_options);
+        }
+
+        for b in self.tracker.view().iter() {
+            b.draw(&draw, &nannou::color::hsv(0., 0., 0.), run_options);
         }
     }
 }
@@ -477,7 +486,7 @@ impl Drawable for Boid {
         } = self;
         // draw a triangle rotated in the direction of velocity
         let theta = velocity.angle();
-        // Draw Boid body as an arrow with a triangle cutout
+        // // Draw Boid body as an arrow with a triangle cutout
         let vertices = vec![
             pt2(-0.8 * run_uptions.size, 0.6 * run_uptions.size),
             pt2(run_uptions.size, 0.),
@@ -492,6 +501,10 @@ impl Drawable for Boid {
             .z(1.)
             // investigate this:
             .rotate(2. * PI + theta);        
+        // let drawing = draw.ellipse()
+        // .xy(*position)
+        // .z(1.)
+        // .radius(run_uptions.size);
         
         // If this instance is selected, show diagnostics
         if self.id == run_uptions.clicked_boid_id {
