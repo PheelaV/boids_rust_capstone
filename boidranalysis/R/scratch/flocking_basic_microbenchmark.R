@@ -26,6 +26,7 @@ microbenchmark(
   flock_return(no_iter = 100, init_boids = 512, save_locations_path = data_folder, sample_rate = 4, init_width = 5000, init_height = 5000),
   flock_return(no_iter = 1000, init_boids = 128, save_locations_path = data_folder, sample_rate = 4, init_width = 5000, init_height = 5000),
   flock_return(no_iter = 1000, init_boids = 256, save_locations_path = data_folder, sample_rate = 4, init_width = 5000, init_height = 5000),
-  flock_return(no_iter = 1000, init_boids = 512, save_locations_path = data_folder, sample_rate = 4, init_width = 5000, init_height = 5000)
-
+  flock_return(no_iter = 1000, init_boids = 512, save_locations_path = data_folder, sample_rate = 4, init_width = 5000, init_height = 5000),
+  flock_return(no_iter = 1000, init_boids = 1024, save_locations_path = data_folder, sample_rate = 4, init_width = 5000, init_height = 5000),
+  flock_return(no_iter = 1000, init_boids = 4096, save_locations_path = data_folder, sample_rate = 4, init_width = 5000, init_height = 5000)
 )

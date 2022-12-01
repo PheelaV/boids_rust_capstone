@@ -1,7 +1,6 @@
 
 use crate::{
-    boid::Boid, options::{WindowSize, RunOptions, Distance},
-    options::Boundary
+    boid::Boid, options::{WindowSize, RunOptions, Distance}
 };
 
 pub fn distance_dyn_boid(b1: &Boid, b2: &Boid, run_options: &RunOptions) -> f32 {
@@ -89,6 +88,10 @@ pub fn thoroidal_distance2_sq(x1: f32, x2: f32, y1: f32, y2: f32, window_size: &
 
     return dx.powi(2) + dy.powi(2);
 }// TODO: test
+
+// pub fn rand_circle_point(){
+
+// }
 
 #[cfg(test)]
 mod tests {

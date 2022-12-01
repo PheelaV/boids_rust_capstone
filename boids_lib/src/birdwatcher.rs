@@ -11,10 +11,11 @@ use crate::{flock::Flock, options::SaveOptions};
 // so right now, this is more of a bird data acummulator than a birdwatcher
 #[derive(Serialize, Debug, Clone, Copy)]
 pub struct BoidData {
-    pub id: u32,
+    pub id: usize,
     pub x: f32,
     pub y: f32,
     pub cluster_id: usize,
+    pub n_neighbours: usize
 }
 
 pub struct Birdwatcher{
@@ -39,22 +40,24 @@ impl Birdwatcher {
     }
 
     /// Triggers data collection
-    pub fn watch(&mut self, flock: &Flock) -> () {
+    pub fn watch(&mut self, flock: &Flock,) -> () {
         if !self.should_sample() {
             return;
         }
 
         let mut current_locations : Vec<BoidData> = 
-            flock.view().iter()
-            .map(|b| {
-                BoidData{
-                    id: b.id, 
-                    x: b.position.x, 
-                    y:b.position.y,
-                    cluster_id: b.cluster_id
-                }
-            })
-            .collect();
+        flock.view().0.iter().zip(flock.view().1.iter())
+        .map(|(e, m)|{
+            BoidData{
+                id: e.id, 
+                x: e.position.x, 
+                y:e.position.y,
+                cluster_id: m.cluster_id,
+                n_neighbours: m.n_neighbours
+            }
+        })
+        .collect();
+
      
         self.locations.append(&mut current_locations);
     }
@@ -67,9 +70,10 @@ impl Birdwatcher {
     /// 
     /// Depending on save options, either attempts to overwrite the current file or write's a new timestamped file
     pub fn pop_data_save(&mut self, save_options: &SaveOptions) -> Vec<BoidData> {
-        let mut data = self.pop_data();
-        // sort by id for convenience
-        data.sort_by(|a, b| a.id.cmp(&b.id));
+        // let mut data = self.pop_data();
+        let data = self.pop_data();
+        // // sort by id for convenience
+        // data.sort_by(|a, b| a.id.cmp(&b.id));
 
         if !save_options.save_locations {
             return data
@@ -132,8 +136,8 @@ mod tests {
     fn test_name_timestamped() {
         let expected = "boids-data_1668038059490.csv";
         let save_options = SaveOptions {save_locations: true, save_locations_path: Some("".to_owned()), save_locations_timestamp: true};
-        let dt =  Utc.ymd(2022, 11, 09).and_hms_milli(23, 54, 19, 490);
-        let actual = Birdwatcher::get_dataset_name(&save_options, dt);
+        let dt =  Utc.ymd(2022, 11, 09).and_hms_milli_opt(23, 54, 19, 490);
+        let actual = Birdwatcher::get_dataset_name(&save_options, dt.unwrap());
 
         assert_eq!(actual, expected)
     }
@@ -142,8 +146,8 @@ mod tests {
     fn test_name_overwrite() {
         let expected = "boids-data.csv";
         let save_options = SaveOptions {save_locations: true, save_locations_path: Some("".to_owned()), save_locations_timestamp: false};
-        let dt =  Utc.ymd(2022, 11, 09).and_hms_milli(23, 54, 19, 490);
-        let actual = Birdwatcher::get_dataset_name(&save_options, dt);
+        let dt =  Utc.ymd(2022, 11, 09).and_hms_milli_opt(23, 54, 19, 490);
+        let actual = Birdwatcher::get_dataset_name(&save_options, dt.unwrap());
         
         assert_eq!(actual, expected)
     }

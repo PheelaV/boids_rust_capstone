@@ -9,9 +9,11 @@ use extendr_api::prelude::*;
 
 #[derive(Debug, IntoDataFrameRow)]
 struct TestData {
-    id: u32,
+    id: usize,
     x: f32,
     y: f32,
+    cluster_id: usize,
+    n_neighbours: usize,
 }
 
 #[extendr]
@@ -19,7 +21,7 @@ fn flock(no_iter: u32, init_boids: u32, save_locations_path: String) -> () {
 
     let mut run_options: RunOptions = Default::default();
 
-    run_options.init_boids = init_boids;
+    run_options.init_boids = init_boids as usize;
 
     run_options.save_options = get_save_options(save_locations_path);
     flock_base(no_iter, run_options);
@@ -31,7 +33,7 @@ fn flock_return(no_iter: u32, init_boids: u32, save_locations_path: String, samp
 
     let mut run_options: RunOptions = Default::default();
 
-    run_options.init_boids = init_boids;
+    run_options.init_boids = init_boids as usize;
     run_options.save_options = get_save_options(save_locations_path);
     run_options.sample_rate = sample_rate;
 
@@ -63,7 +65,7 @@ fn flock_detailed(
 
     let mut run_options: RunOptions = Default::default();
 
-    run_options.init_boids = init_boids;
+    run_options.init_boids = init_boids as usize;
     run_options.save_options = get_save_options(save_locations_path);
     run_options.sample_rate = sample_rate;
 
@@ -104,6 +106,8 @@ fn flock_base(no_iter: u32, run_options: RunOptions) -> Robj {
         id: bd.id,
         x: bd.x,
         y: bd.y,
+        cluster_id: bd.cluster_id,
+        n_neighbours: bd.n_neighbours
     })
     .collect::<Vec<TestData>>()
     .into_dataframe()
@@ -113,7 +117,7 @@ fn flock_base(no_iter: u32, run_options: RunOptions) -> Robj {
         
 }
 fn get_save_options(save_locations_path: String) -> SaveOptions {
-    let mut path : Option<String> = None;
+    let path: Option<String> ;
     if save_locations_path.is_empty(){
         path = None;
     } else {
@@ -127,18 +131,7 @@ fn get_save_options(save_locations_path: String) -> SaveOptions {
 // See corresponding C code in `entrypoint.c`.
 extendr_module! {
     mod boidr;
-    // fn hello_world;
-    fn flock;
+     fn flock;
     fn flock_return;
     fn flock_detailed;
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-
-//     #[test]
-//     fn burn_test() {
-//         hello_world2();
-//     }
-// }

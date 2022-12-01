@@ -28,7 +28,6 @@ fn fibonacci_fast(n: u64) -> u64 {
     }
 }
 
-
 fn bench_fibs(c: &mut Criterion) {
     let mut group = c.benchmark_group("Fibonacci");
     for i in [20u64, 21u64].iter() {

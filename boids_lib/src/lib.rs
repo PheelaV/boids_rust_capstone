@@ -10,7 +10,7 @@ pub mod options;
 pub mod birdwatcher;
 
 
-pub fn flock_base(no_iter: u32, run_options: RunOptions) -> Vec<BoidData> {
+pub fn flock_base(no_iter: u64, run_options: RunOptions) -> Vec<BoidData> {
 
     let mut flock = Flock::new(&run_options);
     let mut bird_watcher = Birdwatcher::new(run_options.sample_rate);

@@ -5,7 +5,7 @@ members = [
     "boidr/src/rust"
 ]
 exclude = [
-    "boids_lib",
+    # "boids_lib",
     "rustwrapper/src/rust" 
 ]
 resolver = "2"

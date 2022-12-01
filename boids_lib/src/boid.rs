@@ -2,7 +2,7 @@
 
 // use nannou::prelude::{Vec2, vec2, PI};
 
-use std::f32::consts::PI;
+use std::{f32::consts::PI};
 
 use glam::Vec2;
 
@@ -14,19 +14,43 @@ use crate::{
     },
 };
 
+
+#[derive(Debug, Clone)]
+pub struct BoidMetadata {
+    pub id: usize,
+    pub cluster_id: usize,
+    pub clicked_neighbour_id: usize,
+    pub n_neighbours: usize
+}
+
+impl BoidMetadata {
+    pub fn new(boid: &Boid) -> Self {
+        let mut default: BoidMetadata = Default::default();
+        default.id = boid.id;
+        default
+    }
+}
+
+impl Default for BoidMetadata {
+    fn default() -> Self {
+        Self { id: std::usize::MAX, clicked_neighbour_id: std::usize::MAX, cluster_id: 0, n_neighbours: 0 }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct Boid {
-    pub id: u32,
+    // sequential id starting from 0
+    pub id: usize,
     pub position: Vec2,
     pub velocity: Vec2,
     acceleration: Vec2,
-    pub n_neighbours: i32,
-    pub cluster_id: usize
+    // pub n_neighbours: i32,
+    // pub cluster_id: usize
 }
 
 impl Boid {
     /// Creates a new [`Boid`].
-    pub fn new(x: f32, y: f32, velocity: Vec2, id: u32) -> Self {
+    pub fn new(x: f32, y: f32, velocity: Vec2, id: usize) -> Self {
         let acceleration = Vec2::ZERO;
         let position = Vec2::new(x, y);
 
@@ -35,57 +59,12 @@ impl Boid {
             position,
             velocity,
             acceleration,
-            n_neighbours: 0,
-            cluster_id: 0,
+            // n_neighbours: 0,
+            // cluster_id: 0,
         }
     }
 
-    pub fn run_rules(&mut self, nearest_boids: Vec<&Boid>, run_options: &RunOptions) -> () {
-        let filtered = if !run_options.field_of_vision_on 
-            { nearest_boids } 
-        else 
-            { self.filter_sight(&nearest_boids, run_options)};
-
-        self.n_neighbours = filtered.len() as i32;
-
-        if run_options.separation_on {
-            self.apply_force(self.separation(&filtered, run_options));
-        }
-
-        if run_options.cohesion_on {
-            self.apply_force(self.cohesion(&filtered, run_options));
-        }
-
-        if run_options.alignment_on {
-            self.apply_force(self.alignment(&filtered, run_options));
-        }
-    }
-
-    pub fn run_rules2(& self, nearest_boids: Vec<&Boid>, run_options: &RunOptions) -> Vec2 {
-        let mut sum = Vec2::ZERO;
-        let filtered = if !run_options.field_of_vision_on 
-            { nearest_boids } 
-        else 
-            { self.filter_sight(&nearest_boids, run_options)};
-
-        // self.n_neighbours = filtered.len() as i32;
-
-        if run_options.separation_on {
-            sum += self.separation(&filtered, run_options);
-        }
-
-        if run_options.cohesion_on {
-            sum += self.cohesion(&filtered, run_options);
-        }
-
-        if run_options.alignment_on {
-            sum += self.alignment(&filtered, run_options);
-        }
-
-        sum
-    }
-
-    pub fn run_rules3(& self, nearest_boids: &Vec<&Boid>, run_options: &RunOptions) -> Vec2 {
+    pub fn run_rules(& self, nearest_boids: &Vec<&Boid>, run_options: &RunOptions) -> Vec2 {
         let mut sum = Vec2::ZERO;
         let filtered = if !run_options.field_of_vision_on 
             { nearest_boids.to_owned() }  // todo: watchout for the copy here
@@ -187,7 +166,6 @@ impl Boid {
                         res += (self.position - other.position).normalize() / distance.powi(2)
                     } else {
                         res += (self.position - other.position).normalize() / distance
-                        // res += self.position - other.position;
                     }
                 }
             }
@@ -279,9 +257,9 @@ impl Boid {
             self.velocity = self.velocity.normalize() * run_options.min_speed;
         }
         
-        self.position += self.velocity * run_options.baseline_speed;
-        // self.pos_x += self.velocity.x * run_options.baseline_speed;
-        // self.pos_y += self.velocity.y * run_options.baseline_speed;
+        if !run_options.stop_movement {
+            self.position += self.velocity * run_options.baseline_speed;
+        }
 
         self.acceleration *= 0.0;
 
@@ -289,13 +267,13 @@ impl Boid {
     }
 
     pub fn apply_force(&mut self, force: Vec2) {
-        // println!("{:#?}", force);
         self.acceleration += force;
     }
 
     fn boundaries(&mut self, run_options: &RunOptions) {
         match run_options.boundary {
             Boundary::Thoroidal => {
+                // wrap around the barrier
                 if self.position.x < run_options.window.win_left {
                     self.position.x = run_options.window.win_right;
                 } else if self.position.x > run_options.window.win_right {
@@ -309,8 +287,30 @@ impl Boid {
                 }
             }
             Boundary::Absorbing => todo!(),
-            Boundary::Reflective => todo!(),
-            Boundary::Repulsive => todo!()
+            Boundary::Reflective => {
+                // flip velocity if it is going beyond the edge
+                if (self.position.x < run_options.window.win_left && self.velocity.x < 0.) || (self.position.x > run_options.window.win_right && self.velocity.x > 0.) {
+                    self.velocity.x = -self.velocity.x;
+                }
+
+                if (self.position.y > run_options.window.win_top && self.velocity.y > 0.) || (self.position.y < run_options.window.win_bottom && self.velocity.y < 0.) {
+                    self.velocity.y = -self.velocity.y;
+                }
+            },
+            Boundary::Repulsive { distance, force } => {
+                // add accelleration as a vector pointing away from the barrier
+                if self.position.x < run_options.window.win_left + distance {
+                    self.acceleration.x += force;
+                } else if self.position.x > run_options.window.win_right - distance {
+                    self.acceleration.x -= force;
+                }
+
+                if self.position.y > run_options.window.win_top - distance {
+                    self.acceleration.y -= force;
+                } else if self.position.y < run_options.window.win_bottom + distance {
+                    self.acceleration.y += force;
+                }
+            }
         };
     }
 }

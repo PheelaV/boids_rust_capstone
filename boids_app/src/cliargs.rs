@@ -3,7 +3,7 @@
 // https://stackoverflow.com/questions/55133351/is-there-a-way-to-get-clap-to-use-default-values-from-a-file
 // use clap::{Parser, arg};
 use clap_serde_derive::{
-    clap::{self, ArgAction, Parser},
+    clap::{self, Parser},
     serde::Serialize,
     ClapSerde,
 };
@@ -27,10 +27,10 @@ pub struct Args{
 #[derive(ClapSerde, Serialize)]
 pub struct Config{
         
-    #[default(2048)]
+    #[default(128)]
     #[arg(short = 'n', long)]
     /// number of boids
-    pub no_boids: u32,
+    pub no_boids: usize,
 
     #[default(4)]
     #[arg(short = 'r', long)]
@@ -53,7 +53,7 @@ pub struct Config{
     #[arg(short = 'y', long)]
     pub init_height: f32,
 
-    #[default(60.)]
+    #[default(100.)]
     #[arg(long = "sens_dist")]
     pub sensory_distance: f32,
 

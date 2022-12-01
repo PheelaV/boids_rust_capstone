@@ -1,6 +1,6 @@
 #[derive(Debug)]
 pub struct RunOptions {
-    pub init_boids: u32,
+    pub init_boids: usize,
     pub initiation_strat: InitiationStrategy,
 
     pub baseline_speed: f32,
@@ -34,7 +34,7 @@ pub struct RunOptions {
     pub boundary: Boundary,
     pub distance: Distance,
 
-    pub clicked_boid_id: u32,
+    pub clicked_boid_id: usize,
 
     // for testing
     pub allignment_impl_mode: bool,
@@ -49,7 +49,8 @@ pub struct RunOptions {
 
     pub sample_rate: u32,
     pub dbscan_flock_clustering_on: bool,
-    pub neighbours_cosidered: usize
+    pub neighbours_cosidered: usize,
+    pub stop_movement: bool
 }
 
 impl RunOptions {
@@ -135,8 +136,10 @@ impl Default for RunOptions {
             },
             size: 8.,
             boundary: Boundary::Thoroidal,
+            // boundary: Boundary::Repulsive{distance: 100., force: 0.05},
+            // boundary: Boundary::Reflective,
             distance: Distance::EucEnclosed,
-            clicked_boid_id: std::u32::MAX,
+            clicked_boid_id: std::usize::MAX,
             allignment_impl_mode: false,
             cohesion_impl_mode: false,
             separation_impl_mode: false,
@@ -146,7 +149,8 @@ impl Default for RunOptions {
             field_of_vision_deg,
             sample_rate,
             dbscan_flock_clustering_on: false,
-            neighbours_cosidered: 7,
+            neighbours_cosidered: 0,
+            stop_movement: false,
         };
 
         res.update_sensory_distances();
@@ -182,6 +186,12 @@ pub struct WindowSize {
     pub win_w: f32,
 }
 
+impl WindowSize {
+    pub fn new(win_left: f32, win_right: f32, wind_top: f32, win_bottom: f32, win_h: f32, win_w: f32) -> WindowSize {
+        WindowSize { win_left: win_left, win_right: win_right, win_top: wind_top, win_bottom: win_bottom, win_h: win_h, win_w: win_w }
+    }
+}
+
 #[derive(Debug)]
 pub enum InitiationStrategy {
     CircleCenterOut,
@@ -197,7 +207,7 @@ pub enum Boundary {
     Thoroidal,
     Absorbing,
     Reflective,
-    Repulsive,
+    Repulsive{distance: f32, force: f32},
 }
 
 #[derive(Debug, PartialEq)]
