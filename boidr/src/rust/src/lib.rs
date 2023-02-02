@@ -2,7 +2,7 @@ use boids_lib::{
     birdwatcher::Birdwatcher,
     flock::Flock,
     options::{
-        RunOptions, SaveOptions, self
+        RunOptions, SaveOptions, self, Boundary
     },
 };
 use extendr_api::prelude::*;
@@ -64,7 +64,8 @@ fn flock_detailed(
     min_speed: f32,
     max_speed: f32,
     max_steering: f32,
-    dbscan_clustering: bool) -> Robj {
+    dbscan_clustering: bool,
+    boundary_config: &str) -> Robj {
 
     let mut run_options: RunOptions = Default::default();
 
@@ -85,6 +86,13 @@ fn flock_detailed(
     run_options.max_speed = max_speed;
     run_options.max_steering = max_steering;
     run_options.dbscan_flock_clustering_on = dbscan_clustering;
+    
+    match serde_json::from_str::<Boundary>(boundary_config) {
+        Ok(boundary) => run_options.boundary = boundary,
+        Err(err) => panic!("Error, boundary deserialization failed: {}", err)
+    }
+    
+    // let boundary: Boundary = ;
     
     flock_base(no_iter, run_options)
 }
@@ -162,4 +170,52 @@ extendr_module! {
     fn flock_detailed;
     // fn force_recompile;
     fn get_convex_hull;
+}
+
+#[cfg(test)]
+mod tests {
+    use boids_lib::options::Boundary;
+
+    use super::*;
+
+    #[test]
+    fn test_boundary_setting_serializaion() {
+        let data = r#"
+        {
+            "type": "Repulsive",
+            "distance": 100,
+            "force": 0.05
+        }
+        "#;
+        
+        let boundary: Boundary = serde_json::from_str(data).unwrap();
+
+        match boundary {
+            // Boundary::Thoroidal => todo!(),
+            // Boundary::Absorbing => todo!(),
+            // Boundary::Reflective => todo!(),
+            Boundary::Repulsive { distance, force } => {
+                assert_eq!(100., distance);
+                assert_eq!(0.05, force);
+            },
+            _ => panic!("Different type of boundary inputted than is being tested.")
+        }
+    }
+    #[test]
+    fn test_boundary_setting_serializaion2() {
+        let data = r#"{"type": "Repulsive", "distance": 100, "force": 0.05}"#;
+        
+        let boundary: Boundary = serde_json::from_str(data).unwrap();
+
+        match boundary {
+            // Boundary::Thoroidal => todo!(),
+            // Boundary::Absorbing => todo!(),
+            // Boundary::Reflective => todo!(),
+            Boundary::Repulsive { distance, force } => {
+                assert_eq!(100., distance);
+                assert_eq!(0.05, force);
+            },
+            _ => panic!("Different type of boundary inputted than is being tested.")
+        }
+    }
 }

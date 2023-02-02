@@ -189,6 +189,8 @@ dependencies = [
  "boids_lib",
  "extendr-api",
  "geo",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

@@ -10,13 +10,17 @@ Load libraries, install boidr
 library(tidyr)
 library(dplyr)
 library(ggplot2)
+library(tictoc)
+# there is a bug, need to be installed from github to use the latest version: remotes::install_github("extendr/rextendr")
 library(rextendr)
 setwd("~/Source/Repos/boids_rust/boidr")
+
 
 rextendr::document()
 devtools::load_all(".")
 # this is loud
 invisible({capture.output({
+
 
 })})
 
@@ -31,7 +35,7 @@ source("./R/directions_angles.R")
 get flocking data
 ```{r}
 # boid_data <- flock_return(no_iter = 8000, init_boids = 256, save_locations_path = data_folder, sample_rate = 8, init_width = 4000, init_height = 4000)
-boid_data <- flock_detailed(no_iter = 32000, 
+boid_data <- flock_detailed(no_iter = 8000,
                              init_boids = 512,
                              save_locations_path = "", # data_folder,
                              sample_rate = 32,
@@ -47,22 +51,42 @@ boid_data <- flock_detailed(no_iter = 32000,
                              min_speed = .5,
                              max_speed = 2.,
                              max_steering = .65,
-                             dbscan_clustering = T) %>%
+                             dbscan_clustering = T,
+                             boundary_config = "{\"type\": \"Thoroidal\"}"
+                             # boundary_config = "{\"type\": \"Repulsive\", \"distance\": 100, \"force\": 0.05}"
+                            ) %>%
     tibble()
 ```
 visualize
 ```{r}
 direction_data_by_boid <- boid_data %>%
   group_by(id) %>%
-  summarise(
-    headings = get_headings(x, y)
+  reframe(
+    id = id[2:n()],
+    headings = get_headings(x, y),
+    x = x[2:n()],
+    y = y[2:n()],
+    cluster_id = cluster_id[2:n()],
+    time = time[2:n()]
   ) %>%
-  summarise(
+  reframe(
+    id = id[2:n()],
     bearings = get_bearings(headings),
     # as bearings are calculated from pairs, to map them one to one, throw away the headings of t_0 to match lengths
-    headings = headings[2:length(headings)]
+    headings = headings[2:length(headings)],
+    x = x[2:n()],
+    y = y[2:n()],
+    cluster_id = cluster_id[2:n()],
+    time = time[2:n()]
   ) %>%
-  ungroup(id)
+  slice(-tail(
+    remove_boundary_data(boid_data, sensory_distance, init_width, init_height, time_dependency),
+    -2
+  ))
+
+hull_areas <- direction_data_by_boid %>%
+  group_by(time, cluster_id) %>%
+  summarise(hull_area = get_convex_hull(x, y))
 
 print("range of bearings:")
 range(direction_data_by_boid$bearings)
@@ -102,8 +126,7 @@ summary(direction_data_by_boid %>% select(-id))
 
 ```
 ```{r}
-
-ggplot(bearings_binned, aes(x = bearing, y = log10(count))) +
+ggplot(bearings_binned, aes(x = bearing, y = log(count))) +
   coord_polar(theta = "x", start = pi) +
   geom_bar(stat = "identity", fill = "deeppink4", width = .9) +
   # geom_hline(yintercept = seq(0, 500, by = 100), color = "grey80", size = 0.3) +

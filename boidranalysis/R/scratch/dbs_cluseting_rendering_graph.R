@@ -1,6 +1,6 @@
 p <- ggplot(
-  all,
-  aes(x = x, y=y, colour = cluster)
+  boid_data,
+  aes(x = x, y=y, colour = cluster_id)
 ) +
   geom_point(show.legend = FALSE, alpha = 0.7) +
   scale_colour_gradientn(colours=c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7"))

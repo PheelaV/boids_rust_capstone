@@ -21,7 +21,8 @@ flock_detailed(
   min_speed,
   max_speed,
   max_steering,
-  dbscan_clustering
+  dbscan_clustering,
+  boundary_config
 )
 }
 \description{

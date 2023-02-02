@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 #[derive(Debug)]
 pub struct RunOptions {
     pub init_boids: usize,
@@ -135,8 +137,8 @@ impl Default for RunOptions {
                 save_locations_timestamp: true,
             },
             size: 8.,
-            // boundary: Boundary::Thoroidal,
-            boundary: Boundary::Repulsive{distance: 100., force: 0.05},
+            boundary: Boundary::Thoroidal,
+            // boundary: Boundary::Repulsive{distance: 100., force: 0.05},
             // boundary: Boundary::Reflective,
             distance: Distance::EucEnclosed,
             clicked_boid_id: std::usize::MAX,
@@ -202,6 +204,8 @@ pub enum InitiationStrategy {
     RandomRandom,
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "type")]
 #[derive(Debug)]
 pub enum Boundary {
     Thoroidal,
@@ -209,6 +213,8 @@ pub enum Boundary {
     Reflective,
     Repulsive{distance: f32, force: f32},
 }
+
+// {"type": "Repulsive", "distance": 100, "force": 0.05}
 
 #[derive(Debug, PartialEq)]
 pub enum Distance {
