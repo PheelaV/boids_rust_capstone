@@ -15,16 +15,18 @@ use clap_serde_derive::{
 /// Implementation and visualisation of the Boids (Reynolds '86) algorithms.
 pub struct Args{
     /// Config file
-    #[arg(short, long = "config", default_value = "config.yml")]
+    #[arg(short, long = "config", default_value = "config.toml")]
     pub config_path: std::path::PathBuf,
 
     /// Rest of arguments
     #[command(flatten)]
     pub config: <Config as ClapSerde>::Opt,
-
 }
 
 #[derive(ClapSerde, Serialize)]
+/// Programatic configuration
+/// 
+/// Uses defaults, which can be overwritten by specifying a filepath for the `-c` or `--config` arg option
 pub struct Config{
         
     #[default(128)]

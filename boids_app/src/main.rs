@@ -8,6 +8,8 @@ use nannou::draw::properties::ColorScalar;
 use nannou::geom::{Ellipse, Tri};
 use nannou::{color::*, prelude::*};
 use nannou_egui::{egui, Egui};
+use std::fs;
+use std::io::Read;
 use std::{
     fs::File,
     io::BufReader,
@@ -52,21 +54,26 @@ fn model(app: &App) -> Model {
     let mut args = Args::parse();
 
     // Get config file
-    let config = if let Ok(f) = File::open(&args.config_path) {
-        // Parse config with serde
-        match serde_yaml::from_reader::<_, <Config as ClapSerde>::Opt>(BufReader::new(f)) {
-            // merge config already parsed from clap
-            Ok(config) => Config::from(config).merge(&mut args.config),
+    // let config = if let Ok(f) = File::open(&args.config_path) {
+    //     // Parse config with serde
+    //     match serde_yaml::from_reader::<_, <Config as ClapSerde>::Opt>(BufReader::new(f)) {
+    //         // merge config already parsed from clap
+    //         Ok(config) => Config::from(config).merge(&mut args.config),
+    //         Err(err) => panic!("Error in configuration file:\n{}", err),
+    //     }
+    // } else {
+    //     // If there is not config file return only config parsed from clap
+    //     Config::from(&mut args.config)
+    // };
+
+    let config = if let Ok(s) = fs::read_to_string(&args.config_path) {
+        match toml::from_str::<<Config as ClapSerde>::Opt>(&s) {
+            Ok(c) => Config::from(c).merge(&mut args.config),
             Err(err) => panic!("Error in configuration file:\n{}", err),
         }
     } else {
-        // If there is not config file return only config parsed from clap
-        Config::from(&mut args.config)
+         Config::from(&mut args.config)
     };
-
-    // let s  = serde_yaml::to_string(&config);
-
-    // println!("{}", s.unwrap());
 
     let mut run_options: RunOptions = Default::default();
 

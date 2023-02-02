@@ -65,7 +65,7 @@ fn flock_detailed(
     max_speed: f32,
     max_steering: f32,
     dbscan_clustering: bool,
-    boundary_config: &str) -> Robj {
+    boundary_config: Option<&str>) -> Robj {
 
     let mut run_options: RunOptions = Default::default();
 
@@ -86,10 +86,12 @@ fn flock_detailed(
     run_options.max_speed = max_speed;
     run_options.max_steering = max_steering;
     run_options.dbscan_flock_clustering_on = dbscan_clustering;
-    
-    match serde_json::from_str::<Boundary>(boundary_config) {
-        Ok(boundary) => run_options.boundary = boundary,
-        Err(err) => panic!("Error, boundary deserialization failed: {}", err)
+   
+    if let Some(boundary_config_string) = boundary_config{
+        match serde_json::from_str::<Boundary>(boundary_config_string) {
+            Ok(boundary) => run_options.boundary = boundary,
+            Err(err) => panic!("Error, boundary deserialization failed: {}", err)
+        }
     }
     
     // let boundary: Boundary = ;
