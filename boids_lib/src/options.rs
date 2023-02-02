@@ -47,7 +47,7 @@ pub struct RunOptions {
     pub field_of_vision_half_rad: f32,
     pub field_of_vision_deg: f32,
 
-    pub sample_rate: u32,
+    pub sample_rate: u64,
     pub dbscan_flock_clustering_on: bool,
     pub neighbours_cosidered: usize,
     pub stop_movement: bool
@@ -104,7 +104,7 @@ impl Default for RunOptions {
         let field_of_vision_half_rad = 3. / 4. * std::f32::consts::PI / 2.;
         let field_of_vision_deg = 1. * 180. + 1.;
 
-        let sample_rate = 1_u32;
+        let sample_rate = 1u64;
 
         let mut res = RunOptions {
             init_boids,
@@ -135,8 +135,8 @@ impl Default for RunOptions {
                 save_locations_timestamp: true,
             },
             size: 8.,
-            boundary: Boundary::Thoroidal,
-            // boundary: Boundary::Repulsive{distance: 100., force: 0.05},
+            // boundary: Boundary::Thoroidal,
+            boundary: Boundary::Repulsive{distance: 100., force: 0.05},
             // boundary: Boundary::Reflective,
             distance: Distance::EucEnclosed,
             clicked_boid_id: std::usize::MAX,

@@ -7,6 +7,8 @@ use boids_lib::{
 };
 use extendr_api::prelude::*;
 
+use geo::{ConvexHull, MultiPoint, Point, Area};
+
 #[derive(Debug, IntoDataFrameRow)]
 struct TestData {
     id: usize,
@@ -14,6 +16,7 @@ struct TestData {
     y: f32,
     cluster_id: usize,
     n_neighbours: usize,
+    time: u64
 }
 
 #[extendr]
@@ -29,7 +32,7 @@ fn flock(no_iter: u32, init_boids: u32, save_locations_path: String) -> () {
 
 #[extendr]
 /// executes flocking and returns a dataframe with the location data
-fn flock_return(no_iter: u32, init_boids: u32, save_locations_path: String, sample_rate: u32, init_width: f32, init_height: f32) -> Robj {
+fn flock_return(no_iter: u32, init_boids: u32, save_locations_path: String, sample_rate: u64, init_width: f32, init_height: f32) -> Robj {
 
     let mut run_options: RunOptions = Default::default();
 
@@ -48,7 +51,7 @@ fn flock_detailed(
     no_iter: u32,
     init_boids: u32,
     save_locations_path: String,
-    sample_rate: u32,
+    sample_rate: u64,
     init_width: f32,
     init_height: f32,
     sensory_distance: f32,
@@ -99,6 +102,7 @@ fn flock_base(no_iter: u32, run_options: RunOptions) -> Robj {
 
     let data = bird_watcher
     .pop_data_save(&run_options.save_options);
+    // this might force recompillation? 
 
     data
     .iter()
@@ -107,7 +111,8 @@ fn flock_base(no_iter: u32, run_options: RunOptions) -> Robj {
         x: bd.x,
         y: bd.y,
         cluster_id: bd.cluster_id,
-        n_neighbours: bd.n_neighbours
+        n_neighbours: bd.n_neighbours,
+        time: bd.time
     })
     .collect::<Vec<TestData>>()
     .into_dataframe()
@@ -126,12 +131,35 @@ fn get_save_options(save_locations_path: String) -> SaveOptions {
 
     SaveOptions {save_locations: true, save_locations_path: path, save_locations_timestamp: true}
 }
+
+#[extendr]
+fn get_convex_hull(x: &[f64], y: &[f64]) -> f64 {
+    if x.len() != y.len() { panic!("Inputs of unequal length are not allowed!"); }
+
+    let points = x.iter()
+    .zip(y.iter())
+    .map(|(x, y)| {
+        // Coord { x: *x, y: *y};
+        Point::new(*x, *y)
+    }).collect::<Vec<Point>>();
+
+    let hull = MultiPoint::new(points).convex_hull();
+
+    hull.unsigned_area()
+}
+
+// #[extendr]
+// fn force_recompile() -> &'static str{
+//     return r#"hello world"#
+// }
 // Macro to generate exports.
 // This ensures exported functions are registered with R.
 // See corresponding C code in `entrypoint.c`.
 extendr_module! {
     mod boidr;
-     fn flock;
+    fn flock;
     fn flock_return;
     fn flock_detailed;
+    // fn force_recompile;
+    fn get_convex_hull;
 }

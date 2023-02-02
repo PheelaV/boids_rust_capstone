@@ -15,20 +15,21 @@ pub struct BoidData {
     pub x: f32,
     pub y: f32,
     pub cluster_id: usize,
-    pub n_neighbours: usize
+    pub n_neighbours: usize,
+    pub time: u64,
 }
 
 pub struct Birdwatcher{
     locations: Vec<BoidData>,
-    render_ticker: u128,
-    sample_rate: u32,
+    render_ticker: u64,
+    sample_rate: u64,
     // flock: &'a Flock,
 }
 
 const PREFIX: &'static str = "boids-data"; 
 
 impl Birdwatcher {
-    pub fn new(sample_rate: u32) -> Self {
+    pub fn new(sample_rate: u64) -> Self {
 
         Birdwatcher
         { 
@@ -53,7 +54,8 @@ impl Birdwatcher {
                 x: e.position.x, 
                 y:e.position.y,
                 cluster_id: m.cluster_id,
-                n_neighbours: m.n_neighbours
+                n_neighbours: m.n_neighbours,
+                time: self.render_ticker / self.sample_rate
             }
         })
         .collect();
@@ -70,38 +72,37 @@ impl Birdwatcher {
     /// 
     /// Depending on save options, either attempts to overwrite the current file or write's a new timestamped file
     pub fn pop_data_save(&mut self, save_options: &SaveOptions) -> Vec<BoidData> {
-        // let mut data = self.pop_data();
         let data = self.pop_data();
+        // let data = self.pop_data();
         // // sort by id for convenience
         // data.sort_by(|a, b| a.id.cmp(&b.id));
+        // data.sort_by(|a, b| a.t.cmp(&b.t));
 
         if !save_options.save_locations {
             return data
         }
 
-        let path = match &save_options.save_locations_path {
-            Some(path) => path,
-            None => "./",
-        };
+        if let Some(path) = &save_options.save_locations_path{
+            let file_path = format!("{path}{file_name}", file_name = Birdwatcher::get_dataset_name(save_options, Utc::now())); 
 
-        let file_path = format!("{path}{file_name}", file_name = Birdwatcher::get_dataset_name(save_options, Utc::now())); 
-
-        // open file
-        let file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .open(file_path)
-            .expect("Can't open file");
-        let mut wtr = csv::Writer::from_writer(file);
-        // let mut wtr = csv::Writer::from_writer(io::stdout());
-  
-        // write data points
-        data
-        .iter()
-        .for_each(|b|{
-                wtr.serialize(b).expect("Can't serialize data point");
-        });
-        wtr.flush().expect("Can't write data file");
+            // open file
+            let file = OpenOptions::new()
+                .write(true)
+                .create(true)
+                .open(file_path)
+                .expect("Can't open file");
+            let mut wtr = csv::Writer::from_writer(file);
+            // let mut wtr = csv::Writer::from_writer(io::stdout());
+      
+            // write data points
+            data
+            .iter()
+            .for_each(|b|{
+                    wtr.serialize(b).expect("Can't serialize data point");
+            });
+            wtr.flush().expect("Can't write data file");
+        }
+   
     
         data
     }
@@ -119,7 +120,7 @@ impl Birdwatcher {
     fn should_sample(&mut self) -> bool {
         self.render_ticker += 1;
 
-        if self.render_ticker % self.sample_rate as u128 == 0 {
+        if self.render_ticker % self.sample_rate == 0 {
             true
         } else {
             false

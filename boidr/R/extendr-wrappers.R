@@ -16,3 +16,5 @@ flock_return <- function(no_iter, init_boids, save_locations_path, sample_rate, 
 #' executes flocking and returns a dataframe with the location data
 flock_detailed <- function(no_iter, init_boids, save_locations_path, sample_rate, init_width, init_height, sensory_distance, allignment_coef, cohesion_coef, separation_coef, allignment_trs_coef, cohesion_trs_coef, separation_trs_coef, min_speed, max_speed, max_steering, dbscan_clustering) .Call(wrap__flock_detailed, no_iter, init_boids, save_locations_path, sample_rate, init_width, init_height, sensory_distance, allignment_coef, cohesion_coef, separation_coef, allignment_trs_coef, cohesion_trs_coef, separation_trs_coef, min_speed, max_speed, max_steering, dbscan_clustering)
 
+force_recompile <- function() .Call(wrap__force_recompile)
+

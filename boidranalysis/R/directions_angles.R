@@ -1,22 +1,26 @@
 # source("./R/helpers.R")
 
-get_headings <- function(x, y, radians = F) {
+# returns (nrow - unique(id)) records as it does a diff to normalize the coordinates
+# results range [0, 2pi)
+get_headings <- function(x, y, radians = T) {
   if(radians) {
-    mapply(function(x, y) atan2(x, y), diff(x, 1), diff(y,1))
+    mapply(function(x, y) (atan2(x, y) + pi) %% (2 * pi), diff(x, 1), diff(y,1))
   } else {
-    mapply(function(x, y) rad2deg(atan2(x, y)), diff(x, 1), diff(y,1))
+    mapply(function(x, y) rad2deg((atan2(x, y) + pi) %% (2 * pi)), diff(x, 1), diff(y,1))
   }
 }
 
+# returns (nrow - unique(id)) records as it does a diffs headings to get a bearing
+#  results range [-pi, pi)
 get_bearings <- function(headings) {
-  # because the previous heading could have been close to but larger than -180
-  # and the next one close to but smaller than 180
+  # because the previous heading could have been close to but larger than -pi
+  # and the next one close to but smaller than pi
 
-  # that would translate to >0 and <360
-  # now subtracting those two, yields one end of the range, -360
-  # and considering the switched case yields the second end of the range, 360
+  # that would translate to >0 and <2pi
+  # now subtracting those two, yields one end of the range, -2pi
+  # and considering the switched case yields the second end of the range, 2pi
 
   # thus a correction is needed as we are interested in unique values, not wrap-arounds
-  bearings_wrapped <- diff(headings + 180) * -1
-  (if_else(bearings_wrapped < 0, 360 + bearings_wrapped, bearings_wrapped + 0) + 180) %% 360 - 180
+  bearings_wrapped <- diff(headings + pi) * -1
+  (if_else(bearings_wrapped < 0, (2 * pi) + bearings_wrapped, bearings_wrapped + 0) + pi) %% (2 * pi) - pi
 }

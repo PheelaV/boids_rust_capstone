@@ -45,6 +45,7 @@ pub struct SpatHash1D {
     // indexes have no special meaning
     table: Vec<Boid>,
     // everything that a Boid does not nescesarily need for its own functioning
+    // indexes are effectively boid ids
     metadata: Vec<BoidMetadata>,
     // for each boid, records which cell it's at
     // indexes are effectively boid ids
@@ -110,7 +111,7 @@ impl Tracker for SpatHash1D {
             self.update_table(run_options);
         }
 
-        self.update_loation(run_options);
+        self.update_location(run_options);
         self.update_table(run_options);
 
         if run_options.dbscan_flock_clustering_on {
@@ -200,7 +201,7 @@ impl SpatHash1D {
         self.table.push(entity);
     }
 
-    pub(self) fn update_loation(&mut self, run_options: &RunOptions) {
+    pub(self) fn update_location(&mut self, run_options: &RunOptions) {
         // reset metadata
         let metadata_default: BoidMetadata = Default::default();
         for e in 0..self.table.len() {
@@ -441,6 +442,12 @@ impl SpatHash1D {
         run_options: &RunOptions,
         neighbours: &mut Vec<&'a Boid>,
     ) {
+        // if the table grid is less than 4x4
+        if self.settings.x_cell_count <= 3. && self.settings.y_cell_count <= 3. {
+            // fall back to naive method
+            return BoidTracker::get_neighbours_naive(boid, &self.table, run_options, neighbours);
+        }
+
         // only add it once
         let is_left = cell_index % self.settings.x_cell_count as usize == 0;
         let is_right = (cell_index % self.settings.x_cell_count as usize) + 1
@@ -448,54 +455,6 @@ impl SpatHash1D {
         let is_bottom = cell_index / self.settings.x_cell_count as usize == 0;
         let is_top =
             cell_index as f32 >= (self.settings.y_cell_count - 1f32) * self.settings.x_cell_count;
-
-        // let matched_cells = match (is_left, is_right, is_bottom, is_top) {
-        //     (false, false, false, false) => [NW, N, NE, W, HOME, E, SW, S, SE],
-        //     (true, false, true, false) => [HOME, N, NE, HOME, HOME, E, HOME, HOME, HOME],
-        //     (true, false, false, true) => [HOME, HOME, HOME, HOME, HOME, E, HOME, S, S],
-        //     (true, false, false, false) => [HOME, N, NE, HOME, HOME, E, HOME, S, SE],
-        //     (false, true, true, false) => [NW, N, HOME, W, HOME, HOME, HOME, HOME, HOME],
-        //     (false, true, false, true) => [HOME, HOME, HOME, W, HOME, HOME, SW, S, HOME],
-        //     (false, true, false, false) => [NW, N, HOME, W, HOME, HOME, SW, S, HOME],
-        //     (false, false, true, false) => [NW, N, NE, W, HOME, E, HOME, HOME, HOME],
-        //     (false, false, false, true) => [HOME, HOME, HOME, E, HOME, W, SW, S, SE],
-        //     _ => panic!("it should not have come to this :"),
-        // };
-        // matched_cells
-        //     .iter()
-        //     .filter(|l| **l != HOME)
-        //     // always consider the boid's current 'home' vector
-        //     .chain(iter::once(&HOME))
-        //     // convert vectors to the table's 1D indexes pointing to cells
-        //     .map(|lookup| {
-        //         // println!("{}, {}", lookup[0], lookup[1]);
-        //         let cell =
-        //             (cell_index as i64 + lookup[0] + lookup[1] * self.settings.x_cell_count as i64)
-        //                 as usize;
-        //         cell
-        //     })
-        //     .filter(|cell| self.pivots[*cell].usg != 0)
-        //     .for_each(|cell| {
-        //         // println!("range_cell: {}", cell);
-        //         // acum += 1;
-
-        //         // if self.pivots[cell].usg == 0 {
-        //         //     break;
-        //         // }
-        //         for index in self.pivots[cell].init.unwrap()
-        //             ..(self.pivots[cell].init.unwrap() + self.pivots[cell].usg)
-        //         {
-        //             if self.table[index].id != boid.id
-        //                 && distance_dyn_boid(boid, &self.table[index], run_options)
-        //                     <= run_options.max_sensory_distance
-        //             {
-        //                 neighbours.push(&self.table[index]);
-        //                 if run_options.neighbours_cosidered != 0 || neighbours.len() == run_options.neighbours_cosidered {
-        //                     break;
-        //                 }
-        //             }
-        //         }
-        //     });
 
         // depending on the match, iterate the vectors
         for cell in match (is_left, is_right, is_bottom, is_top) {
@@ -527,15 +486,14 @@ impl SpatHash1D {
             if self.pivots[cell].usg == 0 {
                 continue;
             }
-            for index in self.pivots[cell].init.unwrap()
-                ..(self.pivots[cell].init.unwrap() + self.pivots[cell].usg)
+            for index in self.pivots[cell].init.unwrap()..self.pivots[cell].fin.unwrap()
             {
                 if self.table[index].id != boid.id
                     && distance_dyn_boid(boid, &self.table[index], run_options)
                         <= run_options.max_sensory_distance
                 {
                     neighbours.push(&self.table[index]);
-                    if run_options.neighbours_cosidered != 0 || neighbours.len() == run_options.neighbours_cosidered {
+                    if run_options.neighbours_cosidered != 0 && neighbours.len() == run_options.neighbours_cosidered {
                         break;
                     }
                 }
@@ -555,14 +513,31 @@ pub struct BoidTracker {
 }
 
 impl BoidTracker {
-    pub(self) fn get_neighbours<'a>(
-        &'a self,
+    // pub(self) fn get_neighbours<'a>(
+    //     &'a self,
+    //     boid: &Boid,
+    //     run_options: &RunOptions,
+    //     neighbours: &mut Vec<&'a Boid>
+    // ) {
+    //     for b_other in self.boids.iter() {
+    //         if b_other.id == boid.id {
+    //             continue;
+    //         }
+
+    //         let distance = distance_dyn_boid(&boid, b_other, &run_options);
+    //         if distance < run_options.max_sensory_distance {
+    //             neighbours.push(b_other);
+    //         }
+    //     } 
+    // }
+
+    pub fn get_neighbours_naive<'a>(
         boid: &Boid,
+        all_boids: &'a Vec<Boid>,
         run_options: &RunOptions,
         neighbours: &mut Vec<&'a Boid>,
-        clicked_neighbours: &mut Vec<&'a Boid> 
     ) {
-        for b_other in self.boids.iter() {
+        for b_other in all_boids.iter() {
             if b_other.id == boid.id {
                 continue;
             }
@@ -570,12 +545,6 @@ impl BoidTracker {
             let distance = distance_dyn_boid(&boid, b_other, &run_options);
             if distance < run_options.max_sensory_distance {
                 neighbours.push(b_other);
-            }
-
-            if boid.id == run_options.clicked_boid_id {
-                for n in neighbours.iter() {
-                    clicked_neighbours.push(n);
-                }
             }
         } 
     }
@@ -593,8 +562,8 @@ impl Tracker for BoidTracker {
         let mut accelleration: Vec<Vec2> = Vec::with_capacity(self.boids.len());
         let mut metadata: Vec<BoidMetadata> = vec![Default::default(); self.boids.len()];
         let mut neighbours: Vec<&Boid> = Vec::new();
-        let mut clicked_neighbours: Vec<&Boid> =
-            Vec::with_capacity(run_options.neighbours_cosidered);
+        // let mut clicked_neighbours: Vec<&Boid> =
+        //     Vec::with_capacity(run_options.neighbours_cosidered);
 
         // calculation loop
         for i_cur in 0..self.boids.len() {
@@ -604,10 +573,15 @@ impl Tracker for BoidTracker {
 
             metadata[i_cur].id = b_current.id;
 
-            self.get_neighbours(b_current, run_options, &mut neighbours, &mut clicked_neighbours);
+            BoidTracker::get_neighbours_naive(b_current, &self.boids, run_options, &mut neighbours);
             accelleration.push(self.boids[i_cur].run_rules(&neighbours, &run_options));
-            for cn in &clicked_neighbours {
-                metadata[cn.id].clicked_neighbour_id = run_options.clicked_boid_id;
+            // for cn in &clicked_neighbours {
+            //     metadata[cn.id].clicked_neighbour_id = run_options.clicked_boid_id;
+            // }
+            if metadata[i_cur].id == run_options.clicked_boid_id {
+                for cn in neighbours.iter() {
+                    metadata[cn.id].clicked_neighbour_id = metadata[i_cur].id
+                }
             }
         }
         // update loop
@@ -1065,7 +1039,7 @@ mod tests {
         clicked.iter().enumerate().for_each(|(index, b)| {
             clicked_neighbours[index] = get_boid_points(
                 b,
-                run_options.max_sensory_distance,
+                run_options.max_sensory_distance * 0.9,
                 &run_options.window,
                 no_neighbours,
                 11551155,
@@ -1092,6 +1066,7 @@ mod tests {
 
     /// integrates all of the flocking mechanics to retrieve neighbours and tests correct neighbours are retrieved
     /// systems integrated - spatial subdivison, determining cell index of a given entity, checking it's distance to a centroid
+    // #[ignore]
     #[test]
     fn should_get_neighbours_sweep_spathhash() {
         let mut run_options = RunOptions::default();
@@ -1103,10 +1078,10 @@ mod tests {
         // 5 from set up, no_neighbours for each set up boid
         run_options.init_boids = 5 + 5 * no_neighbours;
         run_options.sensory_distance = sensory_distance;
-        run_options.update_sensory_distances();
         run_options.allignment_treshold_coefficient = 1.14999998;
         run_options.cohesion_treshold_coefficient = 0.949999988;
         run_options.separation_treshold_coefficient = 0.349999994;
+        run_options.update_sensory_distances();
         run_options.window = options::get_window_size(1400., 900.);
         run_options.neighbours_cosidered = no_neighbours;
 
@@ -1140,17 +1115,17 @@ mod tests {
 
             let clicked_boid_index = get_index(clicked_boid, &run_options, &tracker.settings);
 
-            let mut clicked_boid_neighbours: Vec<&Boid> = Vec::with_capacity(no_neighbours);
+            let mut neighbours: Vec<&Boid> = Vec::with_capacity(no_neighbours);
 
-            clicked_boid_neighbours.clear();
+            // neighbours.clear();
             tracker.get_neighbours(
                 clicked_boid,
                 clicked_boid_index,
                 &run_options,
-                &mut clicked_boid_neighbours,
+                &mut neighbours,
             );
 
-            let retrieved_neighbour_id_set: HashSet<usize> = clicked_boid_neighbours.iter().map(|nb| nb.id).collect();
+            let retrieved_neighbour_id_set: HashSet<usize> = neighbours.iter().map(|nb| nb.id).collect();
 
             let neighbour_difference: Vec<&Boid> = clicked_neighbours[i]
                 // .to_owned()
@@ -1158,17 +1133,17 @@ mod tests {
                 .filter(|nb| !retrieved_neighbour_id_set.contains(&nb.id))
                 .collect();
 
-            let neighbour_difference_indexes: Vec<usize> = neighbour_difference
-                .iter()
-                .map(|b| get_index(*b, &run_options, &tracker.settings))
-                .collect();
+            // let neighbour_difference_indexes: Vec<usize> = neighbour_difference
+            //     .iter()
+            //     .map(|b| get_index(*b, &run_options, &tracker.settings))
+            //     .collect();
 
-            let neighbour_difference_dist: Vec<f32> = neighbour_difference
-                .iter()
-                .map(|b| distance_dyn(b.position.x, clicked_boid.position.x, b.position.y,clicked_boid.position.y, &run_options))
-                .collect();
+            // let neighbour_difference_dist: Vec<f32> = neighbour_difference
+            //     .iter()
+            //     .map(|b| distance_dyn(b.position.x, clicked_boid.position.x, b.position.y,clicked_boid.position.y, &run_options))
+            //     .collect();
 
-            assert_eq!(clicked_neighbours[i].len(), clicked_boid_neighbours.len(), "centroid id: {}, ND: {:#?}, NDI: {:#?}, NDD: {:#?}", clicked_boid.id, neighbour_difference, neighbour_difference_indexes, neighbour_difference_dist)
+            assert_eq!(clicked_neighbours[i].len(), neighbours.len()) //, "centroid id: {}, ND: {:#?}, NDI: {:#?}, NDD: {:#?}", clicked_boid.id, neighbour_difference, neighbour_difference_indexes, neighbour_difference_dist)
         }
     }
 
@@ -1194,7 +1169,7 @@ mod tests {
             boids
         ) = get_neighbourhood_setup(&run_options, sensory_distance, no_neighbours);
 
-        let tracker = BoidTracker::new(&boids, &run_options);
+        // let tracker = BoidTracker::new(&boids, &run_options);
         // check all flockmates have been fetched
 
         let mut neighbours: Vec<&Boid> = Vec::with_capacity(no_neighbours);
@@ -1204,15 +1179,11 @@ mod tests {
 
             let clicked_boid = &clicked[i];
 
-            let mut clicked_boid_neighbours: Vec<&Boid> = Vec::with_capacity(no_neighbours);
-
-            clicked_boid_neighbours.clear();
-
-            tracker.get_neighbours(
+            BoidTracker::get_neighbours_naive(
                 clicked_boid,
+                &boids,
                 &run_options,
-                &mut neighbours,
-                &mut clicked_boid_neighbours,
+                &mut neighbours
             );
 
             let retrieved_neighbour_id_set: HashSet<usize> = neighbours.iter().map(|nb| nb.id).collect();

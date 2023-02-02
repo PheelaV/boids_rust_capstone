@@ -35,7 +35,7 @@ pub struct Config{
     #[default(4)]
     #[arg(short = 'r', long)]
     /// ratio of renders/sample_rate, e,g, 4 = sample every 4th render
-    pub sample_rate: u32,
+    pub sample_rate: u64,
 
     #[default(true)]
     #[arg(short = 's', long)]
@@ -53,7 +53,7 @@ pub struct Config{
     #[arg(short = 'y', long)]
     pub init_height: f32,
 
-    #[default(100.)]
+    #[default(60.)]
     #[arg(long = "sens_dist")]
     pub sensory_distance: f32,
 

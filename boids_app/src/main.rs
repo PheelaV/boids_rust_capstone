@@ -225,7 +225,7 @@ fn update(app: &App, model: &mut Model, update: Update) {
                 ui.label("baseline speed");
                 ui.add(egui::Slider::new(
                     &mut run_options.baseline_speed,
-                    0.1..=20.0,
+                    0.1..=3.0,
                 ))
             });
 
@@ -241,7 +241,7 @@ fn update(app: &App, model: &mut Model, update: Update) {
                 ui.label("max speed");
                 ui.add(egui::Slider::new(
                     &mut run_options.max_speed,
-                    run_options.min_speed..=20.0,
+                    run_options.min_speed..=5.0,
                 ))
             });
 
@@ -299,7 +299,7 @@ fn update(app: &App, model: &mut Model, update: Update) {
                 ui.label("sensory distance");
                 ui.add(egui::Slider::new(
                     &mut run_options.sensory_distance,
-                    10.0..=400.0,
+                    5.0..=60.0,
                 ))
             });
 
@@ -504,6 +504,9 @@ fn key_pressed(app: &App, model: &mut Model, key: Key) -> () {
         // for _ in 0..run_options.init_boids {
         //     model.flock.insert_single(&run_options);
         // }
+        if run_options.init_boids > 2_usize.pow(13) {
+            return;
+        }
         run_options.init_boids *= 2;
 
         model.flock.insert_multiple(run_options);
@@ -540,7 +543,7 @@ fn mouse_pressed(app: &App, model: &mut Model, _button: MouseButton) -> () {
     } = model;
 
     let mouse_click = vec2(app.mouse.x, app.mouse.y);
-    println!("mouse clicked: {:?}", mouse_click);
+    // println!("mouse clicked: {:?}", mouse_click);
     let clicked = model
         .flock
         .view()
@@ -816,34 +819,34 @@ fn view(app: &App, model: &Model, frame: Frame) {
     }
     let draw = app.draw();
 
-    let settings = SpatHash1D::get_tracker_settings(&model.run_options);
+    // let settings = SpatHash1D::get_tracker_settings(&model.run_options);
 
-    let index = SpatHash1D::get_table_index2(
-        app.mouse.x as f32,
-        app.mouse.y as f32,
-        model.run_options.window.win_left,
-        model.run_options.window.win_right - 1.,
-        model.run_options.window.win_bottom,
-        model.run_options.window.win_top - 1.,
-        settings.x_cell_res,
-        settings.y_cell_res,
-        settings.x_cell_count,
-    );
+    // let index = SpatHash1D::get_table_index(
+    //     app.mouse.x as f32,
+    //     app.mouse.y as f32,
+    //     model.run_options.window.win_left,
+    //     model.run_options.window.win_right - 1.,
+    //     model.run_options.window.win_bottom,
+    //     model.run_options.window.win_top - 1.,
+    //     settings.x_cell_res,
+    //     settings.y_cell_res,
+    //     settings.x_cell_count,
+    // );
 
-    let mouse_label2 = format!("index: {}", index);
+    // let mouse_label2 = format!("index: {}", index);
 
-    let mouse_label = format!("{x:.2} - {y:.2}", x = app.mouse.x, y = app.mouse.y);
+    // let mouse_label = format!("{x:.2} | {y:.2}", x = app.mouse.x, y = app.mouse.y);
 
-    draw.text(&mouse_label)
-        .x_y(app.mouse.x + 50., app.mouse.y + 20.)
-        .z(10.)
-        .color(BLACK)
-        .font_size(30);
-    draw.text(&mouse_label2)
-        .x_y(app.mouse.x + 50., app.mouse.y - 20.)
-        .z(10.)
-        .color(BLACK)
-        .font_size(30);
+    // draw.text(&mouse_label)
+    //     .x_y(app.mouse.x + 50., app.mouse.y + 20.)
+    //     .z(10.)
+    //     .color(BLACK)
+    //     .font_size(20);
+    // draw.text(&mouse_label2)
+    //     .x_y(app.mouse.x + 50., app.mouse.y - 20.)
+    //     .z(10.)
+    //     .color(BLACK)
+    //     .font_size(20);
 
     draw.background().color(PLUM);
 

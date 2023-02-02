@@ -15,29 +15,7 @@ test <- tibble(
 # distinct_boid_no <- nrow(boid_data %>% dplyr::select(id) %>% unique())
 #
 
-order_by_time <- function(data) {
-  distinct_no <- nrow(data %>% dplyr::select(id) %>% unique())
-  ordered_boid_data <- data %>%
-    group_by(id) %>%
-    mutate(
-      order = id + (row_number(id) - 1) * distinct_no,
-      timestep = row_number(id)
-      ) %>%
-    ungroup() %>%
-    arrange(order)
-}
 
-nth_time_point <- function(data, time_n) {
-  distinct_no <- nrow(data %>% dplyr::select(id) %>% unique())
-  l <- nrow(data)
-
-  tail <- l - (distinct_no * (time_n - 1))
-  head <- distinct_no
-
-  data %>%
-    slice_tail(n = tail) %>%
-    slice_head(n = head)
-}
 
 nth_time_point(ordered_boid_data, 1)
 

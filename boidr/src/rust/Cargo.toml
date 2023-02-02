@@ -10,4 +10,5 @@ crate-type = [ 'staticlib' ]
 [dependencies]
 extendr-api = '*'
 boids_lib = { path = "/Users/filipvlcek/Source/Repos/boids_rust/boids_lib"}
+geo = "0.23.1"
 # boids_test_lib = { path = "./../../../boids_test_lib"}

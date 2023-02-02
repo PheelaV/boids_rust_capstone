@@ -1,28 +1,40 @@
 ---
-output: html_document
+title: "Boidr analysis"
+output:
+  pdf_document:
+    highlight: tango
 ---
 
 Load libraries, install boidr
-```{r error=FALSE, warning=FALSE, message=FALSE, results='hide'}
+```{r}
 library(tidyr)
 library(dplyr)
 library(ggplot2)
 library(rextendr)
 setwd("~/Source/Repos/boids_rust/boidr")
+
 rextendr::document()
 devtools::load_all(".")
+# this is loud
+invisible({capture.output({
+
+})})
 
 # data_folder <- "~/Source/Repos/boids_rust/boidranalysis/Data/"
 data_folder <- "./Data/"
 ```
+```{r}
+source("./R/helpers.R")
+source("./R/directions_angles.R")
+```
 
 get flocking data
 ```{r}
-boid_data <- flock_return(no_iter = 8000, init_boids = 256, save_locations_path = data_folder, sample_rate = 8, init_width = 4000, init_height = 4000)
-boid_data2 <- flock_detailed(no_iter = 8000, 
+# boid_data <- flock_return(no_iter = 8000, init_boids = 256, save_locations_path = data_folder, sample_rate = 8, init_width = 4000, init_height = 4000)
+boid_data <- flock_detailed(no_iter = 32000, 
                              init_boids = 512,
-                             save_locations_path = data_folder,
-                             sample_rate = 8,
+                             save_locations_path = "", # data_folder,
+                             sample_rate = 32,
                              init_width = 4000, 
                              init_height = 4000, 
                              sensory_distance = 50,
@@ -35,9 +47,10 @@ boid_data2 <- flock_detailed(no_iter = 8000,
                              min_speed = .5,
                              max_speed = 2.,
                              max_steering = .65,
-                             dbscan_clustering = T)
+                             dbscan_clustering = T) %>%
+    tibble()
 ```
-visualise
+visualize
 ```{r}
 direction_data_by_boid <- boid_data %>%
   group_by(id) %>%
@@ -46,6 +59,7 @@ direction_data_by_boid <- boid_data %>%
   ) %>%
   summarise(
     bearings = get_bearings(headings),
+    # as bearings are calculated from pairs, to map them one to one, throw away the headings of t_0 to match lengths
     headings = headings[2:length(headings)]
   ) %>%
   ungroup(id)
@@ -58,7 +72,7 @@ range(direction_data_by_boid$headings)
 
 headings_binned <- direction_data_by_boid %>%
   mutate(
-    headings = round(headings, 0)
+    headings = floor(rad2deg(headings))
   ) %>%
   group_by(headings) %>%
   summarise(
@@ -68,7 +82,7 @@ headings_binned <- direction_data_by_boid %>%
 
 bearings_binned <- direction_data_by_boid %>%
   mutate(
-    bearings = round(bearings, 0)
+    bearings = floor(rad2deg(bearings))
   ) %>%
   group_by(bearings) %>%
   summarise(
@@ -76,7 +90,7 @@ bearings_binned <- direction_data_by_boid %>%
   ) %>%
   select(bearing = bearings, count = count)
 
-ggplot(headings_binned, aes(x = heading, y = log10(count))) +
+ggplot(headings_binned, aes(x = heading, y = log(count))) +
   coord_polar(theta = "x", start = pi) +
   geom_bar(stat = "identity", fill = "deeppink4", width = .9) +
   # geom_hline(yintercept = seq(0, 500, by = 100), color = "grey80", size = 0.3) +
@@ -94,24 +108,19 @@ ggplot(bearings_binned, aes(x = bearing, y = log10(count))) +
   geom_bar(stat = "identity", fill = "deeppink4", width = .9) +
   # geom_hline(yintercept = seq(0, 500, by = 100), color = "grey80", size = 0.3) +
   # scale_x_continuous(breaks = 0:24, expand = c(.002,0)) +
-  labs(x = "Heading w.r.t N") +
+  labs(x = "Bearing w.r.t N") +
   theme_bw()
 ```
+The symmetry here is fascinating, after investigation I am confident in the bearings function. A naive explanation would be the boid's tendency to over react and then over correct, e.g., when it wants to avoid a boid in front of of him slightly on the left, it will turn abruptly to the right, then starts to be attracted again towards the same boid.
 ```{r}
 ggplot(direction_data_by_boid, aes(x=headings)) +
     # coord_polar(theta = "x", start = pi) +
 geom_density(color="aquamarine4", fill="aquamarine3") +
   theme_bw()
-
 ```
 ```{r}
 ggplot(direction_data_by_boid, aes(x=bearings)) +
   geom_density(color="aquamarine4", fill="aquamarine3") +
-  # coord_polar(theta = "x", start = pi) +
-  # scale_x_continuous(
-  #   breaks = seq(0, 359, 45),
-  #   minor_breaks = seq(0, 359, 15)
-  # )
   theme_bw()
 ```
 
@@ -124,7 +133,17 @@ ggplot(headings_binned) +
     breaks = seq(-180, 179, 45),
     minor_breaks = seq(-180, 179, 15)
   ) +
-  coord_polar() +
+  # coord_polar() +
+  coord_polar(theta = "x", start = pi) +
+  theme_bw()
+ggplot(headings_binned) +
+  geom_col(aes(x = heading, y = count)) +
+  scale_x_continuous(
+    breaks = seq(-180, 179, 45),
+    minor_breaks = seq(-180, 179, 15)
+  ) +
+  # coord_polar() +
+  coord_polar(theta = "x", start = pi) +
   theme_bw()
 ```
 
