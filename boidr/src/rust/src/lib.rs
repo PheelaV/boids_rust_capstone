@@ -32,13 +32,13 @@ fn flock(no_iter: u32, init_boids: u32, save_locations_path: String) -> () {
 
 #[extendr]
 /// executes flocking and returns a dataframe with the location data
-fn flock_return(no_iter: u32, init_boids: u32, save_locations_path: String, sample_rate: u64, init_width: f32, init_height: f32) -> Robj {
+fn flock_return(no_iter: u32, init_boids: u32, save_locations_path: String, sample_rate: f32, init_width: f32, init_height: f32) -> Robj {
 
     let mut run_options: RunOptions = Default::default();
 
     run_options.init_boids = init_boids as usize;
     run_options.save_options = get_save_options(save_locations_path);
-    run_options.sample_rate = sample_rate;
+    run_options.sample_rate = sample_rate as u64; // this intentional is because of R shenanigans
 
     run_options.window = options::get_window_size(init_width, init_height);
     
@@ -51,7 +51,7 @@ fn flock_detailed(
     no_iter: u32,
     init_boids: u32,
     save_locations_path: String,
-    sample_rate: u64,
+    sample_rate: f32,
     init_width: f32,
     init_height: f32,
     sensory_distance: f32,
@@ -71,7 +71,7 @@ fn flock_detailed(
 
     run_options.init_boids = init_boids as usize;
     run_options.save_options = get_save_options(save_locations_path);
-    run_options.sample_rate = sample_rate;
+    run_options.sample_rate = sample_rate as u64; // this intentional is because of R shenanigans
 
     run_options.window = options::get_window_size(init_width, init_height);
 
@@ -112,7 +112,6 @@ fn flock_base(no_iter: u32, run_options: RunOptions) -> Robj {
 
     let data = bird_watcher
     .pop_data_save(&run_options.save_options);
-    // this might force recompillation? 
 
     data
     .iter()
@@ -158,10 +157,10 @@ fn get_convex_hull(x: &[f64], y: &[f64]) -> f64 {
     hull.unsigned_area()
 }
 
-// #[extendr]
-// fn force_recompile() -> &'static str{
-//     return r#"hello world"#
-// }
+#[extendr]
+fn force_recompile() -> &'static str{
+    return r#"hello world"# // hey there
+}
 // Macro to generate exports.
 // This ensures exported functions are registered with R.
 // See corresponding C code in `entrypoint.c`.
@@ -170,7 +169,7 @@ extendr_module! {
     fn flock;
     fn flock_return;
     fn flock_detailed;
-    // fn force_recompile;
+    fn force_recompile;
     fn get_convex_hull;
 }
 

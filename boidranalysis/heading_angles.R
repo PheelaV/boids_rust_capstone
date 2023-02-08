@@ -21,10 +21,10 @@ get_headings <- function(x, y, radians = F) {
 }
 
 get_headings(x, y)
-get_headings(x, y, T) / pi
+get_headings(x, y, Trues) / pi
 
-atan2(1/2, sqrt(3)/2) * 180/pi
-atan2(0.8, -1.4) * 180/pi
+atan2(1 / 2, sqrt(3) / 2) * 180 / pi
+atan2(0.8, -1.4) * 180 / pi
 
 
 scalar1 <- function(x) {x / sqrt(sum(x^2))}

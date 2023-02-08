@@ -1,9 +1,9 @@
-no_boids = 2048
+no_boids = 512 
 sample_rate = 8
 save = true
 save_timestamp = false
-init_width = 1400.0
-init_height = 800.0
+init_width = 1500.0
+init_height = 900.0
 sensory_distance = 60.0
 allignment_coefficient = 0.004
 cohesion_coefficient = 0.2

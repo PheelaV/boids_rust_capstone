@@ -35,58 +35,53 @@ source("./R/directions_angles.R")
 get flocking data
 ```{r}
 # boid_data <- flock_return(no_iter = 8000, init_boids = 256, save_locations_path = data_folder, sample_rate = 8, init_width = 4000, init_height = 4000)
-boid_data <- flock_detailed(no_iter = 8000,
-                             init_boids = 512,
-                             save_locations_path = "", # data_folder,
-                             sample_rate = 32,
-                             init_width = 4000, 
-                             init_height = 4000, 
-                             sensory_distance = 50,
-                             allignment_coef = .02,
-                             allignment_trs_coef = 1.15,
-                             cohesion_coef = 0.002, 
-                             cohesion_trs_coef = .95,
-                             separation_coef = 4.1,
-                             separation_trs_coef = .3,
-                             min_speed = .5,
-                             max_speed = 2.,
-                             max_steering = .65,
-                             dbscan_clustering = T,
-                             boundary_config = "{\"type\": \"Thoroidal\"}"
-                             # boundary_config = "{\"type\": \"Repulsive\", \"distance\": 100, \"force\": 0.05}"
-                            ) %>%
+# boid_data <- flock_detailed(no_iter = 8000,
+#                              init_boids = 512,
+#                              save_locations_path = "", # data_folder,
+#                              sample_rate = 32,
+#                              init_width = 4000, 
+#                              init_height = 4000, 
+#                              sensory_distance = 50,
+#                              allignment_coef = .02,
+#                              allignment_trs_coef = 1.15,
+#                              cohesion_coef = 0.002, 
+#                              cohesion_trs_coef = .95,
+#                              separation_coef = 4.1,
+#                              separation_trs_coef = .3,
+#                              min_speed = .5,
+#                              max_speed = 2.,
+#                              max_steering = .65,
+#                              dbscan_clustering = T,
+#                              boundary_config = "{\"type\": \"Thoroidal\"}"
+#                              # boundary_config = "{\"type\": \"Repulsive\", \"distance\": 100, \"force\": 0.05}"
+#                             ) %>%
+#     tibble()
+
+tic()
+config <- get_config(
+  # "string_ball_hybrid.toml", 
+  "basic.toml", 
+    overwrite = list(
+      init_boids = 2^9,
+      no_iter = 2^14,
+      init_width = 4000, 
+      init_height = 4000,
+      sample_rate = 4,
+      # boundary_config = "{\"type\": \"Repulsive\", \"distance\": 100, \"force\": 0.05}"
+      boundary_config = "{\"type\": \"Thoroidal\"}"
+    )
+)
+boid_data <- rlang::exec(flock_detailed, !!!config) %>%
     tibble()
+toc()
 ```
 visualize
 ```{r}
+sub_sub_sample_rate <- 128
+# direction_data_by_boid <- boid_data %>%
 direction_data_by_boid <- boid_data %>%
-  group_by(id) %>%
-  reframe(
-    id = id[2:n()],
-    headings = get_headings(x, y),
-    x = x[2:n()],
-    y = y[2:n()],
-    cluster_id = cluster_id[2:n()],
-    time = time[2:n()]
-  ) %>%
-  reframe(
-    id = id[2:n()],
-    bearings = get_bearings(headings),
-    # as bearings are calculated from pairs, to map them one to one, throw away the headings of t_0 to match lengths
-    headings = headings[2:length(headings)],
-    x = x[2:n()],
-    y = y[2:n()],
-    cluster_id = cluster_id[2:n()],
-    time = time[2:n()]
-  ) %>%
-  slice(-tail(
-    remove_boundary_data(boid_data, sensory_distance, init_width, init_height, time_dependency),
-    -2
-  ))
-
-hull_areas <- direction_data_by_boid %>%
-  group_by(time, cluster_id) %>%
-  summarise(hull_area = get_convex_hull(x, y))
+  sub_sample_data(every_nth = sub_sub_sample_rate) %>%
+  get_directional_boid_data()
 
 print("range of bearings:")
 range(direction_data_by_boid$bearings)
@@ -114,24 +109,22 @@ bearings_binned <- direction_data_by_boid %>%
   ) %>%
   select(bearing = bearings, count = count)
 
+summary(direction_data_by_boid %>% select(-id))
+```
+
+```{r}
 ggplot(headings_binned, aes(x = heading, y = log(count))) +
   coord_polar(theta = "x", start = pi) +
   geom_bar(stat = "identity", fill = "deeppink4", width = .9) +
-  # geom_hline(yintercept = seq(0, 500, by = 100), color = "grey80", size = 0.3) +
-  # scale_x_continuous(breaks = 0:24, expand = c(.002,0)) +
   labs(x = "Heading w.r.t N") +
   theme_bw()
-
-summary(direction_data_by_boid %>% select(-id))
-
 ```
+
 ```{r}
 ggplot(bearings_binned, aes(x = bearing, y = log(count))) +
   coord_polar(theta = "x", start = pi) +
   geom_bar(stat = "identity", fill = "deeppink4", width = .9) +
-  # geom_hline(yintercept = seq(0, 500, by = 100), color = "grey80", size = 0.3) +
-  # scale_x_continuous(breaks = 0:24, expand = c(.002,0)) +
-  labs(x = "Bearing w.r.t N") +
+  labs(x = "Turning angle") +
   theme_bw()
 ```
 The symmetry here is fascinating, after investigation I am confident in the bearings function. A naive explanation would be the boid's tendency to over react and then over correct, e.g., when it wants to avoid a boid in front of of him slightly on the left, it will turn abruptly to the right, then starts to be attracted again towards the same boid.
@@ -146,7 +139,47 @@ ggplot(direction_data_by_boid, aes(x=bearings)) +
   geom_density(color="aquamarine4", fill="aquamarine3") +
   theme_bw()
 ```
+// note: high sample_rate > 512, start seeing "swan tailing" at the tails
 
+```{r}
+avg_norm_data <- get_average_norm_vel(direction_data_by_boid)
+
+
+  ggplot(
+    data = tibble(
+      avg_norm_vel = avg_norm_data$avg_norm_vel,
+      t = avg_norm_data$time * config$sample_rate * sub_sub_sample_rate
+    ),
+    aes(x = t, y = avg_norm_vel)
+  ) +
+    geom_line() +
+    theme_bw() +
+    labs(x = "time t", y = "mean average norm vel",
+         title = paste(
+           "average norm vel;",
+           "agents:", config$init_boids, ";",
+           "iterations:", config$no_iter, ";",
+           "sample:", config$sample_rate, ";"
+         )
+    )
+```
+```{r}
+direction_data_by_boid %>%
+  filter(cluster_id != 0) %>%
+  select(dx, dy, time, cluster_id) %>%
+  group_by(time) %>%
+  group_by(time, cluster_id) %>%
+  summarise(
+    v0x = sum(abs(dx)) / n(),
+    v0y = sum(abs(dy)) / n(),
+    vix = abs(sum(dx)),
+    viy = abs(sum(dy)),
+    count = n()
+  ) %>%
+  mutate(result = sqrt(vix^2 + viy^2) / (count * sqrt(v0x^2 + v0y^2))) %>%
+  ggplot(aes(y = result)) +
+geom_point(aes(x = time, group = cluster_id, color = result))
+```
 
 ```{r}
 

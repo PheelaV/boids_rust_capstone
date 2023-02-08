@@ -26,24 +26,19 @@ first_n_flocks_time <- function(data, n) {
 }
 
 # get the number of flocks for each time point
-# takes in raw boid data
-# returns a vector wwith number of distinct timepoints as its length
+# takes in raw or pre-processed boid data with time and cluster_id
+# returns a vector with number of distinct time points as its length
 get_no_flocks <- function(data) {
-  # get the number of time points
-  no_time_points <- n_distinct(data$time)
-
   # for each time point, count the number of flocks, we are treating 0 (set of
-  # entities not belonging to any flock, as a distinctive flock by itself and
-  # thus subtracting 1 from the final result)
-
-  results <- numeric(no_time_points)
-  for (t in 1:no_time_points) {
-    no_flocks <- .t_no_flocks(data, t)
-    results[t] <- no_flocks
-  }
-
-  return(tibble(no_flocks = results))
+  # entities not belonging to any flock
+  data %>%
+    filter(cluster_id != 0) %>%
+    group_by(time) %>%
+    distinct(cluster_id) %>%
+    summarise(no_flocks = n())
 }
+
+
 
 # usages
 

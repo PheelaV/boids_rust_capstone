@@ -20,6 +20,7 @@ installed.packages("microbenchmark")
 # 116.945940 130.657304 146.85568 140.534244 165.69687 189.44472   100
 # 470.473401 524.442029 555.60955 544.520406 579.11922 683.97610   100
 library(microbenchmark)
+data_folder <- ""
 microbenchmark(
   flock_return(no_iter = 100, init_boids = 128, save_locations_path = data_folder, sample_rate = 4, init_width = 5000, init_height = 5000),
   flock_return(no_iter = 100, init_boids = 256, save_locations_path = data_folder, sample_rate = 4, init_width = 5000, init_height = 5000),

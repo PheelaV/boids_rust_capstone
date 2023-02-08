@@ -10,6 +10,14 @@ get_headings <- function(x, y, radians = T) {
   }
 }
 
+get_headings2 <- function(dx, dy, radians = T) {
+  if(radians) {
+    mapply(function(dx, dy) (atan2(dx, dy) + pi) %% (2 * pi), dx, dy)
+  } else {
+    mapply(function(dx, dy) rad2deg((atan2(dx, dy) + pi) %% (2 * pi)), dx, dy)
+  }
+}
+
 # returns (nrow - unique(id)) records as it does a diffs headings to get a bearing
 #  results range [-pi, pi)
 get_bearings <- function(headings) {
