@@ -2,7 +2,7 @@
 
 // use nannou::prelude::{Vec2, vec2, PI};
 
-use std::{f32::consts::PI};
+use std::{f32::consts::PI, fmt::Debug};
 
 use glam::Vec2;
 
@@ -14,13 +14,20 @@ use crate::{
     },
 };
 
+#[derive(Debug, Clone)]
+pub enum BoidType {
+    Mob,
+    Disruptor,
+}
 
 #[derive(Debug, Clone)]
 pub struct BoidMetadata {
     pub id: usize,
     pub cluster_id: usize,
     pub clicked_neighbour_id: usize,
-    pub n_neighbours: usize
+    pub n_neighbours: usize,
+    pub accelleration_update : Vec2,
+    pub boid_type: BoidType,
 }
 
 impl BoidMetadata {
@@ -33,7 +40,14 @@ impl BoidMetadata {
 
 impl Default for BoidMetadata {
     fn default() -> Self {
-        Self { id: std::usize::MAX, clicked_neighbour_id: std::usize::MAX, cluster_id: 0, n_neighbours: 0 }
+        Self { 
+            id: std::usize::MAX, 
+            clicked_neighbour_id: std::usize::MAX, 
+            cluster_id: 0, 
+            n_neighbours: 0, 
+            accelleration_update: Default::default(),
+            boid_type: BoidType::Mob,
+        }
     }
 }
 
@@ -64,14 +78,12 @@ impl Boid {
         }
     }
 
-    pub fn run_rules(& self, nearest_boids: &Vec<&Boid>, run_options: &RunOptions) -> Vec2 {
+    pub fn run_rules(& self, nearest_boids: &Vec<&Boid>, metadata: &Vec<BoidMetadata>, run_options: &RunOptions) -> Vec2 {
         let mut sum = Vec2::ZERO;
         let filtered = if !run_options.field_of_vision_on 
-            { nearest_boids.to_owned() }  // todo: watchout for the copy here
+            { nearest_boids.to_owned() }
         else 
             { self.filter_sight2(&nearest_boids, run_options)};
-
-        // self.n_neighbours = filtered.len() as i32;
 
         if run_options.separation_on {
             sum += self.separation(&filtered, run_options);
@@ -85,6 +97,15 @@ impl Boid {
             sum += self.alignment(&filtered, run_options);
         }
 
+        // match metadata[self.id].boid_type {
+        //     BoidType::Mob => (),
+        //     BoidType::Disruptor => {
+        //         let disrupt = self.disrupt(&filtered, metadata,  run_options);
+        //         sum += disrupt;
+        //     },
+        // }
+
+        // dbg!("{:?}", sum);
         sum
     }
 
@@ -223,7 +244,7 @@ impl Boid {
     pub fn alignment(&self, others: &Vec<&Boid>, run_options: &RunOptions) -> Vec2 {
         let mut avg = Vec2::ZERO;
         let mut count = 0.;
-
+        
         for other in others {
             let distance = distance_dyn_boid(self, other, &run_options);
             if distance < run_options.allignment_treshold_distance {
@@ -240,6 +261,32 @@ impl Boid {
             avg.clamp_length_max(run_options.max_steering)
         } else {
             Vec2::new(0.0, 0.0)
+        }
+    }
+
+    pub fn disrupt(&self, others: &Vec<&Boid>, metadata: &Vec<BoidMetadata>, run_options: &RunOptions) -> Vec2 {
+
+        let mut nearest: Option<&&Boid> = None;
+        let mut nearest_distance = f32::MAX;
+
+        for other in others {
+            match metadata[other.id].boid_type {
+                BoidType::Disruptor => break,
+                _ => ()
+            }
+
+            let distance = distance_dyn_boid(self, other, &run_options);
+            if distance < nearest_distance {
+                nearest_distance = distance;
+                nearest = Some(other);
+            }
+        }
+
+        match nearest {
+            Some(target) => {
+                (target.position - self.position) * 10.
+            },
+            None => Vec2::new(0., 0.),
         }
     }
 
@@ -267,6 +314,10 @@ impl Boid {
     }
 
     pub fn apply_force(&mut self, force: Vec2) {
+
+        // if force.length() > 0. {
+        //     dbg!("{:?}", force);
+        // }
         self.acceleration += force;
     }
 

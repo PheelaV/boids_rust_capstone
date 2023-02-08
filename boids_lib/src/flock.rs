@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::iter;
 
+
 use glam::Vec2;
 use linfa::traits::Transformer;
 use linfa::DatasetBase;
@@ -10,6 +11,7 @@ use rand::Rng;
 
 use crate::boid::Boid;
 use crate::boid::BoidMetadata;
+use crate::boid::BoidType;
 use crate::math_helpers::distance_dyn_boid;
 use crate::options::InitiationStrategy;
 use crate::options::RunOptions;
@@ -74,12 +76,14 @@ impl Default for SpatHashPiv {
 impl Tracker for SpatHash1D {
     fn new(entities: &[Boid], run_options: &RunOptions) -> Self {
         let settings = SpatHash1D::get_tracker_settings(run_options);
+        let mut metadata: Vec<BoidMetadata> = entities.iter().map(|e| BoidMetadata::new(e)).collect();
+        // metadata[0].boid_type = BoidType::Disruptor;
 
         SpatHash1D {
             // initialize vector with both capacity and values prefilled to simplify code in the update_table
             pivots: vec![Default::default(); settings.cell_count],
             table: entities.to_vec(),
-            metadata: entities.iter().map(|e| BoidMetadata::new(e)).collect(),
+            metadata: metadata,
             // initialize vector with both capacity and values prefilled to simplify code in the update_table
             index: vec![0; run_options.init_boids as usize],
             settings,
@@ -204,15 +208,16 @@ impl SpatHash1D {
     pub(self) fn update_location(&mut self, run_options: &RunOptions) {
         // reset metadata
         let metadata_default: BoidMetadata = Default::default();
-        for e in 0..self.table.len() {
-            self.metadata[e].id = e;
-            self.metadata[e].clicked_neighbour_id = metadata_default.clicked_neighbour_id;
-            self.metadata[e].cluster_id = metadata_default.cluster_id;
-            self.metadata[e].n_neighbours = metadata_default.n_neighbours;
+        for b in self.table.iter() {
+            self.metadata[b.id].id = b.id;
+            self.metadata[b.id].clicked_neighbour_id = metadata_default.clicked_neighbour_id;
+            self.metadata[b.id].cluster_id = metadata_default.cluster_id;
+            self.metadata[b.id].n_neighbours = metadata_default.n_neighbours;
+            self.metadata[b.id].accelleration_update = metadata_default.accelleration_update;
         }
 
         let mut neighbours: Vec<&Boid> = Vec::with_capacity(32);
-        let mut accellerations: Vec<Vec2> = Vec::with_capacity(run_options.init_boids);
+        let mut accellerations: Vec<Vec2> = vec![Default::default(); run_options.init_boids];
         let mut metadata: Vec<BoidMetadata> = vec![Default::default(); run_options.init_boids];
 
         let mut clicked_neighbours: Vec<usize> =
@@ -223,8 +228,9 @@ impl SpatHash1D {
 
             let b: &Boid = &self.table[e];
             self.get_neighbours(b, self.index[b.id], run_options, &mut neighbours);
-
-            // neighbours length
+           
+            // update metadata
+            // metadata[self.table[e].id].id = self.table[e].id; // todo: remove
             metadata[self.table[e].id].n_neighbours = neighbours.len();
 
             // clicked neighbour
@@ -239,7 +245,9 @@ impl SpatHash1D {
             // I will attempt to patch it with push to get rid of the overhead in pre-creating the Vec2s
             // and rely on implicit order, which might cause issues, but should not as the for loop goes
             //sequentually through the entities
-            accellerations.push(self.table[e].run_rules(&neighbours, run_options));
+            let accelleration = self.table[e].run_rules(&neighbours, &self.metadata, run_options);
+            metadata[self.table[e].id].accelleration_update = accelleration;           
+            accellerations[e] = accelleration;
         }
 
         clicked_neighbours.iter().for_each(|cn_id| {
@@ -247,16 +255,17 @@ impl SpatHash1D {
         });
 
         // update metadata
-        for e in 0..self.index.len() {
-            self.metadata[e].clicked_neighbour_id = metadata[e].clicked_neighbour_id;
-            self.metadata[e].n_neighbours = metadata[e].n_neighbours;
+        for id in 0..self.metadata.len() {
+            self.metadata[id].clicked_neighbour_id = metadata[id].clicked_neighbour_id;
+            self.metadata[id].n_neighbours = metadata[id].n_neighbours;
+            self.metadata[id].accelleration_update = metadata[id].accelleration_update;
         }
 
         // apply the forces
-        for e in 0..self.table.len() {
-            self.table[e].apply_force(accellerations[e]);
-            self.table[e].update_location(&run_options)
-        }
+            for e in 0..self.table.len() {
+                self.table[e].apply_force(accellerations[e]);
+                self.table[e].update_location(&run_options)
+            }
         accellerations.clear();
     }
 
@@ -574,7 +583,7 @@ impl Tracker for BoidTracker {
             metadata[i_cur].id = b_current.id;
 
             BoidTracker::get_neighbours_naive(b_current, &self.boids, run_options, &mut neighbours);
-            accelleration.push(self.boids[i_cur].run_rules(&neighbours, &run_options));
+            accelleration.push(self.boids[i_cur].run_rules(&neighbours, &metadata, &run_options));
             // for cn in &clicked_neighbours {
             //     metadata[cn.id].clicked_neighbour_id = run_options.clicked_boid_id;
             // }
@@ -658,6 +667,7 @@ impl Tracker for BoidTracker {
         Box::new(self.boids.iter().map(|e| (e, &self.metadata[e.id])))
     }
 }
+
 /// Uses a spatial hashing space division method, where all cells of the underlying
 /// table are stored in a 1D array, with the individual cell's being allocated
 /// dynamically, reused or updated as needed.

@@ -9,12 +9,7 @@ use nannou::geom::{Ellipse, Tri};
 use nannou::{color::*, prelude::*};
 use nannou_egui::{egui, Egui};
 use std::fs;
-use std::io::Read;
-use std::{
-    fs::File,
-    io::BufReader,
-    sync::atomic::{AtomicU64, Ordering},
-};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 mod cliargs;
 use cliargs::{Args, Config};
@@ -38,6 +33,7 @@ pub struct Model {
     run_options: RunOptions,
     last_update_micros: u128,
     last_render_micros: u128,
+    update_ticks: u128,
     since_last_update_micros: u128,
     fps: u8,
     fps_limit_on: bool,
@@ -52,19 +48,6 @@ fn model(app: &App) -> Model {
     // let args = Args::parse();
     // Parse whole args with clap
     let mut args = Args::parse();
-
-    // Get config file
-    // let config = if let Ok(f) = File::open(&args.config_path) {
-    //     // Parse config with serde
-    //     match serde_yaml::from_reader::<_, <Config as ClapSerde>::Opt>(BufReader::new(f)) {
-    //         // merge config already parsed from clap
-    //         Ok(config) => Config::from(config).merge(&mut args.config),
-    //         Err(err) => panic!("Error in configuration file:\n{}", err),
-    //     }
-    // } else {
-    //     // If there is not config file return only config parsed from clap
-    //     Config::from(&mut args.config)
-    // };
 
     let config = if let Ok(s) = fs::read_to_string(&args.config_path) {
         match toml::from_str::<<Config as ClapSerde>::Opt>(&s) {
@@ -110,6 +93,7 @@ fn model(app: &App) -> Model {
         .key_pressed(key_pressed)
         .mouse_pressed(mouse_pressed)
         .closed(window_closed)
+        .resizable(false)
         .size(
             run_options.window.win_w as u32,
             run_options.window.win_h as u32,
@@ -120,9 +104,7 @@ fn model(app: &App) -> Model {
         .build()
         .unwrap();
 
-    // Window::set_resizable(main_window, false);
-
-    let window = app.window(main_window).unwrap();
+     let window = app.window(main_window).unwrap();
 
     let birdwatcher = Birdwatcher::new(run_options.sample_rate);
 
@@ -133,6 +115,7 @@ fn model(app: &App) -> Model {
         run_options,
         last_update_micros: 0,
         last_render_micros: 0,
+        update_ticks: 0,
         since_last_update_micros: 0,
         control_state: ControlsState {
             execution_paused: false,
@@ -174,12 +157,6 @@ fn update(app: &App, model: &mut Model, update: Update) {
 
     // update window size as it could be resized
     let win = &app.window_rect();
-    // run_options.window.win_left = win.left();
-    // run_options.window.win_right = win.right();
-    // run_options.window.win_top = win.top();
-    // run_options.window.win_bottom = win.bottom();
-    // run_options.window.win_h = win.h();
-    // run_options.window.win_w = win.w();
 
     let new_win = WindowSize::new(
         win.left(),
@@ -385,9 +362,9 @@ fn update(app: &App, model: &mut Model, update: Update) {
                 ui.label(format!("No. boids: {n:3.}", n = run_options.init_boids));
             });
 
-            let ticks = UPDATE_TICKS.load(Ordering::SeqCst);
+            // let ticks = UPDATE_TICKS.load(Ordering::SeqCst);
             ui.horizontal(|ui| {
-                ui.label(format!("No. ticks: {t:3.}", t = ticks));
+                ui.label(format!("No. ticks: {t:3.}", t = model.update_ticks));
             });
 
             ui.horizontal(|ui| {
@@ -408,6 +385,8 @@ fn update(app: &App, model: &mut Model, update: Update) {
     }
     flock.update(&run_options);
     bird_watcher.watch(&flock);
+
+    model.update_ticks += 1;
 }
 
 fn raw_window_event(_app: &App, model: &mut Model, event: &nannou::winit::event::WindowEvent) {
@@ -445,7 +424,7 @@ fn should_render_update(model: &mut Model) -> bool {
         model.last_update_micros - model.last_render_micros > 1_000_000 / model.fps as u128;
 
     if should_render {
-        UPDATE_TICKS.fetch_add(1, Ordering::SeqCst);
+        _ = UPDATE_TICKS.fetch_add(1, Ordering::SeqCst);
         model.last_render_micros = model.last_update_micros;
     }
 
@@ -511,7 +490,7 @@ fn key_pressed(app: &App, model: &mut Model, key: Key) -> () {
         // for _ in 0..run_options.init_boids {
         //     model.flock.insert_single(&run_options);
         // }
-        if run_options.init_boids > 2_usize.pow(13) {
+        if run_options.init_boids > 2_usize.pow(15) {
             return;
         }
         run_options.init_boids *= 2;
@@ -534,6 +513,7 @@ fn key_pressed(app: &App, model: &mut Model, key: Key) -> () {
     } else if key == Key::R {
         // restart the flock, not the simulation
         model.flock.restart(&model.run_options);
+        model.update_ticks = 0; 
     } else if key == Key::V {
         // switch vision on or off
         run_options.field_of_vision_on = !run_options.field_of_vision_on
@@ -826,34 +806,34 @@ fn view(app: &App, model: &Model, frame: Frame) {
     }
     let draw = app.draw();
 
-    // let settings = SpatHash1D::get_tracker_settings(&model.run_options);
+    let settings = SpatHash1D::get_tracker_settings(&model.run_options);
 
-    // let index = SpatHash1D::get_table_index(
-    //     app.mouse.x as f32,
-    //     app.mouse.y as f32,
-    //     model.run_options.window.win_left,
-    //     model.run_options.window.win_right - 1.,
-    //     model.run_options.window.win_bottom,
-    //     model.run_options.window.win_top - 1.,
-    //     settings.x_cell_res,
-    //     settings.y_cell_res,
-    //     settings.x_cell_count,
-    // );
+    let index = SpatHash1D::get_table_index(
+        app.mouse.x as f32,
+        app.mouse.y as f32,
+        model.run_options.window.win_left,
+        model.run_options.window.win_right - 1.,
+        model.run_options.window.win_bottom,
+        model.run_options.window.win_top - 1.,
+        settings.x_cell_res,
+        settings.y_cell_res,
+        settings.x_cell_count,
+    );
 
-    // let mouse_label2 = format!("index: {}", index);
+    let mouse_label2 = format!("index: {}", index);
 
-    // let mouse_label = format!("{x:.2} | {y:.2}", x = app.mouse.x, y = app.mouse.y);
+    let mouse_label = format!("{x:.2} | {y:.2}", x = app.mouse.x, y = app.mouse.y);
 
-    // draw.text(&mouse_label)
-    //     .x_y(app.mouse.x + 50., app.mouse.y + 20.)
-    //     .z(10.)
-    //     .color(BLACK)
-    //     .font_size(20);
-    // draw.text(&mouse_label2)
-    //     .x_y(app.mouse.x + 50., app.mouse.y - 20.)
-    //     .z(10.)
-    //     .color(BLACK)
-    //     .font_size(20);
+    draw.text(&mouse_label)
+        .x_y(app.mouse.x + 50., app.mouse.y + 20.)
+        .z(10.)
+        .color(BLACK)
+        .font_size(20);
+    draw.text(&mouse_label2)
+        .x_y(app.mouse.x + 50., app.mouse.y - 20.)
+        .z(10.)
+        .color(BLACK)
+        .font_size(20);
 
     draw.background().color(PLUM);
 
