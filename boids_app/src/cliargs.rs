@@ -29,7 +29,7 @@ pub struct Args{
 /// Uses defaults, which can be overwritten by specifying a filepath for the `-c` or `--config` arg option
 pub struct Config{
         
-    #[default(128)]
+    #[default(1)]
     #[arg(short = 'n', long)]
     /// number of boids
     pub no_boids: usize,
@@ -94,4 +94,7 @@ pub struct Config{
     #[default(false)]
     #[arg(long = "dbscan")]
     pub dbscan_flock_clustering_on: bool,
+    #[default(true)]
+    #[arg(long = "wander")]
+    pub wander_on: bool, 
 }

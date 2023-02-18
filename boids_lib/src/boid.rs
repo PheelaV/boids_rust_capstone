@@ -1,17 +1,10 @@
-
-
-// use nannou::prelude::{Vec2, vec2, PI};
-
 use std::{f32::consts::PI, fmt::Debug};
 
 use glam::Vec2;
 
 use crate::{
     math_helpers::distance_dyn_boid,
-    options::{
-        RunOptions, 
-        Boundary
-    },
+    options::{Boundary, RunOptions},
 };
 
 #[derive(Debug, Clone)]
@@ -26,8 +19,10 @@ pub struct BoidMetadata {
     pub cluster_id: usize,
     pub clicked_neighbour_id: usize,
     pub n_neighbours: usize,
-    pub accelleration_update : Vec2,
+    pub accelleration_update: Vec2,
     pub boid_type: BoidType,
+    pub wander_direction: f32,
+    pub wander_next: f32,
 }
 
 impl BoidMetadata {
@@ -40,13 +35,15 @@ impl BoidMetadata {
 
 impl Default for BoidMetadata {
     fn default() -> Self {
-        Self { 
-            id: std::usize::MAX, 
-            clicked_neighbour_id: std::usize::MAX, 
-            cluster_id: 0, 
-            n_neighbours: 0, 
+        Self {
+            id: std::usize::MAX,
+            clicked_neighbour_id: std::usize::MAX,
+            cluster_id: 0,
+            n_neighbours: 0,
             accelleration_update: Default::default(),
             boid_type: BoidType::Mob,
+            wander_direction: 0.,
+            wander_next: 0.,
         }
     }
 }
@@ -58,6 +55,7 @@ pub struct Boid {
     pub position: Vec2,
     pub velocity: Vec2,
     acceleration: Vec2,
+    // pub wander_direction: f32
     // pub n_neighbours: i32,
     // pub cluster_id: usize
 }
@@ -73,17 +71,26 @@ impl Boid {
             position,
             velocity,
             acceleration,
+            // wander_direction: 0.,
             // n_neighbours: 0,
             // cluster_id: 0,
         }
     }
 
-    pub fn run_rules(& self, nearest_boids: &Vec<&Boid>, metadata: &Vec<BoidMetadata>, run_options: &RunOptions) -> Vec2 {
+    // TODO: action selection will be important as the number of rules grows
+    pub fn run_rules(
+        &self,
+        nearest_boids: &Vec<&Boid>,
+        metadata: &Vec<BoidMetadata>,
+        run_options: &RunOptions,
+    ) -> Vec2 {
         let mut sum = Vec2::ZERO;
-        let filtered = if !run_options.field_of_vision_on 
-            { nearest_boids.to_owned() }
-        else 
-            { self.filter_sight2(&nearest_boids, run_options)};
+
+        let filtered = if !run_options.field_of_vision_on {
+            nearest_boids.to_owned()
+        } else {
+            self.filter_sight2(&nearest_boids, run_options)
+        };
 
         if run_options.separation_on {
             sum += self.separation(&filtered, run_options);
@@ -95,6 +102,10 @@ impl Boid {
 
         if run_options.alignment_on {
             sum += self.alignment(&filtered, run_options);
+        }
+
+        if run_options.wander_on {
+            sum += self.wander(&filtered, metadata, run_options);
         }
 
         // match metadata[self.id].boid_type {
@@ -110,67 +121,77 @@ impl Boid {
     }
 
     pub fn filter_sight<'a>(&self, others: &[&'a Boid], run_options: &RunOptions) -> Vec<&'a Boid> {
-        let res: Vec<&Boid> = others.iter()
-        .filter(|b_other| {
-            if self.id == b_other.id {
-                return false; 
-            }
-            
-            let vec_to_other = b_other.position - self.position;
-            
-            if vec_to_other.length() < 0.01 {
-                return false;
-            }
-            
-            let atan2_self = self.velocity.y.atan2(self.velocity.x);
-            let atan2_other = vec_to_other.y.atan2(vec_to_other.x);
-            let mut atan2_diff = atan2_other - atan2_self;
-            
-            // normalize
-            atan2_diff = 
-            if atan2_diff > PI { 
-                atan2_diff - 2.*PI
-            } else if atan2_diff <= -1.* PI{
-                atan2_diff + 2.*PI
-            } else {atan2_diff};
+        let res: Vec<&Boid> = others
+            .iter()
+            .filter(|b_other| {
+                if self.id == b_other.id {
+                    return false;
+                }
 
-            run_options.field_of_vision_on && atan2_diff.abs() < run_options.field_of_vision_half_rad  
-          })
-          .map(|b| {*b})
-        .collect();
+                let vec_to_other = b_other.position - self.position;
+
+                if vec_to_other.length() < 0.01 {
+                    return false;
+                }
+
+                let atan2_self = self.velocity.y.atan2(self.velocity.x);
+                let atan2_other = vec_to_other.y.atan2(vec_to_other.x);
+                let mut atan2_diff = atan2_other - atan2_self;
+
+                // normalize
+                atan2_diff = if atan2_diff > PI {
+                    atan2_diff - 2. * PI
+                } else if atan2_diff <= -1. * PI {
+                    atan2_diff + 2. * PI
+                } else {
+                    atan2_diff
+                };
+
+                run_options.field_of_vision_on
+                    && atan2_diff.abs() < run_options.field_of_vision_half_rad
+            })
+            .map(|b| *b)
+            .collect();
 
         res
     }
 
-    pub fn filter_sight2<'a>(&self, others: &Vec<&'a Boid>, run_options: &RunOptions) -> Vec<&'a Boid> {
-        let res: Vec<&Boid> = others.iter()
-        .filter(|b_other| {
-            if self.id == b_other.id {
-                return false; 
-            }
-            
-            let vec_to_other = b_other.position - self.position;
-            
-            if vec_to_other.length() < 0.01 {
-                return false;
-            }
-            
-            let atan2_self = self.velocity.y.atan2(self.velocity.x);
-            let atan2_other = vec_to_other.y.atan2(vec_to_other.x);
-            let mut atan2_diff = atan2_other - atan2_self;
-            
-            // normalize
-            atan2_diff = 
-            if atan2_diff > PI { 
-                atan2_diff - 2.*PI
-            } else if atan2_diff <= -1.* PI{
-                atan2_diff + 2.*PI
-            } else {atan2_diff};
+    pub fn filter_sight2<'a>(
+        &self,
+        others: &Vec<&'a Boid>,
+        run_options: &RunOptions,
+    ) -> Vec<&'a Boid> {
+        let res: Vec<&Boid> = others
+            .iter()
+            .filter(|b_other| {
+                if self.id == b_other.id {
+                    return false;
+                }
 
-            run_options.field_of_vision_on && atan2_diff.abs() < run_options.field_of_vision_half_rad  
-          })
-          .map(|b| {*b})
-        .collect();
+                let vec_to_other = b_other.position - self.position;
+
+                if vec_to_other.length() < 0.01 {
+                    return false;
+                }
+
+                let atan2_self = self.velocity.y.atan2(self.velocity.x);
+                let atan2_other = vec_to_other.y.atan2(vec_to_other.x);
+                let mut atan2_diff = atan2_other - atan2_self;
+
+                // normalize
+                atan2_diff = if atan2_diff > PI {
+                    atan2_diff - 2. * PI
+                } else if atan2_diff <= -1. * PI {
+                    atan2_diff + 2. * PI
+                } else {
+                    atan2_diff
+                };
+
+                run_options.field_of_vision_on
+                    && atan2_diff.abs() < run_options.field_of_vision_half_rad
+            })
+            .map(|b| *b)
+            .collect();
 
         res
     }
@@ -227,7 +248,7 @@ impl Boid {
     }
 
     pub fn seek(&self, target: Vec2, run_options: &RunOptions) -> Vec2 {
-        let mut desired = target - self.position;        
+        let mut desired = target - self.position;
 
         if desired.length() == 0. {
             Vec2::new(0., 0.)
@@ -244,7 +265,7 @@ impl Boid {
     pub fn alignment(&self, others: &Vec<&Boid>, run_options: &RunOptions) -> Vec2 {
         let mut avg = Vec2::ZERO;
         let mut count = 0.;
-        
+
         for other in others {
             let distance = distance_dyn_boid(self, other, &run_options);
             if distance < run_options.allignment_treshold_distance {
@@ -264,15 +285,19 @@ impl Boid {
         }
     }
 
-    pub fn disrupt(&self, others: &Vec<&Boid>, metadata: &Vec<BoidMetadata>, run_options: &RunOptions) -> Vec2 {
-
+    pub fn disrupt(
+        &self,
+        others: &Vec<&Boid>,
+        metadata: &Vec<BoidMetadata>,
+        run_options: &RunOptions,
+    ) -> Vec2 {
         let mut nearest: Option<&&Boid> = None;
         let mut nearest_distance = f32::MAX;
 
         for other in others {
             match metadata[other.id].boid_type {
                 BoidType::Disruptor => break,
-                _ => ()
+                _ => (),
             }
 
             let distance = distance_dyn_boid(self, other, &run_options);
@@ -283,17 +308,36 @@ impl Boid {
         }
 
         match nearest {
-            Some(target) => {
-                (target.position - self.position) * 10.
-            },
+            Some(target) => (target.position - self.position) * 10.,
             None => Vec2::new(0., 0.),
         }
+    }
+
+    pub fn wander(
+        &self,
+        _: &Vec<&Boid>,
+        metadata: &Vec<BoidMetadata>,
+        run_options: &RunOptions,
+    ) -> Vec2 {
+        let center = self.position
+            + self.velocity.clamp_length(
+                run_options.size * (2_f32).sqrt(),
+                run_options.size * (2_f32).sqrt(),
+            );
+
+        let f_wander = Vec2::new(
+            run_options.size * metadata[self.id].wander_direction.cos(),
+            run_options.size * metadata[self.id].wander_direction.sin(),
+        );
+
+        // return (center + f_wander) - self.position;
+        return self.seek(center + f_wander, run_options)
     }
 
     // pub fn avoid(&self, x: f32, y:f32, run_options: &RunOptions) {
     //     let distance = distance_dyn(self.position.x, x, self.position.y, y, &run_options);
 
-    // 
+    //
 
     // Actually shifts the individual's location
     pub fn update_location(&mut self, run_options: &RunOptions) {
@@ -303,7 +347,7 @@ impl Boid {
         if self.velocity.length() < run_options.min_speed {
             self.velocity = self.velocity.normalize() * run_options.min_speed;
         }
-        
+
         if !run_options.stop_movement {
             self.position += self.velocity * run_options.baseline_speed;
         }
@@ -314,7 +358,6 @@ impl Boid {
     }
 
     pub fn apply_force(&mut self, force: Vec2) {
-
         // if force.length() > 0. {
         //     dbg!("{:?}", force);
         // }
@@ -340,14 +383,18 @@ impl Boid {
             Boundary::Absorbing => todo!(),
             Boundary::Reflective => {
                 // flip velocity if it is going beyond the edge
-                if (self.position.x < run_options.window.win_left && self.velocity.x < 0.) || (self.position.x > run_options.window.win_right && self.velocity.x > 0.) {
+                if (self.position.x < run_options.window.win_left && self.velocity.x < 0.)
+                    || (self.position.x > run_options.window.win_right && self.velocity.x > 0.)
+                {
                     self.velocity.x = -self.velocity.x;
                 }
 
-                if (self.position.y > run_options.window.win_top && self.velocity.y > 0.) || (self.position.y < run_options.window.win_bottom && self.velocity.y < 0.) {
+                if (self.position.y > run_options.window.win_top && self.velocity.y > 0.)
+                    || (self.position.y < run_options.window.win_bottom && self.velocity.y < 0.)
+                {
                     self.velocity.y = -self.velocity.y;
                 }
-            },
+            }
             Boundary::Repulsive { distance, force } => {
                 // add accelleration as a vector pointing away from the barrier
                 if self.position.x < run_options.window.win_left + distance {

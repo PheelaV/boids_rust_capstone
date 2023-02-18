@@ -7,8 +7,10 @@ use clap_serde_derive::{clap::Parser, ClapSerde};
 use nannou::draw::properties::ColorScalar;
 use nannou::geom::{Ellipse, Tri};
 use nannou::{color::*, prelude::*};
+use nannou_egui::color_picker::Alpha;
 use nannou_egui::{egui, Egui};
 use std::fs;
+use std::ops::Mul;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 mod cliargs;
@@ -249,6 +251,10 @@ fn update(app: &App, model: &mut Model, update: Update) {
                     &mut run_options.separation_on,
                     "separation",
                 ));
+                ui.add(egui::Checkbox::new(
+                    &mut run_options.wander_on,
+                    "wander",
+                ));
             });
 
             ui.separator();
@@ -309,6 +315,11 @@ fn update(app: &App, model: &mut Model, update: Update) {
                     &mut run_options.separation_treshold_coefficient,
                     0.0..=2.0,
                 ))
+            });
+
+            ui.horizontal(|ui| {
+                ui.label("wander rate");
+                ui.add(egui::Slider::new(&mut run_options.wander_rate, 0_f32..=1_f32))
             });
 
             ui.separator();
@@ -679,6 +690,18 @@ impl DrawableBoid for Boid {
 
         // If this instance is selected, show diagnostics
         if self.id == run_options.clicked_boid_id {
+
+           draw.ellipse()
+           .radius(run_options.size)
+           .color(rgba(0.1,0.1, 0.1, 0.5))
+           .xy(*position + velocity.clamp_length(run_options.size * (2.).sqrt(), run_options.size * (2.).sqrt()))
+           .z(30.);
+//            draw.line()
+//            .start(self.position)
+//            .end(self.velocity * 100. + self.position)
+//            .color(LIME)
+//            .weight(4.0);
+//    } else if metadata.clicke 
             // println!("vel {:#?}", velocity);
             // println!("rad {:#?}", theta);
             // println!("deg {:#?}", theta * 180. / PI);
@@ -744,9 +767,10 @@ impl DrawableBoid for Boid {
             // velocity vector scaled 100x
             draw.line()
                 .start(self.position)
-                .end(self.velocity * 100. + self.position)
+                .end(self.velocity * 50. + self.position)
                 .color(LIME)
-                .weight(4.0);
+                .weight(4.0)
+                .z(30.);
         } else if metadata.clicked_neighbour_id != std::usize::MAX
             && metadata.clicked_neighbour_id == run_options.clicked_boid_id
         {

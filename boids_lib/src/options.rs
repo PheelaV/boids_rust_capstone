@@ -25,9 +25,12 @@ pub struct RunOptions {
     pub cohesion_treshold_coefficient: f32,
     pub separation_treshold_coefficient: f32,
 
+    pub wander_rate: f32,
+
     pub alignment_on: bool,
     pub cohesion_on: bool,
     pub separation_on: bool,
+    pub wander_on: bool,
 
     pub window: WindowSize,
     pub save_options: SaveOptions,
@@ -153,6 +156,8 @@ impl Default for RunOptions {
             dbscan_flock_clustering_on: false,
             neighbours_cosidered: 0,
             stop_movement: false,
+            wander_rate: 0.005, 
+            wander_on: false,
         };
 
         res.update_sensory_distances();

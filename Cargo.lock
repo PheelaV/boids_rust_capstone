@@ -218,6 +218,7 @@ dependencies = [
  "csv",
  "flat_spatial",
  "glam",
+ "lazy_static",
  "linfa",
  "linfa-clustering",
  "linfa-datasets",

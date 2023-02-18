@@ -1,6 +1,7 @@
 use std::collections::HashSet;
+use std::f32::consts::PI;
 use std::iter;
-
+use std::sync::Mutex;
 
 use glam::Vec2;
 use linfa::traits::Transformer;
@@ -9,9 +10,15 @@ use linfa_clustering::Dbscan;
 use ndarray::Array2;
 use rand::Rng;
 
+use lazy_static::lazy_static;
+use rand::SeedableRng;
+use rand_xoshiro::Xoshiro128Plus;
+lazy_static! {
+    static ref MY_RNG: Mutex<Xoshiro128Plus> = Mutex::new(Xoshiro128Plus::from_entropy());
+}
+
 use crate::boid::Boid;
 use crate::boid::BoidMetadata;
-use crate::boid::BoidType;
 use crate::math_helpers::distance_dyn_boid;
 use crate::options::InitiationStrategy;
 use crate::options::RunOptions;
@@ -76,7 +83,8 @@ impl Default for SpatHashPiv {
 impl Tracker for SpatHash1D {
     fn new(entities: &[Boid], run_options: &RunOptions) -> Self {
         let settings = SpatHash1D::get_tracker_settings(run_options);
-        let mut metadata: Vec<BoidMetadata> = entities.iter().map(|e| BoidMetadata::new(e)).collect();
+        let mut metadata: Vec<BoidMetadata> =
+            entities.iter().map(|e| BoidMetadata::new(e)).collect();
         // metadata[0].boid_type = BoidType::Disruptor;
 
         SpatHash1D {
@@ -222,15 +230,22 @@ impl SpatHash1D {
 
         let mut clicked_neighbours: Vec<usize> =
             Vec::with_capacity(run_options.neighbours_cosidered);
-        // todo: this is likely where the performance degrades because of the creation of the vectors above
+        // todo: look at ways to reduce the vector allocations above
+
         for e in 0..self.table.len() {
+            // dbg!(self.metadata[e].wander_direction);
             neighbours.clear();
 
             let b: &Boid = &self.table[e];
             self.get_neighbours(b, self.index[b.id], run_options, &mut neighbours);
-           
-            // update metadata
-            // metadata[self.table[e].id].id = self.table[e].id; // todo: remove
+
+            let wander_next = MY_RNG
+                .lock()
+                .unwrap()
+                .gen_range(0_f32..run_options.wander_rate);
+            metadata[self.table[e].id].wander_next = wander_next;
+            metadata[self.table[e].id].wander_direction =
+                (self.metadata[self.table[e].id].wander_direction + wander_next) % 2. * PI;
             metadata[self.table[e].id].n_neighbours = neighbours.len();
 
             // clicked neighbour
@@ -246,26 +261,27 @@ impl SpatHash1D {
             // and rely on implicit order, which might cause issues, but should not as the for loop goes
             //sequentually through the entities
             let accelleration = self.table[e].run_rules(&neighbours, &self.metadata, run_options);
-            metadata[self.table[e].id].accelleration_update = accelleration;           
+            metadata[self.table[e].id].accelleration_update = accelleration;
             accellerations[e] = accelleration;
         }
 
-        clicked_neighbours.iter().for_each(|cn_id| {
-            metadata[*cn_id].clicked_neighbour_id = run_options.clicked_boid_id
-        });
+        clicked_neighbours
+            .iter()
+            .for_each(|cn_id| metadata[*cn_id].clicked_neighbour_id = run_options.clicked_boid_id);
 
-        // update metadata
+        // propagate metadata update
         for id in 0..self.metadata.len() {
             self.metadata[id].clicked_neighbour_id = metadata[id].clicked_neighbour_id;
             self.metadata[id].n_neighbours = metadata[id].n_neighbours;
             self.metadata[id].accelleration_update = metadata[id].accelleration_update;
+            self.metadata[id].wander_direction = metadata[id].wander_direction
         }
 
         // apply the forces
-            for e in 0..self.table.len() {
-                self.table[e].apply_force(accellerations[e]);
-                self.table[e].update_location(&run_options)
-            }
+        for e in 0..self.table.len() {
+            self.table[e].apply_force(accellerations[e]);
+            self.table[e].update_location(&run_options)
+        }
         accellerations.clear();
     }
 
@@ -495,14 +511,15 @@ impl SpatHash1D {
             if self.pivots[cell].usg == 0 {
                 continue;
             }
-            for index in self.pivots[cell].init.unwrap()..self.pivots[cell].fin.unwrap()
-            {
+            for index in self.pivots[cell].init.unwrap()..self.pivots[cell].fin.unwrap() {
                 if self.table[index].id != boid.id
                     && distance_dyn_boid(boid, &self.table[index], run_options)
                         <= run_options.max_sensory_distance
                 {
                     neighbours.push(&self.table[index]);
-                    if run_options.neighbours_cosidered != 0 && neighbours.len() == run_options.neighbours_cosidered {
+                    if run_options.neighbours_cosidered != 0
+                        && neighbours.len() == run_options.neighbours_cosidered
+                    {
                         break;
                     }
                 }
@@ -537,7 +554,7 @@ impl BoidTracker {
     //         if distance < run_options.max_sensory_distance {
     //             neighbours.push(b_other);
     //         }
-    //     } 
+    //     }
     // }
 
     pub fn get_neighbours_naive<'a>(
@@ -555,7 +572,7 @@ impl BoidTracker {
             if distance < run_options.max_sensory_distance {
                 neighbours.push(b_other);
             }
-        } 
+        }
     }
 }
 
@@ -705,6 +722,10 @@ impl Flock {
         }
     }
 
+    pub fn get_random() {
+        todo!()
+    }
+
     pub fn view(&self) -> (&Vec<Boid>, &Vec<BoidMetadata>) {
         self.tracker.view()
     }
@@ -841,10 +862,10 @@ mod tests {
     use std::f32::consts::PI;
 
     use glam::Vec2;
-    use rand::{SeedableRng, Rng};
+    use rand::{Rng, SeedableRng};
     use rand_xoshiro::{self, Xoshiro128StarStar};
 
-    use crate::flock::{SpatialHashingTableSettings, BoidTracker};
+    use crate::flock::{BoidTracker, SpatialHashingTableSettings};
     use crate::math_helpers::distance_dyn;
     use crate::{
         boid::Boid,
@@ -852,7 +873,7 @@ mod tests {
         options::{self, RunOptions, WindowSize},
     };
 
-    use super::{Tracker};
+    use super::Tracker;
 
     #[test]
     fn should_produce_1d_index_positive_point() {
@@ -1021,7 +1042,11 @@ mod tests {
         res
     }
 
-    fn get_neighbourhood_setup(run_options: &RunOptions, sensory_distance: f32, no_neighbours: usize) -> (Vec<Boid>, Vec<Vec<Boid>>, Vec<Boid>) {
+    fn get_neighbourhood_setup(
+        run_options: &RunOptions,
+        sensory_distance: f32,
+        no_neighbours: usize,
+    ) -> (Vec<Boid>, Vec<Vec<Boid>>, Vec<Boid>) {
         let left = run_options.window.win_left + sensory_distance - 1.;
         let right = run_options.window.win_right - sensory_distance + 1.;
         let bottom = run_options.window.win_bottom + sensory_distance - 1.;
@@ -1095,18 +1120,18 @@ mod tests {
         run_options.window = options::get_window_size(1400., 900.);
         run_options.neighbours_cosidered = no_neighbours;
 
-        let (
-            clicked, 
-            clicked_neighbours, 
-            boids
-        ) = get_neighbourhood_setup(&run_options, sensory_distance, no_neighbours);
+        let (clicked, clicked_neighbours, boids) =
+            get_neighbourhood_setup(&run_options, sensory_distance, no_neighbours);
 
         let mut tracker = SpatHash1D::new(&boids, &run_options);
         tracker.update_table(&run_options);
 
-
-        fn get_index(entity: &Boid, run_options: &RunOptions, settings: &SpatialHashingTableSettings) -> usize {
-             SpatHash1D::get_table_index(
+        fn get_index(
+            entity: &Boid,
+            run_options: &RunOptions,
+            settings: &SpatialHashingTableSettings,
+        ) -> usize {
+            SpatHash1D::get_table_index(
                 entity.position.x,
                 entity.position.y,
                 run_options.window.win_left,
@@ -1135,7 +1160,8 @@ mod tests {
                 &mut neighbours,
             );
 
-            let retrieved_neighbour_id_set: HashSet<usize> = neighbours.iter().map(|nb| nb.id).collect();
+            let retrieved_neighbour_id_set: HashSet<usize> =
+                neighbours.iter().map(|nb| nb.id).collect();
 
             let neighbour_difference: Vec<&Boid> = clicked_neighbours[i]
                 // .to_owned()
@@ -1173,11 +1199,8 @@ mod tests {
         run_options.window = options::get_window_size(1400., 900.);
         run_options.neighbours_cosidered = no_neighbours;
 
-        let (
-            clicked, 
-            clicked_neighbours, 
-            boids
-        ) = get_neighbourhood_setup(&run_options, sensory_distance, no_neighbours);
+        let (clicked, clicked_neighbours, boids) =
+            get_neighbourhood_setup(&run_options, sensory_distance, no_neighbours);
 
         // let tracker = BoidTracker::new(&boids, &run_options);
         // check all flockmates have been fetched
@@ -1189,14 +1212,10 @@ mod tests {
 
             let clicked_boid = &clicked[i];
 
-            BoidTracker::get_neighbours_naive(
-                clicked_boid,
-                &boids,
-                &run_options,
-                &mut neighbours
-            );
+            BoidTracker::get_neighbours_naive(clicked_boid, &boids, &run_options, &mut neighbours);
 
-            let retrieved_neighbour_id_set: HashSet<usize> = neighbours.iter().map(|nb| nb.id).collect();
+            let retrieved_neighbour_id_set: HashSet<usize> =
+                neighbours.iter().map(|nb| nb.id).collect();
 
             let neighbour_difference: Vec<&Boid> = clicked_neighbours[i]
                 // .to_owned()
@@ -1206,10 +1225,25 @@ mod tests {
 
             let neighbour_difference_dist: Vec<f32> = neighbour_difference
                 .iter()
-                .map(|b| distance_dyn(b.position.x, clicked_boid.position.x, b.position.y,clicked_boid.position.y, &run_options))
+                .map(|b| {
+                    distance_dyn(
+                        b.position.x,
+                        clicked_boid.position.x,
+                        b.position.y,
+                        clicked_boid.position.y,
+                        &run_options,
+                    )
+                })
                 .collect();
 
-            assert_eq!(clicked_neighbours[i].len(), neighbours.len(), "centroid id: {}, ND: {:#?}, NDD: {:#?}", clicked_boid.id, neighbour_difference, neighbour_difference_dist)
+            assert_eq!(
+                clicked_neighbours[i].len(),
+                neighbours.len(),
+                "centroid id: {}, ND: {:#?}, NDD: {:#?}",
+                clicked_boid.id,
+                neighbour_difference,
+                neighbour_difference_dist
+            )
         }
     }
 
@@ -1235,14 +1269,13 @@ mod tests {
     //     run_options.neighbours_cosidered = no_neighbours;
 
     //     let (
-    //         clicked, 
-    //         clicked_neighbours, 
+    //         clicked,
+    //         clicked_neighbours,
     //         boids
     //     ) = get_neighbourhood_setup(&run_options, sensory_distance, no_neighbours);
 
     //     let mut tracker = SpatHash1D::new(&boids, &run_options);
     //     tracker.update_table(&run_options);
-
 
     //     fn get_index(entity: &Boid, run_options: &RunOptions, settings: &SpatialHashingTableSettings) -> usize {
     //          SpatHash1D::get_table_index(
