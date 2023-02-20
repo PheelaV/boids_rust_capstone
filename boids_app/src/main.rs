@@ -447,6 +447,13 @@ fn key_pressed(app: &App, model: &mut Model, key: Key) -> () {
         ref mut run_options,
         ..
     } = model;
+    
+
+    if model.control_state.controls_open && // if controls are open
+    // allow only these actions
+    !(key == Key::C || key == Key::R || key == Key::Space) {
+        return;
+    }
 
     if key == Key::Space {
         // pause the whole simulation
@@ -472,6 +479,9 @@ fn key_pressed(app: &App, model: &mut Model, key: Key) -> () {
     } else if key == Key::Key3 {
         // turn separation on/off
         run_options.separation_on = !run_options.separation_on;
+    } else if key == Key::Key4 {
+        // turn separation on/off
+        run_options.wander_on = !run_options.wander_on;
     } else if key == Key::D {
         // delete a boid from the flock
         if run_options.init_boids == 1 {
@@ -691,11 +701,29 @@ impl DrawableBoid for Boid {
         // If this instance is selected, show diagnostics
         if self.id == run_options.clicked_boid_id {
 
-           draw.ellipse()
-           .radius(run_options.size)
-           .color(rgba(0.1,0.1, 0.1, 0.5))
-           .xy(*position + velocity.clamp_length(run_options.size * (2.).sqrt(), run_options.size * (2.).sqrt()))
-           .z(30.);
+            if run_options.wander_on {
+
+                let center = *position + velocity.clamp_length(run_options.size * (2.).sqrt(), run_options.size * (2.).sqrt());
+                draw.ellipse()
+                .radius(run_options.size)
+                .color(rgba(0.1,0.1, 0.1, 0.5))
+                .xy(center)
+                .z(30.);
+ 
+                let dx = metadata.wander_direction.cos();
+                let dy = metadata.wander_direction.sin();
+
+                let dxy = vec2(dx, dy);
+                // let dxy = *velocity + vec2(dx, dy);
+
+                draw.ellipse()
+                .radius(run_options.size * 0.2)
+                .color(WHITE)
+                .xy(center + dxy.clamp_length(run_options.size * 0.9, run_options.size * 0.9))
+                // .xy(center + Vec2::new(dx, dy).clamp_length(run_options.size * 0.9, run_options.size * 0.9))
+                .z(31.);
+
+            }
 //            draw.line()
 //            .start(self.position)
 //            .end(self.velocity * 100. + self.position)
@@ -709,28 +737,31 @@ impl DrawableBoid for Boid {
             // Highlight the boid
             drawing.color(HOTPINK);
 
-            // drawing a semi-sircle to demonstrate FOV
-            // https://stackoverflow.com/a/72701981/9316685
-            let radius = run_options.separation_treshold_distance * 2.;
-            let section = Ellipse::new(Rect::from_x_y_w_h(0., 0., radius, radius), 120.).section(
-                theta - run_options.field_of_vision_half_rad,
-                run_options.field_of_vision_half_rad * 2.,
-            );
-            let triangles = section.trangles();
-            let mut tris = Vec::new();
-            for t in triangles {
-                tris.push(Tri([
-                    [t.0[0][0], t.0[0][1], 0.],
-                    [t.0[1][0], t.0[1][1], 0.],
-                    [t.0[2][0], t.0[2][1], 0.],
-                ]))
+            if run_options.field_of_vision_on {
+
+                // drawing a semi-sircle to demonstrate FOV
+                // https://stackoverflow.com/a/72701981/9316685
+                let radius = run_options.separation_treshold_distance * 2.;
+                let section = Ellipse::new(Rect::from_x_y_w_h(0., 0., radius, radius), 120.).section(
+                    theta - run_options.field_of_vision_half_rad,
+                    run_options.field_of_vision_half_rad * 2.,
+                );
+                let triangles = section.trangles();
+                let mut tris = Vec::new();
+                for t in triangles {
+                    tris.push(Tri([
+                        [t.0[0][0], t.0[0][1], 0.],
+                        [t.0[1][0], t.0[1][1], 0.],
+                        [t.0[2][0], t.0[2][1], 0.],
+                    ]))
+                }
+                draw.mesh()
+                    .tris(tris.into_iter())
+                    .xy(self.position)
+                    .color(RED)
+                    .rgba(255., 0., 0., 40.)
+                    .z(-1.);
             }
-            draw.mesh()
-                .tris(tris.into_iter())
-                .xy(self.position)
-                .color(RED)
-                .rgba(255., 0., 0., 40.)
-                .z(-1.);
 
             // show alignment radius
             if run_options.alignment_on {
@@ -770,7 +801,7 @@ impl DrawableBoid for Boid {
                 .end(self.velocity * 50. + self.position)
                 .color(LIME)
                 .weight(4.0)
-                .z(30.);
+                .z(20.);
         } else if metadata.clicked_neighbour_id != std::usize::MAX
             && metadata.clicked_neighbour_id == run_options.clicked_boid_id
         {

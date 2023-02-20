@@ -1,6 +1,6 @@
 use std::{f32::consts::PI, fmt::Debug};
 
-use glam::Vec2;
+use glam::f32::Vec2;
 
 use crate::{
     math_helpers::distance_dyn_boid,
@@ -205,10 +205,15 @@ impl Boid {
                 if distance < run_options.separation_treshold_distance {
                     count += 1;
                     if !run_options.separation_impl_mode {
-                        res += (self.position - other.position).normalize() / distance.powi(2)
+                        res += ((self.position - other.position) / distance).normalize()
                     } else {
                         res += (self.position - other.position).normalize() / distance
                     }
+                    // if !run_options.separation_impl_mode {
+                    //     res += (self.position - other.position).normalize() / distance.powi(2)
+                    // } else {
+                    //     res += (self.position - other.position).normalize() / distance
+                    // }
                 }
             }
 
@@ -319,19 +324,35 @@ impl Boid {
         metadata: &Vec<BoidMetadata>,
         run_options: &RunOptions,
     ) -> Vec2 {
-        let center = self.position
-            + self.velocity.clamp_length(
-                run_options.size * (2_f32).sqrt(),
-                run_options.size * (2_f32).sqrt(),
-            );
+        // gives the center of the circle driving the locomotion
 
+        let heading = self.velocity.normalize();
+        let loco_center = self.position +  heading * (2_f32).sqrt();
+        // let loco_center = self.postion
+        //     + self.velocity.clamp_length(
+        //         run_options.size * (2_f32).sqrt(),
+        //         run_options.size * (2_f32).sqrt(),
+        //     );
+
+        // heading.rotate(2.);
+        // let mut v = Vec2::new(1.0, 0.0); // Create a Vec2 with x=1 and y=0
+        // let theta = 1.0; // Rotate by 1 radian
+    
+        // v = v.rotate(theta);
+
+        // let mut a = Vec2::new(12., 12.);
+        // a.flo
+    
+
+        // wander direction gives the point on the lo
         let f_wander = Vec2::new(
             run_options.size * metadata[self.id].wander_direction.cos(),
             run_options.size * metadata[self.id].wander_direction.sin(),
         );
 
-        // return (center + f_wander) - self.position;
-        return self.seek(center + f_wander, run_options)
+        // return (loco_center + f_wander) - self.position;
+        // return self.seek(loco_center + f_wander, run_options)
+        return Vec2::ZERO;
     }
 
     // pub fn avoid(&self, x: f32, y:f32, run_options: &RunOptions) {

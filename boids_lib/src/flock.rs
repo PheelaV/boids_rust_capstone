@@ -233,19 +233,22 @@ impl SpatHash1D {
         // todo: look at ways to reduce the vector allocations above
 
         for e in 0..self.table.len() {
-            // dbg!(self.metadata[e].wander_direction);
+            
             neighbours.clear();
 
             let b: &Boid = &self.table[e];
             self.get_neighbours(b, self.index[b.id], run_options, &mut neighbours);
 
-            let wander_next = MY_RNG
-                .lock()
-                .unwrap()
-                .gen_range(0_f32..run_options.wander_rate);
+            let wander_next = run_options.wander_rate;
+            // let wander_next = MY_RNG
+            //     .lock()
+            //     .unwrap()
+            //     .gen_range(0_f32..run_options.wander_rate);
             metadata[self.table[e].id].wander_next = wander_next;
+            dbg!(wander_next);
             metadata[self.table[e].id].wander_direction =
-                (self.metadata[self.table[e].id].wander_direction + wander_next) % 2. * PI;
+                (self.metadata[self.table[e].id].wander_direction + wander_next) % (2. * PI);
+            dbg!(self.metadata[self.table[e].id].wander_direction);
             metadata[self.table[e].id].n_neighbours = neighbours.len();
 
             // clicked neighbour

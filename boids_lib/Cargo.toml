@@ -21,7 +21,7 @@ harness = false
 approx = "0.5.1"
 chrono = "0.4.22"
 csv = "1.1.6"
-glam = "^0.17"
+glam = {version = "^0.17", default-features = true}
 linfa = "0.6.0"
 linfa-clustering = "0.6.0"
 linfa-datasets = {version = "0.6.0", features = ["generate"]}
