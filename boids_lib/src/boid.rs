@@ -4,7 +4,7 @@ use glam::f32::Vec2;
 
 use crate::{
     math_helpers::distance_dyn_boid,
-    options::{Boundary, RunOptions},
+    options::{Boundary, RunOptions}, MyRotate,
 };
 
 #[derive(Debug, Clone)]
@@ -324,35 +324,24 @@ impl Boid {
         metadata: &Vec<BoidMetadata>,
         run_options: &RunOptions,
     ) -> Vec2 {
-        // gives the center of the circle driving the locomotion
-
+        // the current velocity vector normalized
         let heading = self.velocity.normalize();
-        let loco_center = self.position +  heading * (2_f32).sqrt();
-        // let loco_center = self.postion
-        //     + self.velocity.clamp_length(
-        //         run_options.size * (2_f32).sqrt(),
-        //         run_options.size * (2_f32).sqrt(),
-        //     );
+        // gives the center of the circle driving the locomotion
+        // let loco_center = self.position +  heading * (run_options.wander_radius * (2_f32).sqrt());
+        let loco_center = self.position +  heading * (run_options.wander_distance * (2_f32).sqrt());
 
-        // heading.rotate(2.);
-        // let mut v = Vec2::new(1.0, 0.0); // Create a Vec2 with x=1 and y=0
-        // let theta = 1.0; // Rotate by 1 radian
-    
-        // v = v.rotate(theta);
+        // vector pointing at the point on circumference
+        let wander_point = heading.rotate(Vec2::new(
+            run_options.wander_radius * metadata[self.id].wander_direction.cos(),
+            run_options.wander_radius * metadata[self.id].wander_direction.sin(),
+        ));
 
-        // let mut a = Vec2::new(12., 12.);
-        // a.flo
-    
+        // places the point onto the locomotion circle with respect to agent's location
+        let wander_f = loco_center + wander_point;
 
-        // wander direction gives the point on the lo
-        let f_wander = Vec2::new(
-            run_options.size * metadata[self.id].wander_direction.cos(),
-            run_options.size * metadata[self.id].wander_direction.sin(),
-        );
-
-        // return (loco_center + f_wander) - self.position;
-        // return self.seek(loco_center + f_wander, run_options)
-        return Vec2::ZERO;
+        // dbg!(wander_f);
+        return self.seek(wander_f, run_options) * run_options.wander_coefficient;
+        // return Vec2::ZERO;
     }
 
     // pub fn avoid(&self, x: f32, y:f32, run_options: &RunOptions) {

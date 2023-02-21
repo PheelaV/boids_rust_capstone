@@ -13,25 +13,29 @@ pub struct RunOptions {
     pub allignment_coefficient: f32,
     pub cohesion_coefficient: f32,
     pub separation_coefficient: f32,
-
+    
     pub sensory_distance: f32,
     pub max_sensory_distance: f32,
-
+    
     pub allignment_treshold_distance: f32,
     pub cohesion_treshold_distance: f32,
     pub separation_treshold_distance: f32,
-
+    
     pub allignment_treshold_coefficient: f32,
     pub cohesion_treshold_coefficient: f32,
     pub separation_treshold_coefficient: f32,
-
-    pub wander_rate: f32,
-
+    
+    
     pub alignment_on: bool,
     pub cohesion_on: bool,
     pub separation_on: bool,
-    pub wander_on: bool,
 
+    pub wander_coefficient: f32,
+    pub wander_rate: f32,
+    pub wander_radius: f32,
+    pub wander_distance: f32,
+    pub wander_on: bool,
+    
     pub window: WindowSize,
     pub save_options: SaveOptions,
 
@@ -156,8 +160,11 @@ impl Default for RunOptions {
             dbscan_flock_clustering_on: false,
             neighbours_cosidered: 0,
             stop_movement: false,
-            wander_rate: 0.005, 
+            wander_rate: 0.03, 
             wander_on: false,
+            wander_radius: 5.2,
+            wander_coefficient: 0.4,
+            wander_distance: 21.5,
         };
 
         res.update_sensory_distances();

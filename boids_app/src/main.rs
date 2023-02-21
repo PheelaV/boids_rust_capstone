@@ -7,10 +7,8 @@ use clap_serde_derive::{clap::Parser, ClapSerde};
 use nannou::draw::properties::ColorScalar;
 use nannou::geom::{Ellipse, Tri};
 use nannou::{color::*, prelude::*};
-use nannou_egui::color_picker::Alpha;
 use nannou_egui::{egui, Egui};
 use std::fs;
-use std::ops::Mul;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 mod cliargs;
@@ -256,9 +254,17 @@ fn update(app: &App, model: &mut Model, update: Update) {
                     "wander",
                 ));
             });
-
+            
             ui.separator();
 
+            ui.horizontal(|ui| {
+                ui.label("wander coef");
+                ui.add(egui::Slider::new(
+                    &mut run_options.wander_coefficient,
+                    0.0..=1.,
+                ))
+            });
+            
             ui.horizontal(|ui| {
                 ui.label("allignment coef");
                 ui.add(egui::Slider::new(
@@ -284,6 +290,21 @@ fn update(app: &App, model: &mut Model, update: Update) {
             });
 
             ui.separator();
+
+            ui.horizontal(|ui| {
+                ui.label("wander distance");
+                ui.add(egui::Slider::new(
+                    &mut run_options.wander_distance,
+                    0.5_f32..=30.,
+                ))
+            });
+            ui.horizontal(|ui| {
+                ui.label("wander radius");
+                ui.add(egui::Slider::new(
+                    &mut run_options.wander_radius,
+                    0.5_f32..=30.,
+                ))
+            });
 
             ui.horizontal(|ui| {
                 ui.label("sensory distance");
@@ -319,7 +340,7 @@ fn update(app: &App, model: &mut Model, update: Update) {
 
             ui.horizontal(|ui| {
                 ui.label("wander rate");
-                ui.add(egui::Slider::new(&mut run_options.wander_rate, 0_f32..=1_f32))
+                ui.add(egui::Slider::new(&mut run_options.wander_rate, 0.000001_f32..=1_f32))
             });
 
             ui.separator();
@@ -441,6 +462,11 @@ fn should_render_update(model: &mut Model) -> bool {
 
     should_render
 }
+
+// impl From<glam::f32::Vec2> for nannou::geom::Vec2 {
+
+// }
+
 
 fn key_pressed(app: &App, model: &mut Model, key: Key) -> () {
     let Model {
@@ -649,6 +675,20 @@ impl Drawable for Flock {
     }
 }
 
+trait MyRotate {
+    fn myrotate(&self, rhs: Vec2) -> Self;
+}
+
+impl MyRotate for Vec2 {
+    #[inline]
+    fn myrotate(&self, rhs: Vec2) -> Self {
+        Vec2::new(
+            self.x * rhs.x - self.y * rhs.y,
+            self.y * rhs.x + self.x * rhs.y,
+        )
+    }
+}
+
 pub trait DrawableBoid {
     fn draw(
         &self,
@@ -702,24 +742,33 @@ impl DrawableBoid for Boid {
         if self.id == run_options.clicked_boid_id {
 
             if run_options.wander_on {
+            // the current velocity vector normalized
+            let heading = self.velocity.normalize();
+            // gives the center of the circle driving the locomotion
+            // let loco_center = self.position +  heading * (run_options.wander_radius * (2_f32).sqrt());
+            let loco_center = self.position +  heading * (run_options.wander_distance * (2_f32).sqrt());
 
-                let center = *position + velocity.clamp_length(run_options.size * (2.).sqrt(), run_options.size * (2.).sqrt());
+            // vector pointing at the point on circumference
+            let wander_point = heading.myrotate(Vec2::new(
+                run_options.wander_radius * metadata.wander_direction.cos(),
+                run_options.wander_radius * metadata.wander_direction.sin(),
+            ));
+
+            // places the point onto the locomotion circle with respect to agent's location
+            let wander_f = loco_center + wander_point;
+
+            // dbg!(wander_f);
+
                 draw.ellipse()
-                .radius(run_options.size)
+                .radius(run_options.wander_radius)
                 .color(rgba(0.1,0.1, 0.1, 0.5))
-                .xy(center)
+                .xy(loco_center)
                 .z(30.);
  
-                let dx = metadata.wander_direction.cos();
-                let dy = metadata.wander_direction.sin();
-
-                let dxy = vec2(dx, dy);
-                // let dxy = *velocity + vec2(dx, dy);
-
                 draw.ellipse()
-                .radius(run_options.size * 0.2)
+                .radius(run_options.wander_radius * 0.2)
                 .color(WHITE)
-                .xy(center + dxy.clamp_length(run_options.size * 0.9, run_options.size * 0.9))
+                .xy(loco_center + wander_point.clamp_length(run_options.wander_radius * 0.9, run_options.wander_radius * 0.9))
                 // .xy(center + Vec2::new(dx, dy).clamp_length(run_options.size * 0.9, run_options.size * 0.9))
                 .z(31.);
 
