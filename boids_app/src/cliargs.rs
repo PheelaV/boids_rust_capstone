@@ -28,7 +28,7 @@ pub struct Args{
 /// 
 /// Uses defaults, which can be overwritten by specifying a filepath for the `-c` or `--config` arg option
 pub struct Config{
-        
+     
     #[default(1)]
     #[arg(short = 'n', long)]
     /// number of boids
@@ -94,7 +94,23 @@ pub struct Config{
     #[default(false)]
     #[arg(long = "dbscan")]
     pub dbscan_flock_clustering_on: bool,
-    #[default(true)]
+    #[default(false)]
     #[arg(long = "wander")]
     pub wander_on: bool, 
+    #[default(0.03)]
+    #[arg(long = "wrate")]
+    pub wander_rate: f32, 
+    #[default(5.2)]
+    #[arg(long = "wradius")]
+    pub wander_radius: f32, 
+    #[default(21.5)]
+    #[arg(long = "wdistance")]
+    pub wander_distance: f32, 
+    #[default(0.4)]
+    #[arg(long = "wcoeff")]
+    pub wander_coefficient: f32,
+    #[default(8.)]
+    #[arg(long = "size")]
+    /// number of boids
+    pub size: f32, 
 }

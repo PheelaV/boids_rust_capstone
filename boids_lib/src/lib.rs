@@ -10,6 +10,9 @@ pub mod math_helpers;
 pub mod options;
 pub mod birdwatcher;
 
+// because of nannou I have to keep glam version at .17
+// as glam is not stable yet, there are breaking changes
+// in between decimal versions, somewhere this and .23
 pub(crate) trait MyRotate {
     fn rotate(&self, rhs: Vec2) -> Self;
 }

@@ -2,6 +2,7 @@ extern crate nannou;
 use boids_lib::birdwatcher::Birdwatcher;
 use boids_lib::boid::{Boid, BoidMetadata};
 use boids_lib::flock::{Flock, SpatHash1D};
+use boids_lib::math_helpers::distance_dyn;
 use boids_lib::options::{self, Distance, RunOptions, SaveOptions, WindowSize};
 use clap_serde_derive::{clap::Parser, ClapSerde};
 use nannou::draw::properties::ColorScalar;
@@ -42,6 +43,7 @@ pub struct Model {
     bird_watcher: Birdwatcher,
     window_id: WindowId,
     debug_grid: bool,
+    debug_distance: bool,
 }
 
 fn model(app: &App) -> Model {
@@ -55,7 +57,7 @@ fn model(app: &App) -> Model {
             Err(err) => panic!("Error in configuration file:\n{}", err),
         }
     } else {
-         Config::from(&mut args.config)
+        Config::from(&mut args.config)
     };
 
     let mut run_options: RunOptions = Default::default();
@@ -88,6 +90,13 @@ fn model(app: &App) -> Model {
     run_options.save_options = save_options;
     run_options.dbscan_flock_clustering_on = config.dbscan_flock_clustering_on;
 
+    run_options.wander_on = config.wander_on;
+    run_options.wander_coefficient = config.wander_coefficient;
+    run_options.wander_distance = config.wander_distance;
+    run_options.wander_radius = config.wander_radius;
+    run_options.wander_rate = config.wander_rate;
+    run_options.size = config.size;
+
     let main_window = app
         .new_window()
         .key_pressed(key_pressed)
@@ -104,7 +113,7 @@ fn model(app: &App) -> Model {
         .build()
         .unwrap();
 
-     let window = app.window(main_window).unwrap();
+    let window = app.window(main_window).unwrap();
 
     let birdwatcher = Birdwatcher::new(run_options.sample_rate);
 
@@ -127,6 +136,7 @@ fn model(app: &App) -> Model {
         bird_watcher: birdwatcher,
         window_id: main_window,
         debug_grid: false,
+        debug_distance: true,
     }
 }
 
@@ -249,12 +259,9 @@ fn update(app: &App, model: &mut Model, update: Update) {
                     &mut run_options.separation_on,
                     "separation",
                 ));
-                ui.add(egui::Checkbox::new(
-                    &mut run_options.wander_on,
-                    "wander",
-                ));
+                ui.add(egui::Checkbox::new(&mut run_options.wander_on, "wander"));
             });
-            
+
             ui.separator();
 
             ui.horizontal(|ui| {
@@ -264,7 +271,7 @@ fn update(app: &App, model: &mut Model, update: Update) {
                     0.0..=1.,
                 ))
             });
-            
+
             ui.horizontal(|ui| {
                 ui.label("allignment coef");
                 ui.add(egui::Slider::new(
@@ -340,7 +347,10 @@ fn update(app: &App, model: &mut Model, update: Update) {
 
             ui.horizontal(|ui| {
                 ui.label("wander rate");
-                ui.add(egui::Slider::new(&mut run_options.wander_rate, 0.000001_f32..=1_f32))
+                ui.add(egui::Slider::new(
+                    &mut run_options.wander_rate,
+                    0.000001_f32..=1_f32,
+                ))
             });
 
             ui.separator();
@@ -381,6 +391,10 @@ fn update(app: &App, model: &mut Model, update: Update) {
 
             ui.horizontal(|ui| {
                 ui.add(egui::Checkbox::new(&mut model.debug_grid, "Debug grid"));
+                ui.add(egui::Checkbox::new(
+                    &mut model.debug_distance,
+                    "Debug distance",
+                ));
             });
 
             ui.horizontal(|ui| {
@@ -467,17 +481,16 @@ fn should_render_update(model: &mut Model) -> bool {
 
 // }
 
-
 fn key_pressed(app: &App, model: &mut Model, key: Key) -> () {
     let Model {
         ref mut run_options,
         ..
     } = model;
-    
 
     if model.control_state.controls_open && // if controls are open
     // allow only these actions
-    !(key == Key::C || key == Key::R || key == Key::Space) {
+    !(key == Key::C || key == Key::R || key == Key::Space)
+    {
         return;
     }
 
@@ -560,7 +573,7 @@ fn key_pressed(app: &App, model: &mut Model, key: Key) -> () {
     } else if key == Key::R {
         // restart the flock, not the simulation
         model.flock.restart(&model.run_options);
-        model.update_ticks = 0; 
+        model.update_ticks = 0;
     } else if key == Key::V {
         // switch vision on or off
         run_options.field_of_vision_on = !run_options.field_of_vision_on
@@ -615,6 +628,36 @@ impl Drawable for Flock {
         }
 
         let settings = SpatHash1D::get_tracker_settings(run_options);
+
+        if model.debug_distance {
+            let dist_max: f32 =
+                (run_options.window.win_w.pow(2.) + run_options.window.win_h.pow(2.)).sqrt();
+            let target = model.flock.view2().filter(|tuple| tuple.0.id == 0).next();
+
+            match target {
+                Some(b_tuple) => {
+                    for x in ((run_options.window.win_left as i32)
+                        ..(run_options.window.win_right as i32))
+                        .step_by(10)
+                    {
+                        for y in ((run_options.window.win_bottom as i32)
+                            ..(run_options.window.win_top as i32))
+                            .step_by(10)
+                        {
+                            let dist = distance_dyn(b_tuple.0.position.x, x as f32, b_tuple.0.position.y, y as f32, run_options);
+                            let dist_scaled = dist / dist_max;
+                            // dbg!(dist_scaled);
+                            draw.ellipse().x_y(x as f32, y as f32).radius(5.).color(hsv(
+                                dist_scaled,
+                                1.,
+                                0.5,
+                            ));
+                        }
+                    }
+                }
+                None => (),
+            }
+        }
 
         if model.debug_grid {
             let max_ined = settings.x_cell_count * settings.y_cell_count;
@@ -740,45 +783,48 @@ impl DrawableBoid for Boid {
 
         // If this instance is selected, show diagnostics
         if self.id == run_options.clicked_boid_id {
-
             if run_options.wander_on {
-            // the current velocity vector normalized
-            let heading = self.velocity.normalize();
-            // gives the center of the circle driving the locomotion
-            // let loco_center = self.position +  heading * (run_options.wander_radius * (2_f32).sqrt());
-            let loco_center = self.position +  heading * (run_options.wander_distance * (2_f32).sqrt());
+                // the current velocity vector normalized
+                let heading = self.velocity.normalize();
+                // gives the center of the circle driving the locomotion
+                // let loco_center = self.position +  heading * (run_options.wander_radius * (2_f32).sqrt());
+                let loco_center =
+                    self.position + heading * (run_options.wander_distance * (2_f32).sqrt());
 
-            // vector pointing at the point on circumference
-            let wander_point = heading.myrotate(Vec2::new(
-                run_options.wander_radius * metadata.wander_direction.cos(),
-                run_options.wander_radius * metadata.wander_direction.sin(),
-            ));
+                // vector pointing at the point on circumference
+                let wander_point = heading.myrotate(Vec2::new(
+                    run_options.wander_radius * metadata.wander_direction.cos(),
+                    run_options.wander_radius * metadata.wander_direction.sin(),
+                ));
 
-            // places the point onto the locomotion circle with respect to agent's location
-            let wander_f = loco_center + wander_point;
+                // places the point onto the locomotion circle with respect to agent's location
+                let wander_f = loco_center + wander_point;
 
-            // dbg!(wander_f);
+                // dbg!(wander_f);
 
                 draw.ellipse()
-                .radius(run_options.wander_radius)
-                .color(rgba(0.1,0.1, 0.1, 0.5))
-                .xy(loco_center)
-                .z(30.);
- 
-                draw.ellipse()
-                .radius(run_options.wander_radius * 0.2)
-                .color(WHITE)
-                .xy(loco_center + wander_point.clamp_length(run_options.wander_radius * 0.9, run_options.wander_radius * 0.9))
-                // .xy(center + Vec2::new(dx, dy).clamp_length(run_options.size * 0.9, run_options.size * 0.9))
-                .z(31.);
+                    .radius(run_options.wander_radius)
+                    .color(rgba(0.1, 0.1, 0.1, 0.5))
+                    .xy(loco_center)
+                    .z(30.);
 
+                draw.ellipse()
+                    .radius(run_options.wander_radius * 0.2)
+                    .color(WHITE)
+                    .xy(loco_center
+                        + wander_point.clamp_length(
+                            run_options.wander_radius * 0.9,
+                            run_options.wander_radius * 0.9,
+                        ))
+                    // .xy(center + Vec2::new(dx, dy).clamp_length(run_options.size * 0.9, run_options.size * 0.9))
+                    .z(31.);
             }
-//            draw.line()
-//            .start(self.position)
-//            .end(self.velocity * 100. + self.position)
-//            .color(LIME)
-//            .weight(4.0);
-//    } else if metadata.clicke 
+            //            draw.line()
+            //            .start(self.position)
+            //            .end(self.velocity * 100. + self.position)
+            //            .color(LIME)
+            //            .weight(4.0);
+            //    } else if metadata.clicke
             // println!("vel {:#?}", velocity);
             // println!("rad {:#?}", theta);
             // println!("deg {:#?}", theta * 180. / PI);
@@ -787,14 +833,14 @@ impl DrawableBoid for Boid {
             drawing.color(HOTPINK);
 
             if run_options.field_of_vision_on {
-
                 // drawing a semi-sircle to demonstrate FOV
                 // https://stackoverflow.com/a/72701981/9316685
                 let radius = run_options.separation_treshold_distance * 2.;
-                let section = Ellipse::new(Rect::from_x_y_w_h(0., 0., radius, radius), 120.).section(
-                    theta - run_options.field_of_vision_half_rad,
-                    run_options.field_of_vision_half_rad * 2.,
-                );
+                let section = Ellipse::new(Rect::from_x_y_w_h(0., 0., radius, radius), 120.)
+                    .section(
+                        theta - run_options.field_of_vision_half_rad,
+                        run_options.field_of_vision_half_rad * 2.,
+                    );
                 let triangles = section.trangles();
                 let mut tris = Vec::new();
                 for t in triangles {

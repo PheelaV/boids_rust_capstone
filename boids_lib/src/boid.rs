@@ -339,9 +339,8 @@ impl Boid {
         // places the point onto the locomotion circle with respect to agent's location
         let wander_f = loco_center + wander_point;
 
-        // dbg!(wander_f);
+        // steer towards the point on the locomotion circle
         return self.seek(wander_f, run_options) * run_options.wander_coefficient;
-        // return Vec2::ZERO;
     }
 
     // pub fn avoid(&self, x: f32, y:f32, run_options: &RunOptions) {

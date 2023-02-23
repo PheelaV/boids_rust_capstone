@@ -83,7 +83,7 @@ impl Default for SpatHashPiv {
 impl Tracker for SpatHash1D {
     fn new(entities: &[Boid], run_options: &RunOptions) -> Self {
         let settings = SpatHash1D::get_tracker_settings(run_options);
-        let mut metadata: Vec<BoidMetadata> =
+        let metadata: Vec<BoidMetadata> =
             entities.iter().map(|e| BoidMetadata::new(e)).collect();
         // metadata[0].boid_type = BoidType::Disruptor;
 
@@ -96,21 +96,6 @@ impl Tracker for SpatHash1D {
             index: vec![0; run_options.init_boids as usize],
             settings,
         }
-    }
-
-    /// deletes a certain boid from the table and its auxilary arrays,
-    fn delete_multiple(&mut self, ids_delete: &[usize], run_options: &RunOptions) {
-        let ids_delete_set: HashSet<usize> = HashSet::from_iter(ids_delete.iter().cloned());
-
-        // removing values from the 1D table
-        self.table.retain(|boid| !ids_delete_set.contains(&boid.id));
-
-        // resize auxilary arrays
-        self.metadata.resize(self.table.len(), Default::default());
-        self.index.resize(self.table.len(), Default::default());
-
-        // update data structure (index, pivots)
-        self.update_table(run_options);
     }
 
     fn update(&mut self, run_options: &RunOptions) {
@@ -155,6 +140,21 @@ impl Tracker for SpatHash1D {
         }
     }
 
+    /// deletes a certain boid from the table and its auxilary arrays,
+    fn delete_multiple(&mut self, ids_delete: &[usize], run_options: &RunOptions) {
+        let ids_delete_set: HashSet<usize> = HashSet::from_iter(ids_delete.iter().cloned());
+
+        // removing values from the 1D table
+        self.table.retain(|boid| !ids_delete_set.contains(&boid.id));
+
+        // resize auxilary arrays
+        self.metadata.resize(self.table.len(), Default::default());
+        self.index.resize(self.table.len(), Default::default());
+
+        // update data structure (index, pivots)
+        self.update_table(run_options);
+    }
+
     fn insert_multiple(&mut self, entities: &[Boid], run_options: &RunOptions) {
         entities
             .into_iter()
@@ -175,19 +175,55 @@ impl Tracker for SpatHash1D {
     }
 }
 
-// get the cell vectors pointing towards the neighbourhood cell
-// in eucledian space
-const HOME: [i64; 2] = [0, 0];
-const S: [i64; 2] = [0, -1];
-const SW: [i64; 2] = [-1, -1];
-const SE: [i64; 2] = [1, -1];
-const W: [i64; 2] = [-1, 0];
-const E: [i64; 2] = [1, 0];
-const N: [i64; 2] = [0, 1];
-const NE: [i64; 2] = [1, 1];
-const NW: [i64; 2] = [-1, 1];
-
 impl SpatHash1D {
+    // get the cell vectors pointing towards the neighbourhood cell
+    // in eucledian space
+    const HOME: [i32; 2] = [0, 0];
+    const S: [i32; 2] = [0, -1];
+    const SW: [i32; 2] = [-1, -1];
+    const SE: [i32; 2] = [1, -1];
+    const W: [i32; 2] = [-1, 0];
+    const E: [i32; 2] = [1, 0];
+    const N: [i32; 2] = [0, 1];
+    const NE: [i32; 2] = [1, 1];
+    const NW: [i32; 2] = [-1, 1];
+    
+    #[rustfmt::skip]
+    const LOOKUP: [[[i32; 2]; 9]; 16] = [
+        // 0 = middle
+        [Self::NW, Self::N, Self::NE, Self::W, Self::HOME, Self::E, Self::SW, Self::S, Self::SE,],
+        // 1 = top
+        [Self::HOME, Self::HOME, Self::HOME, Self::E, Self::HOME, Self::W, Self::SW, Self::S, Self::SE],
+        // 2 = bottom
+        [Self::NW, Self::N, Self::NE, Self::W, Self::HOME, Self::E, Self::HOME, Self::HOME, Self::HOME],
+        // placeholder
+        [[0; 2]; 9],
+        // 4 = right
+        [Self::NW, Self::N, Self::HOME, Self::W, Self::HOME, Self::HOME, Self::SW, Self::S, Self::HOME],
+        // 5 = right | top
+        [Self::HOME, Self::HOME, Self::HOME, Self::W, Self::HOME, Self::HOME, Self::SW, Self::S, Self::HOME],
+        // 6 = right | bottom
+        [Self::NW, Self::N, Self::HOME, Self::W, Self::HOME, Self::HOME, Self::HOME, Self::HOME, Self::HOME],
+        // placeholder
+        [[0; 2]; 9],
+        // 8 = left
+        [Self::HOME, Self::N, Self::NE, Self::HOME, Self::HOME, Self::E, Self::HOME, Self::S, Self::SE],
+        // 9 = left | top
+        [Self::HOME, Self::HOME, Self::HOME, Self::HOME, Self::HOME, Self::E, Self::HOME, Self::S, Self::SE],
+        // placeholder
+        [[0; 2]; 9],
+        // 10 = left | botom
+        [Self::HOME, Self::N, Self::NE, Self::HOME, Self::HOME, Self::E, Self::HOME, Self::HOME, Self::HOME],
+        // placeholder
+        [[0; 2]; 9],
+        // placeholder
+        [[0; 2]; 9],
+        // placeholder
+        [[0; 2]; 9],
+        // placeholder
+        [[0; 2]; 9],
+    ];
+
     // https://stackoverflow.com/questions/31904842/return-a-map-iterator-which-is-using-a-closure-in-rust
     // fn view2<'a>(&'a self) -> Box<dyn Iterator<Item= (&'a Boid, &'a BoidMetadata)> + 'a> {
     //     // self.table.iter().map
@@ -233,14 +269,13 @@ impl SpatHash1D {
         // todo: look at ways to reduce the vector allocations above
 
         for e in 0..self.table.len() {
-            
             neighbours.clear();
 
             let b: &Boid = &self.table[e];
             self.get_neighbours(b, self.index[b.id], run_options, &mut neighbours);
 
             // this should really be in one of the boid rules,
-            // but then there goes borrow checker and boids having 
+            // but then there goes borrow checker and boids having
             // to mutate their own state for which the current pipeline
             // simply is not buit for, so here is a workaround
             if run_options.wander_on {
@@ -401,20 +436,32 @@ impl SpatHash1D {
         (((p_x.clamp(min_x, max_x) - min_x) / cs_x).floor()
             + (((p_y.clamp(min_y, max_y) - min_y) / cs_y).floor() * table_width)) as usize
     }
-    pub fn get_table_index2(
-        p_x: f32,
-        p_y: f32,
-        min_x: f32,
-        max_x: f32,
-        min_y: f32,
-        max_y: f32,
-        cs_x: f32,
-        cs_y: f32,
-        table_width: f32,
-    ) -> usize {
-        (((p_x.clamp(min_x, max_x) - min_x) / cs_x).ceil()
-            + (((p_y.clamp(min_y, max_y) - min_y) / cs_y).ceil() * table_width)) as usize
-    }
+    // pub fn get_table_index2(
+    //     p_x: f32,
+    //     p_y: f32,
+    //     min_x: f32,
+    //     max_x: f32,
+    //     min_y: f32,
+    //     max_y: f32,
+    //     cs_x: f32,
+    //     cs_y: f32,
+    //     table_width: f32,
+    // ) -> usize {
+    //     (((p_x.clamp(min_x, max_x) - min_x) / cs_x).ceil()
+    //         + (((p_y.clamp(min_y, max_y) - min_y) / cs_y).ceil() * table_width)) as usize
+    // }
+
+    // pub fn lattice_query_to_grid_cell(
+    //     lattice_cell: i32,
+    //     min_x: f32,
+    //     max_x: f32,
+    //     min_y: f32,
+    //     max_y: f32
+    // ) -> usize {
+    //     let lc = lattice_cell as f32;
+
+    //     todo!();
+    // }
 
     pub fn get_tracker_settings(run_options: &RunOptions) -> SpatialHashingTableSettings {
         let x_range = (run_options.window.win_right - run_options.window.win_left).ceil();
@@ -487,33 +534,24 @@ impl SpatHash1D {
         let is_top =
             cell_index as f32 >= (self.settings.y_cell_count - 1f32) * self.settings.x_cell_count;
 
-        // depending on the match, iterate the vectors
-        for cell in match (is_left, is_right, is_bottom, is_top) {
-            (false, false, false, false) => [NW, N, NE, W, HOME, E, SW, S, SE],
-            (true, false, true, false) => [HOME, N, NE, HOME, HOME, E, HOME, HOME, HOME],
-            (true, false, false, true) => [HOME, HOME, HOME, HOME, HOME, E, HOME, S, S],
-            (true, false, false, false) => [HOME, N, NE, HOME, HOME, E, HOME, S, SE],
-            (false, true, true, false) => [NW, N, HOME, W, HOME, HOME, HOME, HOME, HOME],
-            (false, true, false, true) => [HOME, HOME, HOME, W, HOME, HOME, SW, S, HOME],
-            (false, true, false, false) => [NW, N, HOME, W, HOME, HOME, SW, S, HOME],
-            (false, false, true, false) => [NW, N, NE, W, HOME, E, HOME, HOME, HOME],
-            (false, false, false, true) => [HOME, HOME, HOME, E, HOME, W, SW, S, SE],
-            _ => panic!("it should not have come to this :"),
-        }
-        // depending on the match, iterate the vectors
-        .iter()
-        // filter out the out-of-bound vectors, the home vector is used as a placeholder
-        .filter(|l| **l != HOME)
-        // always consider the boid's current 'home' vector
-        .chain(iter::once(&HOME))
-        // convert vectors to the table's 1D indexes pointing to cells
-        .map(|lookup| {
-            // println!("{}, {}", lookup[0], lookup[1]);
-            (cell_index as i64 + lookup[0] + lookup[1] * self.settings.x_cell_count as i64) as usize
-        }) {
-            // println!("range_cell: {}", cell);
-            // acum += 1;
-
+        // self.settings
+        // if there is any piece of code in this code base that deserves an internet trophy it is this
+        // and LOOKUP - unreadable, unreasonable, non-idiomatic, hella fun and blazingly fast?
+        let lookup_index = {
+            (is_left as u8) << 3 | (is_right as u8) << 2 | (is_bottom as u8) << 1 | is_top as u8
+        } as usize;
+        // depending on the match, iterate the vectors, presuming, serves as a
+        // lookup for a potential (1..3)*(1..3) area on a n*n grid
+        for cell in Self::LOOKUP[lookup_index]
+            // depending on the match, iterate the vectors
+            .iter()
+            // filter out the out-of-bound vectors, the home vector is used as a placeholder
+            .filter(|l| **l != Self::HOME)
+            // always consider the boid's current 'home' vector
+            .chain(iter::once(&Self::HOME))
+            // convert vectors to the table's 1D indexes pointing to cells
+            .map(|l| (cell_index as i32 + l[0] + l[1] * self.settings.x_cell_count as i32) as usize)
+        {
             if self.pivots[cell].usg == 0 {
                 continue;
             }
@@ -531,10 +569,6 @@ impl SpatHash1D {
                 }
             }
         }
-        // todo: temp print
-        // for _ in 0..(9 - acum){
-        //     println!(" - ");
-        // }
     }
 }
 /// A naive implementation of boids tracking, which uses an O(N^2) algorithm for
