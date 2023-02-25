@@ -27,6 +27,7 @@ impl fmt::Display for FlockBench {
     }
 }
 
+#[allow(dead_code)]
 fn get_bench_params() -> Vec<FlockBench> {
     static NO_BOIDS: u64 = 64;
 
@@ -131,7 +132,7 @@ fn from_elem3(c: &mut Criterion) {
                 flock_base(no_iter, {
                     let mut ro: RunOptions = Default::default();
                     ro.init_boids = no_boids;
-                    ro.window = options::get_window_size(5000., 5000.);
+                    ro.window = options::get_window_size(5000, 5000);
                     ro.save_options = SaveOptions {
                         save_locations: false,
                         save_locations_path: None,

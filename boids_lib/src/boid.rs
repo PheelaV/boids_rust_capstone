@@ -1,10 +1,15 @@
-use std::{f32::consts::PI, fmt::Debug};
+use std::{
+    f32::consts::{E, PI},
+    fmt::Debug,
+};
 
 use glam::f32::Vec2;
+use rand::Rng;
 
 use crate::{
-    math_helpers::distance_dyn_boid,
-    options::{Boundary, RunOptions}, MyRotate,
+    math_helpers::{distance_dyn_boid, tor_vec},
+    options::{Boundary, Distance, RunOptions},
+    MyRotate,
 };
 
 #[derive(Debug, Clone)]
@@ -108,6 +113,12 @@ impl Boid {
             sum += self.wander(&filtered, metadata, run_options);
         }
 
+        if run_options.seek_target_on {
+            match run_options.seek_location {
+                Some(target) => sum = self.seek(target, run_options),
+                None => (),
+            }
+        }
         // match metadata[self.id].boid_type {
         //     BoidType::Mob => (),
         //     BoidType::Disruptor => {
@@ -168,7 +179,13 @@ impl Boid {
                     return false;
                 }
 
-                let vec_to_other = b_other.position - self.position;
+                let vec_to_other = match run_options.distance {
+                    Distance::EucToroidal => {
+                        tor_vec(self.position, b_other.position,
+                            &run_options.window)
+                    }
+                    Distance::EucEnclosed => b_other.position - self.position,
+                };
 
                 if vec_to_other.length() < 0.01 {
                     return false;
@@ -203,12 +220,36 @@ impl Boid {
             for other in others {
                 let distance = distance_dyn_boid(self, other, &run_options);
                 if distance < run_options.separation_treshold_distance {
+                    // todo: delete
+                    // if self.id == run_options.clicked_boid_id {
+                    //     println!("debug")
+                    // }
                     count += 1;
+
+                    let mut value = match run_options.distance {
+                        Distance::EucToroidal => {
+                            tor_vec(other.position, self.position, &run_options.window)
+                        }
+                        Distance::EucEnclosed => self.position - other.position,
+                    };
+                    value /= distance;
+
+                    // res += value.normalize();
+                    res += value;
+
                     if !run_options.separation_impl_mode {
-                        res += ((self.position - other.position) / distance).normalize()
+                        value /= distance;
+                        res += value.normalize();
                     } else {
-                        res += (self.position - other.position).normalize() / distance
+                        res += (self.position - other.position)
+                            * Self::sep_scale(distance, run_options)
                     }
+
+                    // if !run_options.separation_impl_mode {
+                    //     res += ((self.position - other.position) / distance).normalize()
+                    // } else {
+                    //     res += (self.position - other.position).normalize() / distance
+                    // }
                     // if !run_options.separation_impl_mode {
                     //     res += (self.position - other.position).normalize() / distance.powi(2)
                     // } else {
@@ -231,6 +272,21 @@ impl Boid {
         }
     }
 
+    fn sep_scale(distance: f32, run_options: &RunOptions) -> f32 {
+        let dist_ration = distance / run_options.separation_treshold_distance;
+
+        // 0 < beta <= 1
+        // 0 < alpha < 1
+        // produces a curve that assymptotically touches y = 1, then falls off to intercept x = 1 at 1 - beta
+
+        // i.e. soft transition from y = 1 with a sharp turn as we approach x = 1
+
+        const ALPHA: f32 = 8.;
+        const BETA: f32 = 0.9;
+
+        1. - BETA * E.powf(ALPHA * dist_ration - ALPHA)
+    }
+
     pub fn cohesion(&self, others: &Vec<&Boid>, run_options: &RunOptions) -> Vec2 {
         let mut center = Vec2::new(0.0, 0.0);
         let mut count = 0;
@@ -238,23 +294,46 @@ impl Boid {
         for other in others {
             let distance = distance_dyn_boid(self, other, &run_options);
             if distance > 0. && distance < run_options.cohesion_treshold_distance {
-                center += other.position;
-                // center += vec2(other.pos_x, other.pos_y);
+                center += match run_options.distance {
+                    Distance::EucToroidal => {
+                        tor_vec(self.position, other.position, &run_options.window)
+                    }
+                    Distance::EucEnclosed => other.position,
+                };
                 count += 1;
             }
         }
 
         if count > 0 {
             center /= count as f32;
-            self.seek(center, run_options) * run_options.cohesion_coefficient
+            // if run_options.distance == Distance::EucToroidal {
+            //     center += self.position;
+            // }
+            match run_options.distance {
+                Distance::EucToroidal => {
+                    self.steer(center, run_options) * run_options.cohesion_coefficient
+                }
+                Distance::EucEnclosed => {
+                    self.steer(center - self.position, run_options)
+                        * run_options.cohesion_coefficient
+                }
+            }
+            // self.steer(center, run_options) * run_options.cohesion_coefficient
         } else {
             Vec2::ZERO
         }
     }
 
     pub fn seek(&self, target: Vec2, run_options: &RunOptions) -> Vec2 {
-        let mut desired = target - self.position;
+        let desired = match run_options.distance {
+            Distance::EucToroidal => tor_vec(self.position, target, &run_options.window),
+            Distance::EucEnclosed => target - self.position,
+        };
 
+        self.steer(desired, run_options)
+    }
+
+    pub fn steer(&self, mut desired: Vec2, run_options: &RunOptions) -> Vec2 {
         if desired.length() == 0. {
             Vec2::new(0., 0.)
         } else {
@@ -328,7 +407,7 @@ impl Boid {
         let heading = self.velocity.normalize();
         // gives the center of the circle driving the locomotion
         // let loco_center = self.position +  heading * (run_options.wander_radius * (2_f32).sqrt());
-        let loco_center = self.position +  heading * (run_options.wander_distance * (2_f32).sqrt());
+        let loco_center = self.position + heading * (run_options.wander_distance * (2_f32).sqrt());
 
         // vector pointing at the point on circumference
         let wander_point = heading.rotate(Vec2::new(
@@ -350,11 +429,34 @@ impl Boid {
 
     // Actually shifts the individual's location
     pub fn update_location(&mut self, run_options: &RunOptions) {
+        // let vel_prior = self.velocity;
         self.velocity += self.acceleration;
+
         self.velocity = self.velocity.clamp_length_max(run_options.max_speed);
 
+        // this is problematic
         if self.velocity.length() < run_options.min_speed {
             self.velocity = self.velocity.normalize() * run_options.min_speed;
+
+            // This was extremely hard to spot and debug.
+            // In this very unlikely case where agents have meat head on with equal
+            // but opposite velocities and accelerations, the normalization above
+            // produces NaN vector.
+
+            // Presuming we have no notion of communication and social interaction:
+            // Real life equivalent would be if you meet someone exactly head on, at the same speed,
+            // and you slow down (at the same rate), to avoid collision, but then you both have to make
+            // a decision, which way to go to avoid standing in place or bumbing into each other again
+            // because it does not matter whether or not you CAN move(accelerate) what matters is to
+            // start moving somewhere (e.g. make a random choice).
+            // This is the resolution, arbitrary in this case:
+            if self.velocity.is_nan() {
+                let mut rng = rand::thread_rng();
+                let x_vel = (rng.gen::<f32>() * 2. - 1.) * run_options.max_speed;
+                let y_vel = (rng.gen::<f32>() * 2. - 1.) * run_options.max_speed;
+                self.velocity.x = x_vel;
+                self.velocity.y = y_vel;
+            }
         }
 
         if !run_options.stop_movement {
@@ -367,54 +469,72 @@ impl Boid {
     }
 
     pub fn apply_force(&mut self, force: Vec2) {
-        // if force.length() > 0. {
-        //     dbg!("{:?}", force);
-        // }
         self.acceleration += force;
     }
 
     fn boundaries(&mut self, run_options: &RunOptions) {
         match run_options.boundary {
-            Boundary::Thoroidal => {
-                // wrap around the barrier
-                if self.position.x < run_options.window.win_left {
-                    self.position.x = run_options.window.win_right;
-                } else if self.position.x > run_options.window.win_right {
-                    self.position.x = run_options.window.win_left;
+            Boundary::Toroidal => {
+                if self.position.x < run_options.window.win_left as f32 {
+                    self.position.x = run_options.window.win_right as f32 + self.position.x
+                        - run_options.window.win_left as f32;
+                } else if self.position.x > run_options.window.win_right as f32 {
+                    self.position.x = run_options.window.win_left as f32 + self.position.x
+                        - run_options.window.win_right as f32;
                 }
 
-                if self.position.y > run_options.window.win_top {
-                    self.position.y = run_options.window.win_bottom;
-                } else if self.position.y < run_options.window.win_bottom {
-                    self.position.y = run_options.window.win_top;
+                if self.position.y > run_options.window.win_top as f32 {
+                    self.position.y = run_options.window.win_bottom as f32 + self.position.y
+                        - run_options.window.win_top as f32;
+                } else if self.position.y < run_options.window.win_bottom as f32 {
+                    self.position.y = run_options.window.win_top as f32 + self.position.y
+                        - run_options.window.win_bottom as f32;
                 }
             }
-            Boundary::Absorbing => todo!(),
+            Boundary::Absorbing => {
+                if self.position.x < run_options.window.win_left as f32 {
+                    self.position.x = run_options.window.win_left as f32;
+                    self.velocity.x = 0.;
+                } else if self.position.x > run_options.window.win_right as f32 {
+                    self.position.x = run_options.window.win_right as f32;
+                    self.velocity.x = 0.;
+                }
+
+                if self.position.y > run_options.window.win_top as f32 {
+                    self.position.y = run_options.window.win_top as f32;
+                    self.velocity.y = 0.;
+                } else if self.position.y < run_options.window.win_bottom as f32 {
+                    self.position.y = run_options.window.win_bottom as f32;
+                    self.velocity.y = 0.;
+                }
+            }
             Boundary::Reflective => {
                 // flip velocity if it is going beyond the edge
-                if (self.position.x < run_options.window.win_left && self.velocity.x < 0.)
-                    || (self.position.x > run_options.window.win_right && self.velocity.x > 0.)
+                if (self.position.x < run_options.window.win_left as f32 && self.velocity.x < 0.)
+                    || (self.position.x > run_options.window.win_right as f32
+                        && self.velocity.x > 0.)
                 {
                     self.velocity.x = -self.velocity.x;
                 }
 
-                if (self.position.y > run_options.window.win_top && self.velocity.y > 0.)
-                    || (self.position.y < run_options.window.win_bottom && self.velocity.y < 0.)
+                if (self.position.y > run_options.window.win_top as f32 && self.velocity.y > 0.)
+                    || (self.position.y < run_options.window.win_bottom as f32
+                        && self.velocity.y < 0.)
                 {
                     self.velocity.y = -self.velocity.y;
                 }
             }
             Boundary::Repulsive { distance, force } => {
                 // add accelleration as a vector pointing away from the barrier
-                if self.position.x < run_options.window.win_left + distance {
+                if self.position.x < run_options.window.win_left as f32 + distance {
                     self.acceleration.x += force;
-                } else if self.position.x > run_options.window.win_right - distance {
+                } else if self.position.x > run_options.window.win_right as f32 - distance {
                     self.acceleration.x -= force;
                 }
 
-                if self.position.y > run_options.window.win_top - distance {
+                if self.position.y > run_options.window.win_top as f32 - distance {
                     self.acceleration.y -= force;
-                } else if self.position.y < run_options.window.win_bottom + distance {
+                } else if self.position.y < run_options.window.win_bottom as f32 + distance {
                     self.acceleration.y += force;
                 }
             }

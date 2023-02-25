@@ -32,7 +32,7 @@ fn flock(no_iter: u32, init_boids: u32, save_locations_path: String) -> () {
 
 #[extendr]
 /// executes flocking and returns a dataframe with the location data
-fn flock_return(no_iter: u32, init_boids: u32, save_locations_path: String, sample_rate: f32, init_width: f32, init_height: f32) -> Robj {
+fn flock_return(no_iter: u32, init_boids: u32, save_locations_path: String, sample_rate: f32, init_width: u32, init_height: u32) -> Robj {
 
     let mut run_options: RunOptions = Default::default();
 
@@ -52,8 +52,8 @@ fn flock_detailed(
     init_boids: u32,
     save_locations_path: String,
     sample_rate: f32,
-    init_width: f32,
-    init_height: f32,
+    init_width: u32,
+    init_height: u32,
     sensory_distance: f32,
     allignment_coef: f32,
     cohesion_coef: f32,

@@ -128,11 +128,14 @@ impl Birdwatcher {
     }
 }
 #[cfg(test)]
+#[allow(deprecated)]
+
 mod tests {
     use chrono::Utc;
     use chrono::prelude::*;
     use crate::{birdwatcher::Birdwatcher, options::SaveOptions};
 
+    
     #[test]
     fn test_name_timestamped() {
         let expected = "boids-data_1668038059490.csv";

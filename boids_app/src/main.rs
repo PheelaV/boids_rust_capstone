@@ -2,8 +2,8 @@ extern crate nannou;
 use boids_lib::birdwatcher::Birdwatcher;
 use boids_lib::boid::{Boid, BoidMetadata};
 use boids_lib::flock::{Flock, SpatHash1D};
-use boids_lib::math_helpers::distance_dyn;
-use boids_lib::options::{self, Distance, RunOptions, SaveOptions, WindowSize};
+use boids_lib::math_helpers::{distance_dyn, tor_vec_p};
+use boids_lib::options::{self, Distance, RunOptions, SaveOptions, WindowSize, Boundary};
 use clap_serde_derive::{clap::Parser, ClapSerde};
 use nannou::draw::properties::ColorScalar;
 use nannou::geom::{Ellipse, Tri};
@@ -44,6 +44,8 @@ pub struct Model {
     window_id: WindowId,
     debug_grid: bool,
     debug_distance: bool,
+    repulsive_distance: f32,
+    repulsive_force: f32
 }
 
 fn model(app: &App) -> Model {
@@ -100,6 +102,7 @@ fn model(app: &App) -> Model {
     let main_window = app
         .new_window()
         .key_pressed(key_pressed)
+        .key_released(key_released)
         .mouse_pressed(mouse_pressed)
         .closed(window_closed)
         .resizable(false)
@@ -119,7 +122,7 @@ fn model(app: &App) -> Model {
 
     Model {
         egui: Egui::from_window(&window),
-        color: Hsv::new(RgbHue::from_degrees(190.), 74., 32.),
+        color: Hsv::new(RgbHue::from_degrees(0.), 0., 0.),
         flock: Flock::new(&run_options),
         run_options,
         last_update_micros: 0,
@@ -136,11 +139,15 @@ fn model(app: &App) -> Model {
         bird_watcher: birdwatcher,
         window_id: main_window,
         debug_grid: false,
-        debug_distance: true,
+        debug_distance: false,
+        repulsive_distance: 100.,
+        repulsive_force: 0.05
     }
 }
 
 fn update(app: &App, model: &mut Model, update: Update) {
+
+    
     // Record update timing if we are looking at upate times or limiting frame times
     if model.fps_limit_on || model.update_timing_on {
         record_update_timing(app, model);
@@ -162,20 +169,23 @@ fn update(app: &App, model: &mut Model, update: Update) {
         ref mut flock,
         ref mut run_options,
         ref mut bird_watcher,
+        ref mut repulsive_distance,
+        ref mut repulsive_force,
         ..
     } = *model;
 
     // update window size as it could be resized
     let win = &app.window_rect();
 
-    let new_win = WindowSize::new(
-        win.left(),
-        win.right(),
-        win.top(),
-        win.bottom(),
-        win.h(),
-        win.w(),
-    );
+    let new_win = {
+        let win_left  = win.left() as i32;
+        let win_right = win.right() as i32;
+        let wind_top = win.top() as i32;
+        let win_bottom = win.bottom() as i32;
+        let win_h = win.h() as i32;
+        let win_w = win.w() as i32;
+        WindowSize { win_left: win_left, win_right: win_right, win_top: wind_top, win_bottom: win_bottom, win_h: win_h, win_w: win_w }
+    };
 
     // if the window size changed
     if new_win.win_h != run_options.window.win_h || new_win.win_w != run_options.window.win_w {
@@ -194,7 +204,6 @@ fn update(app: &App, model: &mut Model, update: Update) {
             ui.separator();
 
             ui.horizontal(|ui| {
-                // ui.label("distancce");
                 egui::ComboBox::from_label("distance")
                     .selected_text(format!("{:?}", run_options.distance))
                     .show_ui(ui, |ui| {
@@ -205,11 +214,58 @@ fn update(app: &App, model: &mut Model, update: Update) {
                         );
                         ui.selectable_value(
                             &mut run_options.distance,
-                            Distance::EucThoroidal,
+                            Distance::EucToroidal,
                             "EucThoroidal",
                         );
                     });
             });
+            ui.horizontal(|ui| {
+                egui::ComboBox::from_label("boundary")
+                    .selected_text(format!("{:?}", run_options.boundary))
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(
+                            &mut run_options.boundary,
+                            Boundary::Reflective,
+                            "Reflective",
+                        );
+                        ui.selectable_value(
+                            &mut run_options.boundary,
+                            Boundary::Toroidal,
+                            "Toroidal",
+                        );
+                        ui.selectable_value(
+                            &mut run_options.boundary,
+                            Boundary::Absorbing,
+                            "Absorbing",
+                        );
+                        ui.selectable_value(
+                            &mut run_options.boundary,
+                            Boundary::Repulsive { distance: *repulsive_distance, force: *repulsive_force },
+                            "Repulsive",
+                        );
+                    });
+                });
+
+            if let Boundary::Repulsive { distance: _, force: _ } = run_options.boundary {
+                ui.horizontal(|ui| {
+                    ui.label("rep distance");
+                    ui.add(egui::Slider::new(
+                        repulsive_distance,
+                        0.0..=300_f32,
+                    ));
+                });
+                ui.horizontal(|ui| {
+                    ui.label("rep force");
+                    ui.add(egui::Slider::new(
+                        repulsive_force,
+                        0.001..=0.2,
+                    ));
+                    if ui.button("apply").clicked() {
+                        run_options.boundary = Boundary::Repulsive { distance: *repulsive_distance, force: *repulsive_force }
+                    }
+                });
+            }
+
             ui.horizontal(|ui| {
                 ui.label("color");
                 edit_hsv(ui, color);
@@ -481,6 +537,12 @@ fn should_render_update(model: &mut Model) -> bool {
 
 // }
 
+fn key_released(_: &App, model: &mut Model, key: Key) -> () {
+    if key == Key::S {
+        model.run_options.seek_target_on = false;
+        model.run_options.seek_location = None;
+    }
+}
 fn key_pressed(app: &App, model: &mut Model, key: Key) -> () {
     let Model {
         ref mut run_options,
@@ -577,6 +639,12 @@ fn key_pressed(app: &App, model: &mut Model, key: Key) -> () {
     } else if key == Key::V {
         // switch vision on or off
         run_options.field_of_vision_on = !run_options.field_of_vision_on
+    } else if key == Key::S {
+        // switch vision on or off
+        run_options.seek_target_on = !run_options.seek_target_on;
+        run_options.seek_location = Some(app.mouse.position());
+    } else if key == Key::X {
+        run_options.clicked_boid_id = usize::MAX;
     }
 }
 
@@ -590,6 +658,22 @@ fn mouse_pressed(app: &App, model: &mut Model, _button: MouseButton) -> () {
     } = model;
 
     let mouse_click = vec2(app.mouse.x, app.mouse.y);
+
+    // let distance_boid = model
+    // .flock
+    // .view()
+    // .0
+    // .iter()
+    // .filter(|b| {
+    //     b.id == run_options.clicked_boid_id
+    // })
+    // .next();
+    // match distance_boid {
+    //     Some(db) => println!("{:?}", distance_dyn(db.position.x, mouse_click.x, db.position.y, mouse_click.y, run_options)),
+    //     None => ()
+    //     ,
+    // }
+
     // println!("mouse clicked: {:?}", mouse_click);
     let clicked = model
         .flock
@@ -630,8 +714,12 @@ impl Drawable for Flock {
         let settings = SpatHash1D::get_tracker_settings(run_options);
 
         if model.debug_distance {
-            let dist_max: f32 =
-                (run_options.window.win_w.pow(2.) + run_options.window.win_h.pow(2.)).sqrt();
+            let mut dist_max: f32 =
+                ((run_options.window.win_w as f32).pow(2.) + (run_options.window.win_h as f32).pow(2.)).sqrt();
+            
+            if model.run_options.distance == Distance::EucToroidal {
+                dist_max /= 2.;
+            }
             let target = model.flock.view2().filter(|tuple| tuple.0.id == 0).next();
 
             match target {
@@ -660,7 +748,7 @@ impl Drawable for Flock {
         }
 
         if model.debug_grid {
-            let max_ined = settings.x_cell_count * settings.y_cell_count;
+            let max_ined = (settings.x_cell_count * settings.y_cell_count) as f32;
             for x in ((run_options.window.win_left as i32)..(run_options.window.win_right as i32))
                 .step_by(10)
             {
@@ -671,13 +759,13 @@ impl Drawable for Flock {
                     let index = SpatHash1D::get_table_index(
                         x as f32,
                         y as f32,
-                        run_options.window.win_left,
-                        run_options.window.win_right - 1.,
-                        run_options.window.win_bottom,
-                        run_options.window.win_top - 1.,
+                        run_options.window.win_left as f32,
+                        (run_options.window.win_right - 1) as f32,
+                        (run_options.window.win_bottom as f32) as f32,
+                        (run_options.window.win_top - 1) as f32,
                         settings.x_cell_res,
                         settings.y_cell_res,
-                        settings.x_cell_count,
+                        settings.x_cell_count as f32,
                     );
 
                     let r = 1. * ((index + 1) as f32 / max_ined) * (1. - (index % 2) as f32);
@@ -694,22 +782,22 @@ impl Drawable for Flock {
 
             for column in 0..=(x_count) {
                 let line_x_point =
-                    run_options.window.win_left + column as f32 * settings.x_cell_res;
+                    run_options.window.win_left as f32 + column as f32 * settings.x_cell_res;
 
                 draw.line()
-                    .start(Vec2::new(line_x_point, run_options.window.win_top))
-                    .end(Vec2::new(line_x_point, run_options.window.win_bottom))
+                    .start(Vec2::new(line_x_point, run_options.window.win_top as f32))
+                    .end(Vec2::new(line_x_point, run_options.window.win_bottom as f32))
                     .weight(2.)
                     .z(-1.)
                     .color(DEEPPINK);
             }
 
             for row in 0..=(y_count) {
-                let line_y_point = run_options.window.win_bottom + row as f32 * settings.y_cell_res;
+                let line_y_point = run_options.window.win_bottom as f32 + row as f32 * settings.y_cell_res;
 
                 draw.line()
-                    .start(Vec2::new(run_options.window.win_left, line_y_point))
-                    .end(Vec2::new(run_options.window.win_right, line_y_point))
+                    .start(Vec2::new(run_options.window.win_left as f32, line_y_point))
+                    .end(Vec2::new(run_options.window.win_right as f32, line_y_point))
                     .weight(2.)
                     .z(-1.)
                     .color(DEEPPINK);
@@ -770,7 +858,7 @@ impl DrawableBoid for Boid {
         let drawing = draw
             .polygon()
             .stroke(AZURE)
-            .stroke_weight(1.0)
+            // .stroke_weight(1.0)
             .points(vertices)
             .xy(*position)
             .z(1.)
@@ -798,7 +886,7 @@ impl DrawableBoid for Boid {
                 ));
 
                 // places the point onto the locomotion circle with respect to agent's location
-                let wander_f = loco_center + wander_point;
+                // let wander_f = loco_center + wander_point;
 
                 // dbg!(wander_f);
 
@@ -961,13 +1049,13 @@ fn view(app: &App, model: &Model, frame: Frame) {
     let index = SpatHash1D::get_table_index(
         app.mouse.x as f32,
         app.mouse.y as f32,
-        model.run_options.window.win_left,
-        model.run_options.window.win_right - 1.,
-        model.run_options.window.win_bottom,
-        model.run_options.window.win_top - 1.,
+        model.run_options.window.win_left as f32,
+        (model.run_options.window.win_right - 1) as f32,
+        model.run_options.window.win_bottom as f32,
+        (model.run_options.window.win_top - 1) as f32,
         settings.x_cell_res,
         settings.y_cell_res,
-        settings.x_cell_count,
+        settings.x_cell_count as f32,
     );
 
     let mouse_label2 = format!("index: {}", index);
@@ -984,6 +1072,33 @@ fn view(app: &App, model: &Model, frame: Frame) {
         .z(10.)
         .color(BLACK)
         .font_size(20);
+
+    let distance_boid = model
+        .flock
+        .view()
+        .0
+        .iter()
+        .filter(|b| {
+            b.id == model.run_options.clicked_boid_id
+        })
+        .next();
+    match distance_boid {
+            Some(db) => { 
+                let distance = distance_dyn(db.position.x, app.mouse.x, db.position.y, app.mouse.y, &model.run_options);
+                let vec_to = tor_vec_p(db.position.x, app.mouse.x, db.position.y, app.mouse.y, &model.run_options.window);
+                draw.text(&format!("cd: {:.2}", distance))
+                    .x_y(0., 0.)
+                    .z(10.)
+                    .color(WHITE)
+                    .font_size(20);
+                draw.text(&format!("vec to: {:.2}, {:.2}", vec_to.0, vec_to.1))
+                    .x_y(0., -20.)
+                    .z(10.)
+                    .color(WHITE)
+                    .font_size(20);
+            },
+            None => (),
+        };
 
     draw.background().color(PLUM);
 

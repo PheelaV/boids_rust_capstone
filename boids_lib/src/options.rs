@@ -1,3 +1,4 @@
+use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug)]
@@ -59,7 +60,9 @@ pub struct RunOptions {
     pub sample_rate: u64,
     pub dbscan_flock_clustering_on: bool,
     pub neighbours_cosidered: usize,
-    pub stop_movement: bool
+    pub stop_movement: bool,
+    pub seek_target_on: bool,
+    pub seek_location: Option<Vec2>
 }
 
 impl RunOptions {
@@ -81,8 +84,8 @@ impl RunOptions {
 impl Default for RunOptions {
     fn default() -> Self {
         let init_boids = 256;
-        let init_height = 600.0;
-        let init_width = 600.0;
+        let init_height = 600;
+        let init_width = 600;
 
         let baseline_speed = 1.0;
 
@@ -144,10 +147,12 @@ impl Default for RunOptions {
                 save_locations_timestamp: true,
             },
             size: 8.,
-            boundary: Boundary::Thoroidal,
+            // boundary: Boundary::Absorbing,
+            boundary: Boundary::Toroidal,
             // boundary: Boundary::Repulsive{distance: 100., force: 0.05},
             // boundary: Boundary::Reflective,
-            distance: Distance::EucEnclosed,
+            distance: Distance::EucToroidal,
+            // distance: Distance::EucEnclosed,
             clicked_boid_id: std::usize::MAX,
             allignment_impl_mode: false,
             cohesion_impl_mode: false,
@@ -165,6 +170,8 @@ impl Default for RunOptions {
             wander_radius: 5.2,
             wander_coefficient: 0.4,
             wander_distance: 21.5,
+            seek_target_on: false,
+            seek_location: None
         };
 
         res.update_sensory_distances();
@@ -173,35 +180,35 @@ impl Default for RunOptions {
     }
 }
 
-pub fn get_window_size(init_width: f32, init_height: f32) -> WindowSize {
+pub fn get_window_size(init_width: u32, init_height: u32) -> WindowSize {
     WindowSize {
-        win_left: init_width / -2.,
-        win_right: init_width / 2.,
-        win_top: init_height / 2.,
-        win_bottom: init_height / -2.,
-        win_h: init_height,
-        win_w: init_width,
+        win_left: init_width as i32 / -2,
+        win_right: init_width as i32 / 2,
+        win_top: init_height as i32 / 2,
+        win_bottom: init_height as i32 / -2,
+        win_h: init_height as i32,
+        win_w: init_width as i32,
     }
 }
 
 #[derive(Debug)]
 pub struct WindowSize {
     /// lowest x value
-    pub win_left: f32,
+    pub win_left: i32,
     /// highest x value
-    pub win_right: f32,
+    pub win_right: i32,
     /// highest y value
-    pub win_top: f32,
+    pub win_top: i32,
     /// lowest y value
-    pub win_bottom: f32,
+    pub win_bottom: i32,
     /// height
-    pub win_h: f32,
+    pub win_h: i32,
     /// width
-    pub win_w: f32,
+    pub win_w: i32,
 }
 
 impl WindowSize {
-    pub fn new(win_left: f32, win_right: f32, wind_top: f32, win_bottom: f32, win_h: f32, win_w: f32) -> WindowSize {
+    pub fn new(win_left: i32, win_right: i32, wind_top: i32, win_bottom: i32, win_h: i32, win_w: i32) -> WindowSize {
         WindowSize { win_left: win_left, win_right: win_right, win_top: wind_top, win_bottom: win_bottom, win_h: win_h, win_w: win_w }
     }
 }
@@ -218,9 +225,9 @@ pub enum InitiationStrategy {
 
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "type")]
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Boundary {
-    Thoroidal,
+    Toroidal,
     Absorbing,
     Reflective,
     Repulsive{distance: f32, force: f32},
@@ -228,9 +235,9 @@ pub enum Boundary {
 
 // {"type": "Repulsive", "distance": 100, "force": 0.05}
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Distance {
-    EucThoroidal,
+    EucToroidal,
     EucEnclosed,
 }
 

@@ -20,6 +20,7 @@ lazy_static! {
 use crate::boid::Boid;
 use crate::boid::BoidMetadata;
 use crate::math_helpers::distance_dyn_boid;
+use crate::options::Distance;
 use crate::options::InitiationStrategy;
 use crate::options::RunOptions;
 
@@ -61,6 +62,11 @@ pub struct SpatHash1D {
     index: Vec<usize>,
     // contains information about the table, used for updating and reconstruction
     settings: SpatialHashingTableSettings,
+
+    // querying metadata for neighbourhood
+    query_metadata: Option<[[[i32; 2]; 9]; 16]>,
+
+    distance: Distance
 }
 
 #[derive(Clone)]
@@ -87,6 +93,11 @@ impl Tracker for SpatHash1D {
             entities.iter().map(|e| BoidMetadata::new(e)).collect();
         // metadata[0].boid_type = BoidType::Disruptor;
 
+        // let query_metadata = match run_options.distance {
+        //     Distance::EucThoroidal => Some(),
+        //     Distance::EucEnclosed => None,
+        // };
+
         SpatHash1D {
             // initialize vector with both capacity and values prefilled to simplify code in the update_table
             pivots: vec![Default::default(); settings.cell_count],
@@ -95,17 +106,32 @@ impl Tracker for SpatHash1D {
             // initialize vector with both capacity and values prefilled to simplify code in the update_table
             index: vec![0; run_options.init_boids as usize],
             settings,
+            query_metadata: None,
+            distance: run_options.distance,
         }
     }
 
-    fn update(&mut self, run_options: &RunOptions) {
+    fn update(&mut self, run_options: &RunOptions) { 
+        // check if table grid needs updating (expanding or shrinking)
         let new_settings = SpatHash1D::get_tracker_settings(run_options);
-        let cell_difference = self.settings.cell_count as i64 - new_settings.cell_count as i64;
-        if cell_difference != 0 {
+        let table_resized = self.settings.cell_count as i64 - new_settings.cell_count as i64 != 0;
+        if table_resized {
             self.pivots
                 .resize(new_settings.cell_count, Default::default());
             self.settings = new_settings;
             self.update_table(run_options);
+        }
+
+        // check if we need to regenerate query metadata for toroidial lookup
+        // of the table grid, that is when:
+        //   distance has changed 
+        //   or table was resized 
+        //   or we begun with toroidial distance 
+        if self.distance != run_options.distance 
+            || table_resized 
+            || (run_options.distance == Distance::EucToroidal && self.query_metadata == None) {
+            self.distance =  run_options.distance;
+            self.query_metadata = if run_options.distance == Distance::EucEnclosed  { None }  else { Some(self.get_query_metadata()) };
         }
 
         self.update_location(run_options);
@@ -210,8 +236,6 @@ impl SpatHash1D {
         [Self::HOME, Self::N, Self::NE, Self::HOME, Self::HOME, Self::E, Self::HOME, Self::S, Self::SE],
         // 9 = left | top
         [Self::HOME, Self::HOME, Self::HOME, Self::HOME, Self::HOME, Self::E, Self::HOME, Self::S, Self::SE],
-        // placeholder
-        [[0; 2]; 9],
         // 10 = left | botom
         [Self::HOME, Self::N, Self::NE, Self::HOME, Self::HOME, Self::E, Self::HOME, Self::HOME, Self::HOME],
         // placeholder
@@ -222,7 +246,67 @@ impl SpatHash1D {
         [[0; 2]; 9],
         // placeholder
         [[0; 2]; 9],
+        // placeholder
+        [[0; 2]; 9],
     ];
+
+    // set of helper functions for toroidially wrapped environment space
+
+    /// if current cell is left (W), returns vector pointing towards it's W neighbour
+    /// according to toroidal wrapping
+    /// 
+    /// 'vo' - vertical offset in (-1..=1)
+    fn gt_l(&self, vo: i32) -> [i32; 2] {
+        [self.settings.x_cell_count as i32 - 1 , vo]
+    }
+
+    /// if current cell is right, returns the cell that would have been on the right
+    /// according to toroidal wrappin
+    /// 
+    /// 'vo' - vertical offset in (-1..=1)g
+    fn gt_r(&self, vo: i32) -> [i32; 2] {
+        [-(self.settings.x_cell_count as i32) + 1, vo]
+    }
+
+    /// if current cell is topdners, returns the cell that would have been on the top
+    /// according to toroidal wrappin
+    /// 
+    /// 'ho' - horizontal offset in (-1..=1)
+    fn gt_t(&self, ho: i32) -> [i32; 2] {
+        [ho, -(self.settings.y_cell_count as i32) + 1]
+    }
+
+    /// if current cell is bottom, returns the cell that would have been on the bottom
+    /// according to toroidal wrapping
+    /// 
+    /// 'ho' - horizontal offset in (-1..=1)
+    fn gt_b(&self, ho: i32) -> [i32; 2] {
+        [ho, (self.settings.y_cell_count as i32) - 1]
+    }
+
+    /// if current cell is left top, returns the cell that would have been on the
+    /// following the  left top diagonal
+    fn gt_lt(&self) -> [i32; 2] {
+        [self.gt_l(0)[0], self.gt_t(0)[1]]  
+    }
+
+    /// if current cell is left bottom, returns the cell that would have been on the
+    /// following the  left bottom diagonal
+    fn gt_lb(&self) -> [i32; 2] {
+        [self.gt_l(0)[0], self.gt_b(0)[1]]  
+    }
+
+    /// if current cell is right top, returns the cell that would have been on the
+    /// following the  roght top diagonal
+    fn gt_rt(&self) -> [i32; 2] {
+        [self.gt_r(0)[0], self.gt_t(0)[1]]  
+    }
+
+    /// if current cell is right bottom, returns the cell that would have been on the
+    /// following the  right bottom diagonal
+    fn gt_rb(&self) -> [i32; 2] {
+        [self.gt_r(0)[0], self.gt_b(0)[1]]
+    }
 
     // https://stackoverflow.com/questions/31904842/return-a-map-iterator-which-is-using-a-closure-in-rust
     // fn view2<'a>(&'a self) -> Box<dyn Iterator<Item= (&'a Boid, &'a BoidMetadata)> + 'a> {
@@ -230,17 +314,54 @@ impl SpatHash1D {
     //     Box::new(self.table.iter().map(|e| (e, &self.metadata[e.id])))
     // }
 
+    fn get_query_metadata(&self) -> [[[i32; 2]; 9]; 16] {
+        [
+            // 0 = middle
+            [Self::NW, Self::N, Self::NE, Self::W, Self::HOME, Self::E, Self::SW, Self::S, Self::SE],
+            // 1 = top
+            [self.gt_t(-1), self.gt_t(0), self.gt_t(1), Self::E, Self::HOME, Self::W, Self::SW, Self::S, Self::SE],
+            // 2 = bottom
+            [Self::NW, Self::N, Self::NE, Self::W, Self::HOME, Self::E, self.gt_b(-1), self.gt_b(0), self.gt_b(1)],
+            // placeholder
+            [[0; 2]; 9],
+            // 4 = right
+            [Self::NW, Self::N, self.gt_r(1), Self::W, Self::HOME, self.gt_r(0), Self::SW, Self::S, self.gt_r(-1)],
+            // 5 = right | top
+            [self.gt_t(-1), self.gt_t(0), self.gt_rt(), Self::W, Self::HOME, self.gt_r(0), Self::SW, Self::S, self.gt_r(-1)],
+            // 6 = right | bottom
+            [Self::NW, Self::N, self.gt_r(1), Self::W, Self::HOME, self.gt_r(0), self.gt_b(-1), self.gt_b(0), self.gt_rb()],
+            // placeholder
+            [[0; 2]; 9],
+            // 8 = left
+            [self.gt_l(1), Self::N, Self::NE, self.gt_l(0), Self::HOME, Self::E, self.gt_l(-1), Self::S, Self::SE],
+            // 9 = left | top
+            [self.gt_lt(), self.gt_t(0), self.gt_t(1), self.gt_l(0), Self::HOME, Self::E, self.gt_l(-1), Self::S, Self::SE],
+            // 10 = left | botom
+            [self.gt_l(1), Self::N, Self::NE, self.gt_l(0), Self::HOME, Self::E, self.gt_lb(), self.gt_b(0), self.gt_b(1)],
+            // placeholder
+            [[0; 2]; 9],
+            // placeholder
+            [[0; 2]; 9],
+            // placeholder
+            [[0; 2]; 9],
+            // placeholder
+            [[0; 2]; 9],
+            // placeholder
+            [[0; 2]; 9],
+        ]
+    }
+
     fn insert(&mut self, entity: Boid, run_options: &RunOptions) {
         let index = SpatHash1D::get_table_index(
             entity.position.x,
             entity.position.y,
-            run_options.window.win_left,
-            run_options.window.win_right - 1.,
-            run_options.window.win_bottom,
-            run_options.window.win_top - 1.,
+            run_options.window.win_left as f32,
+            (run_options.window.win_right - 1) as f32,
+            run_options.window.win_bottom as f32,
+            (run_options.window.win_top - 1) as f32,
             self.settings.x_cell_res,
             self.settings.y_cell_res,
-            self.settings.x_cell_count,
+            self.settings.x_cell_count as f32
         );
 
         // expand table and index vectors
@@ -296,11 +417,11 @@ impl SpatHash1D {
                 }
             }
 
-            // this blows up, because the vector is allocated with appropriate capacity, but is empty
+            // todo: this blows up, because the vector is allocated with appropriate capacity, but is empty
             // accellerations[e] = self.table[e].run_rules3(&neighbours, run_options);
             // I will attempt to patch it with push to get rid of the overhead in pre-creating the Vec2s
             // and rely on implicit order, which might cause issues, but should not as the for loop goes
-            //sequentually through the entities
+            // sequentually through the entities
             let accelleration = self.table[e].run_rules(&neighbours, &self.metadata, run_options);
             metadata[self.table[e].id].accelleration_update = accelleration;
             accellerations[e] = accelleration;
@@ -326,8 +447,12 @@ impl SpatHash1D {
         accellerations.clear();
     }
 
-    /// assumes all the auxilary arrays are of correct size
+    /// updates table grid, assumes all the auxilary arrays are of correct size
     pub(self) fn update_table(&mut self, run_options: &RunOptions) {
+
+        if self.distance != run_options.distance {
+
+        }
         // reset pivot metadata as we are in the next iterration, e.g., we do
         // not want pivot.usg to linger along from previous iterration
         self.pivots.iter_mut().for_each(|pivot| {
@@ -340,13 +465,13 @@ impl SpatHash1D {
             let index = SpatHash1D::get_table_index(
                 self.table[e].position.x,
                 self.table[e].position.y,
-                run_options.window.win_left,
-                run_options.window.win_right - 1.,
-                run_options.window.win_bottom,
-                run_options.window.win_top - 1.,
+                run_options.window.win_left as f32,
+                (run_options.window.win_right - 1) as f32,
+                run_options.window.win_bottom as f32,
+                (run_options.window.win_top - 1) as f32,
                 self.settings.x_cell_res,
                 self.settings.y_cell_res,
-                self.settings.x_cell_count,
+                self.settings.x_cell_count as f32,
             );
 
             // if we are dealing with the same entity, do not tick usage
@@ -376,7 +501,7 @@ impl SpatHash1D {
             // here is where the algorithm differs slightly from the original
             // as we are reusing the same table as the set of entities, we
             // have to make a swap this collapses into a form of unstable
-            // insertion sort...
+            // insertion sort
 
             let id = self.table[e].id;
 
@@ -464,8 +589,8 @@ impl SpatHash1D {
     // }
 
     pub fn get_tracker_settings(run_options: &RunOptions) -> SpatialHashingTableSettings {
-        let x_range = (run_options.window.win_right - run_options.window.win_left).ceil();
-        let y_range = (run_options.window.win_top - run_options.window.win_bottom).ceil();
+        let x_range = (run_options.window.win_right - run_options.window.win_left) as usize;
+        let y_range = (run_options.window.win_top - run_options.window.win_bottom) as usize;
 
         // let x_cell_count = (x_range as f32 / (100.)).ceil();
 
@@ -475,8 +600,8 @@ impl SpatHash1D {
         // value any higher than that will an unnescessary ammount of boids
         // any lower, and it won't fetch all boids that should have been considered
 
-        let mut x_cell_count: f32;
-        let mut y_cell_count: f32;
+        let mut x_cell_count: usize;
+        let mut y_cell_count: usize;
 
         // the problems I am hitting here are related to the gauss circle problem
         // which consists of counting the number of lattice points N(r) inside the boundary of
@@ -484,23 +609,23 @@ impl SpatHash1D {
         // there is an exact solution: https://mathworld.wolfram.com/GausssCircleProblem.html
         // - considers the floored radius
         // tests all discrete points within positive quartal
-        if x_range.max(y_range) / 2. < run_options.max_sensory_distance {
-            x_cell_count = 1.;
-            y_cell_count = 1.;
+        if x_range.max(y_range) as f32 / 2. < run_options.max_sensory_distance {
+            x_cell_count = 1;
+            y_cell_count = 1;
         } else {
-            x_cell_count = (x_range as f32 / (run_options.max_sensory_distance * 2.)).ceil();
-            y_cell_count = (y_range as f32 / (run_options.max_sensory_distance * 2.)).ceil();
+            x_cell_count = x_range as usize / (run_options.max_sensory_distance.ceil() as usize * 2);
+            y_cell_count = y_range as usize / (run_options.max_sensory_distance.ceil() as usize * 2);
         }
 
-        if y_cell_count < 2. || x_cell_count < 2. {
-            y_cell_count = 1.;
-            x_cell_count = 1.;
+        if y_cell_count < 2 || x_cell_count < 2 {
+            y_cell_count = 1;
+            x_cell_count = 1;
         }
 
         let cell_count = (x_cell_count * y_cell_count) as usize;
 
-        let x_cell_res = x_range / x_cell_count;
-        let y_cell_res = y_range / y_cell_count;
+        let x_cell_res = x_range as f32 / x_cell_count as f32;
+        let y_cell_res = y_range as f32 / y_cell_count as f32;
 
         SpatialHashingTableSettings {
             x_range,
@@ -521,10 +646,15 @@ impl SpatHash1D {
         neighbours: &mut Vec<&'a Boid>,
     ) {
         // if the table grid is less than 4x4
-        if self.settings.x_cell_count <= 3. && self.settings.y_cell_count <= 3. {
+        if self.settings.x_cell_count <= 3 && self.settings.y_cell_count <= 3 {
             // fall back to naive method
             return BoidTracker::get_neighbours_naive(boid, &self.table, run_options, neighbours);
         }
+
+        
+        // if boid.id == run_options.clicked_boid_id {
+        //      println!("delete me ")
+        // }
 
         // only add it once
         let is_left = cell_index % self.settings.x_cell_count as usize == 0;
@@ -532,7 +662,7 @@ impl SpatHash1D {
             == self.settings.x_cell_count as usize;
         let is_bottom = cell_index / self.settings.x_cell_count as usize == 0;
         let is_top =
-            cell_index as f32 >= (self.settings.y_cell_count - 1f32) * self.settings.x_cell_count;
+            cell_index >= (self.settings.y_cell_count - 1) * self.settings.x_cell_count;
 
         // self.settings
         // if there is any piece of code in this code base that deserves an internet trophy it is this
@@ -542,7 +672,22 @@ impl SpatHash1D {
         } as usize;
         // depending on the match, iterate the vectors, presuming, serves as a
         // lookup for a potential (1..3)*(1..3) area on a n*n grid
-        for cell in Self::LOOKUP[lookup_index]
+
+        let m = match (self.query_metadata, self.distance) {
+            (Some(metadata), Distance::EucToroidal) => metadata[lookup_index],
+            (None, Distance::EucEnclosed) => Self::LOOKUP[lookup_index],
+            (_, _) => {
+                panic!("it should have never come to this")
+            },
+        };
+
+        // if boid.id == run_options.clicked_boid_id {
+        //     println !("{:?}", m);
+        // }
+        // if run_options.clicked_boid_id == boid.id {
+        //     println!("-----");
+        // }
+        for cell in m
             // depending on the match, iterate the vectors
             .iter()
             // filter out the out-of-bound vectors, the home vector is used as a placeholder
@@ -552,10 +697,20 @@ impl SpatHash1D {
             // convert vectors to the table's 1D indexes pointing to cells
             .map(|l| (cell_index as i32 + l[0] + l[1] * self.settings.x_cell_count as i32) as usize)
         {
-            if self.pivots[cell].usg == 0 {
+            // if run_options.clicked_boid_id == boid.id {
+            //     println!("{:?}", cell);
+            // }
+            // if cell > 60 {
+            //     panic!();
+            // }
+            if  self.pivots[cell].usg == 0 {
                 continue;
             }
             for index in self.pivots[cell].init.unwrap()..self.pivots[cell].fin.unwrap() {
+                // if run_options.clicked_boid_id == boid.id && self.table[index].id != boid.id {
+                //     let a = distance_dyn_boid(boid, &self.table[index], run_options);
+                //     println!("{:?}", a);
+                // }
                 if self.table[index].id != boid.id
                     && distance_dyn_boid(boid, &self.table[index], run_options)
                         <= run_options.max_sensory_distance
@@ -663,6 +818,7 @@ impl Tracker for BoidTracker {
             self.boids[i_cur].update_location(&run_options)
         }
 
+        // also try https://docs.rs/cogset/latest/cogset/struct.Optics.html
         if run_options.dbscan_flock_clustering_on {
             let flock_ids = get_flock_ids(&self.boids, run_options);
 
@@ -732,12 +888,19 @@ impl Tracker for BoidTracker {
 /// Uses an Θ(n) algorithm for finding the boid's neighbours.
 /// ref: Optimization_of_large-scale_real-time_simulations
 pub struct SpatialHashingTableSettings {
-    pub x_range: f32,
-    pub y_range: f32,
-    pub x_cell_count: f32,
-    pub y_cell_count: f32,
+    /// environment x range
+    pub x_range: usize,
+    /// environment y range
+    pub y_range: usize,
+    /// grid x range
+    pub x_cell_count: usize,
+    /// grid y range
+    pub y_cell_count: usize,
+    /// n cells of grid
     pub cell_count: usize,
+    /// environment x units per grid x cell
     pub x_cell_res: f32,
+    /// environment y units per grid y cell
     pub y_cell_res: f32,
     // run_options: &'a RunOptions
 }
@@ -809,6 +972,26 @@ impl Flock {
 }
 
 fn get_boids(run_options: &RunOptions) -> Vec<Boid> {
+    // todo: this was an arbitrary set up, remove 
+    // let mut boid: Vec<Boid> = Vec::new();
+    // boid.push(
+    //     Boid::new(
+    //         run_options.window.win_left as f32 + 1.,
+    //         0.,
+    //         vec2(run_options.max_speed, 0.),
+    //         0
+    //     )
+    // );
+    // boid.push(
+    //     Boid::new(
+    //         run_options.window.win_right as f32 - 1.,
+    //         0.,
+    //         vec2(-run_options.max_speed, 0.),
+    //         1
+    //     )
+    // );
+    // return boid;
+
     get_boids_n(run_options.init_boids, 0, run_options)
 }
 
@@ -824,7 +1007,7 @@ fn get_boid(run_options: &RunOptions, id: usize) -> Boid {
     match run_options.initiation_strat {
         InitiationStrategy::CircleCenterOut => todo!(),
         InitiationStrategy::CircleCircumferenceIn => {
-            let r = run_options.window.win_h / 2.0;
+            let r = run_options.window.win_h as f32 / 2.0;
 
             let init_vel: f32 = rng.gen::<f32>() / 3. + 0.5;
             let init_pos: f32 = rng.gen::<f32>() / 3. + 2. / 3.;
@@ -1011,7 +1194,7 @@ mod tests {
         run_options.allignment_treshold_coefficient = 1.14999998;
         run_options.cohesion_treshold_coefficient = 0.949999988;
         run_options.separation_treshold_coefficient = 0.349999994;
-        run_options.window = options::get_window_size(1400., 900.);
+        run_options.window = options::get_window_size(1400, 900);
 
         // let flock = Flock::new(&run_options);
 
@@ -1039,7 +1222,7 @@ mod tests {
         run_options.allignment_treshold_coefficient = 1.14999998;
         run_options.cohesion_treshold_coefficient = 0.949999988;
         run_options.separation_treshold_coefficient = 0.349999994;
-        run_options.window = options::get_window_size(1400., 900.);
+        run_options.window = options::get_window_size(1400, 900);
 
         // let flock = Flock::new(&run_options);
 
@@ -1074,7 +1257,7 @@ mod tests {
             let y = r * a.sin() + centroid.position.y;
 
             // if x and y are within boundary, add them to the result
-            if !(x < win.win_left || x > win.win_right || y < win.win_bottom || y > win.win_top) {
+            if !(x < win.win_left as f32 || x > win.win_right as f32 || y < win.win_bottom as f32|| y > win.win_top as f32) {
                 res.push(Vec2::new(x, y));
             }
         }
@@ -1087,10 +1270,10 @@ mod tests {
         sensory_distance: f32,
         no_neighbours: usize,
     ) -> (Vec<Boid>, Vec<Vec<Boid>>, Vec<Boid>) {
-        let left = run_options.window.win_left + sensory_distance - 1.;
-        let right = run_options.window.win_right - sensory_distance + 1.;
-        let bottom = run_options.window.win_bottom + sensory_distance - 1.;
-        let top = run_options.window.win_top - sensory_distance + 1.;
+        let left = run_options.window.win_left as f32 + sensory_distance - 1.;
+        let right = run_options.window.win_right as f32 - sensory_distance + 1.;
+        let bottom = run_options.window.win_bottom as f32 + sensory_distance - 1.;
+        let top = run_options.window.win_top as f32 - sensory_distance + 1.;
 
         // set up the boids
         // create a few clicked boids to get the neighbours of
@@ -1157,7 +1340,7 @@ mod tests {
         run_options.cohesion_treshold_coefficient = 0.949999988;
         run_options.separation_treshold_coefficient = 0.349999994;
         run_options.update_sensory_distances();
-        run_options.window = options::get_window_size(1400., 900.);
+        run_options.window = options::get_window_size(1400, 900);
         run_options.neighbours_cosidered = no_neighbours;
 
         let (clicked, clicked_neighbours, boids) =
@@ -1174,13 +1357,13 @@ mod tests {
             SpatHash1D::get_table_index(
                 entity.position.x,
                 entity.position.y,
-                run_options.window.win_left,
-                run_options.window.win_right - 1.,
-                run_options.window.win_bottom,
-                run_options.window.win_top - 1.,
+                run_options.window.win_left as f32,
+                (run_options.window.win_right - 1) as f32,
+                run_options.window.win_bottom as f32,
+                (run_options.window.win_top - 1) as f32,
                 settings.x_cell_res,
                 settings.y_cell_res,
-                settings.x_cell_count,
+                settings.x_cell_count as f32,
             )
         }
 
@@ -1200,14 +1383,14 @@ mod tests {
                 &mut neighbours,
             );
 
-            let retrieved_neighbour_id_set: HashSet<usize> =
-                neighbours.iter().map(|nb| nb.id).collect();
+            // let retrieved_neighbour_id_set: HashSet<usize> =
+            //     neighbours.iter().map(|nb| nb.id).collect();
 
-            let neighbour_difference: Vec<&Boid> = clicked_neighbours[i]
-                // .to_owned()
-                .iter()
-                .filter(|nb| !retrieved_neighbour_id_set.contains(&nb.id))
-                .collect();
+            // let neighbour_difference: Vec<&Boid> = clicked_neighbours[i]
+            //     // .to_owned()
+            //     .iter()
+            //     .filter(|nb| !retrieved_neighbour_id_set.contains(&nb.id))
+            //     .collect();
 
             // let neighbour_difference_indexes: Vec<usize> = neighbour_difference
             //     .iter()
@@ -1236,7 +1419,7 @@ mod tests {
         run_options.allignment_treshold_coefficient = 1.14999998;
         run_options.cohesion_treshold_coefficient = 0.949999988;
         run_options.separation_treshold_coefficient = 0.349999994;
-        run_options.window = options::get_window_size(1400., 900.);
+        run_options.window = options::get_window_size(1400, 900);
         run_options.neighbours_cosidered = no_neighbours;
 
         let (clicked, clicked_neighbours, boids) =
