@@ -17,7 +17,7 @@ flock <- function(no_iter, init_boids, save_locations_path) .Call(wrap__flock, n
 flock_return <- function(no_iter, init_boids, save_locations_path, sample_rate, init_width, init_height) .Call(wrap__flock_return, no_iter, init_boids, save_locations_path, sample_rate, init_width, init_height)
 
 #' executes flocking and returns a dataframe with the location data
-flock_detailed <- function(no_iter, init_boids, save_locations_path, sample_rate, init_width, init_height, sensory_distance, allignment_coef, cohesion_coef, separation_coef, allignment_trs_coef, cohesion_trs_coef, separation_trs_coef, min_speed, max_speed, max_steering, dbscan_clustering, boundary_config) .Call(wrap__flock_detailed, no_iter, init_boids, save_locations_path, sample_rate, init_width, init_height, sensory_distance, allignment_coef, cohesion_coef, separation_coef, allignment_trs_coef, cohesion_trs_coef, separation_trs_coef, min_speed, max_speed, max_steering, dbscan_clustering, boundary_config)
+flock_detailed <- function(no_iter, init_boids, save_locations_path, sample_rate, init_width, init_height, sensory_distance, allignment_coef, cohesion_coef, separation_coef, allignment_trs_coef, cohesion_trs_coef, separation_trs_coef, min_speed, max_speed, max_steering, dbscan_clustering, boundary_config, distance_config, field_of_vision) .Call(wrap__flock_detailed, no_iter, init_boids, save_locations_path, sample_rate, init_width, init_height, sensory_distance, allignment_coef, cohesion_coef, separation_coef, allignment_trs_coef, cohesion_trs_coef, separation_trs_coef, min_speed, max_speed, max_steering, dbscan_clustering, boundary_config, distance_config, field_of_vision)
 
 force_recompile <- function() .Call(wrap__force_recompile)
 

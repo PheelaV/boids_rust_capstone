@@ -7,9 +7,8 @@ use glam::f32::Vec2;
 use rand::Rng;
 
 use crate::{
-    math_helpers::{distance_dyn_boid, tor_vec},
+    math_helpers::{distance_dyn_boid, tor_vec, MyRotate},
     options::{Boundary, Distance, RunOptions},
-    MyRotate,
 };
 
 #[derive(Debug, Clone)]
@@ -131,41 +130,41 @@ impl Boid {
         sum
     }
 
-    pub fn filter_sight<'a>(&self, others: &[&'a Boid], run_options: &RunOptions) -> Vec<&'a Boid> {
-        let res: Vec<&Boid> = others
-            .iter()
-            .filter(|b_other| {
-                if self.id == b_other.id {
-                    return false;
-                }
+    // pub fn filter_sight<'a>(&self, others: &[&'a Boid], run_options: &RunOptions) -> Vec<&'a Boid> {
+    //     let res: Vec<&Boid> = others
+    //         .iter()
+    //         .filter(|b_other| {
+    //             if self.id == b_other.id {
+    //                 return false;
+    //             }
 
-                let vec_to_other = b_other.position - self.position;
+    //             let vec_to_other = b_other.position - self.position;
 
-                if vec_to_other.length() < 0.01 {
-                    return false;
-                }
+    //             if vec_to_other.length() < 0.01 {
+    //                 return false;
+    //             }
 
-                let atan2_self = self.velocity.y.atan2(self.velocity.x);
-                let atan2_other = vec_to_other.y.atan2(vec_to_other.x);
-                let mut atan2_diff = atan2_other - atan2_self;
+    //             let atan2_self = self.velocity.y.atan2(self.velocity.x);
+    //             let atan2_other = vec_to_other.y.atan2(vec_to_other.x);
+    //             let mut atan2_diff = atan2_other - atan2_self;
 
-                // normalize
-                atan2_diff = if atan2_diff > PI {
-                    atan2_diff - 2. * PI
-                } else if atan2_diff <= -1. * PI {
-                    atan2_diff + 2. * PI
-                } else {
-                    atan2_diff
-                };
+    //             // normalize
+    //             atan2_diff = if atan2_diff > PI {
+    //                 atan2_diff - 2. * PI
+    //             } else if atan2_diff <= -1. * PI {
+    //                 atan2_diff + 2. * PI
+    //             } else {
+    //                 atan2_diff
+    //             };
 
-                run_options.field_of_vision_on
-                    && atan2_diff.abs() < run_options.field_of_vision_half_rad
-            })
-            .map(|b| *b)
-            .collect();
+    //             run_options.field_of_vision_on
+    //                 && atan2_diff.abs() < run_options.field_of_vision_half_rad
+    //         })
+    //         .map(|b| *b)
+    //         .collect();
 
-        res
-    }
+    //     res
+    // }
 
     pub fn filter_sight2<'a>(
         &self,
@@ -181,8 +180,7 @@ impl Boid {
 
                 let vec_to_other = match run_options.distance {
                     Distance::EucToroidal => {
-                        tor_vec(self.position, b_other.position,
-                            &run_options.window)
+                        tor_vec(self.position, b_other.position, &run_options.window)
                     }
                     Distance::EucEnclosed => b_other.position - self.position,
                 };
@@ -238,7 +236,7 @@ impl Boid {
                     res += value;
 
                     if !run_options.separation_impl_mode {
-                        value /= distance;
+                        // value /= distance;
                         res += value.normalize();
                     } else {
                         res += (self.position - other.position)

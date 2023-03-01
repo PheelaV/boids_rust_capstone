@@ -34,7 +34,7 @@ fn get_bench_params() -> Vec<FlockBench> {
     let mut result: Vec<FlockBench> = Vec::new();
 
     // [128, 1024, 4096].iter().for_each(|no_boids| {
-        [128, 512].iter().for_each(|no_boids|{
+    [128, 512].iter().for_each(|no_boids| {
         [NO_BOIDS, 2 * NO_BOIDS, 4 * NO_BOIDS]
             .iter()
             .for_each(|no_iter| {
@@ -124,27 +124,29 @@ fn from_elem3(c: &mut Criterion) {
         // group.measurement_time(Duration::from_secs(40));
         group.sampling_mode(SamplingMode::Flat);
         // group.plot_config(Plot)
-        group.throughput(Throughput::Elements(
-            no_boids as u64 * no_iter
-        ));
-        group.bench_with_input(BenchmarkId::from_parameter(no_neighbours_considered), &no_neighbours_considered, |b, nnc| {
-            b.iter(|| {
-                flock_base(no_iter, {
-                    let mut ro: RunOptions = Default::default();
-                    ro.init_boids = no_boids;
-                    ro.window = options::get_window_size(5000, 5000);
-                    ro.save_options = SaveOptions {
-                        save_locations: false,
-                        save_locations_path: None,
-                        save_locations_timestamp: false,
-                    };
-                    ro.sensory_distance = 20.;
-                    ro.field_of_vision_on = true;
-                    ro.neighbours_cosidered = *nnc;
-                    ro
-                })
-            });
-        });
+        group.throughput(Throughput::Elements(no_boids as u64 * no_iter));
+        group.bench_with_input(
+            BenchmarkId::from_parameter(no_neighbours_considered),
+            &no_neighbours_considered,
+            |b, nnc| {
+                b.iter(|| {
+                    flock_base(no_iter, {
+                        let mut ro: RunOptions = Default::default();
+                        ro.init_boids = no_boids;
+                        ro.window = options::get_window_size(5000, 5000);
+                        ro.save_options = SaveOptions {
+                            save_locations: false,
+                            save_locations_path: None,
+                            save_locations_timestamp: false,
+                        };
+                        ro.sensory_distance = 20.;
+                        ro.field_of_vision_on = true;
+                        ro.neighbours_cosidered = *nnc;
+                        ro
+                    })
+                });
+            },
+        );
     }
     group.finish();
 }

@@ -29,7 +29,7 @@ pub struct Args{
 /// Uses defaults, which can be overwritten by specifying a filepath for the `-c` or `--config` arg option
 pub struct Config{
      
-    #[default(128)]
+    #[default(64)]
     #[arg(short = 'n', long)]
     /// number of boids
     pub no_boids: usize,
@@ -47,11 +47,12 @@ pub struct Config{
     #[arg(short = 't', long)]
     pub save_timestamp: bool,
    
-    #[default(1350)]
+    // #[default(1350)]
+    #[default(600)]
     #[arg(short = 'x', long)]
     pub init_width: u32,
     
-    #[default(900)]
+    #[default(600)]
     #[arg(short = 'y', long)]
     pub init_height: u32,
 

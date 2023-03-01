@@ -1,10 +1,10 @@
 use std::iter;
 
+use criterion::criterion_group;
+use criterion::criterion_main;
 use criterion::BenchmarkId;
 use criterion::Criterion;
 use criterion::Throughput;
-use criterion::criterion_group;
-use criterion::criterion_main;
 
 fn from_elem(c: &mut Criterion) {
     static KB: usize = 1024;
@@ -21,4 +21,3 @@ fn from_elem(c: &mut Criterion) {
 
 criterion_group!(benches, from_elem);
 criterion_main!(benches);
-    

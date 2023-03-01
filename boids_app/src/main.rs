@@ -1,7 +1,8 @@
 extern crate nannou;
 use boids_lib::birdwatcher::Birdwatcher;
 use boids_lib::boid::{Boid, BoidMetadata};
-use boids_lib::flock::{Flock, SpatHash1D};
+use boids_lib::flock::Flock;
+use boids_lib::flock::spathash_tracker::SpatHash1D;
 use boids_lib::math_helpers::{distance_dyn, tor_vec_p};
 use boids_lib::options::{self, Distance, RunOptions, SaveOptions, WindowSize, Boundary};
 use clap_serde_derive::{clap::Parser, ClapSerde};
@@ -44,6 +45,7 @@ pub struct Model {
     window_id: WindowId,
     debug_grid: bool,
     debug_distance: bool,
+    debug_labels: bool,
     repulsive_distance: f32,
     repulsive_force: f32
 }
@@ -122,7 +124,7 @@ fn model(app: &App) -> Model {
 
     Model {
         egui: Egui::from_window(&window),
-        color: Hsv::new(RgbHue::from_degrees(0.), 0., 0.),
+        color: Hsv::new(RgbHue::from_degrees(316.), 1., 0.94),
         flock: Flock::new(&run_options),
         run_options,
         last_update_micros: 0,
@@ -141,7 +143,8 @@ fn model(app: &App) -> Model {
         debug_grid: false,
         debug_distance: false,
         repulsive_distance: 100.,
-        repulsive_force: 0.05
+        repulsive_force: 0.05,
+        debug_labels: false,
     }
 }
 
@@ -629,6 +632,12 @@ fn key_pressed(app: &App, model: &mut Model, key: Key) -> () {
     } else if key == Key::F3 {
         // alternative implementation of separationk
         run_options.separation_impl_mode = !run_options.separation_impl_mode;
+    } else if key == Key::F10 {
+        // alternative implementation of separationk
+        run_options.clustering_impl = !run_options.clustering_impl;
+    } else if key == Key::F9 {
+        // alternative implementation of separationk
+        model.debug_labels = !model.debug_labels;
     } else if key == Key::F12 {
         // switch on or of coloring of no_boids in vision
         run_options.col_by_neighbour = !run_options.col_by_neighbour;
@@ -1003,7 +1012,7 @@ impl DrawableBoid for Boid {
                 if metadata.cluster_id != 0 {
                     ((10. * metadata.cluster_id as f32) % 360.) / 360.
                 } else {
-                    color.hue.to_positive_degrees() / 360.
+                    300. / 360.
                 },
                 saturation,
                 if metadata.cluster_id != 0 {
@@ -1019,9 +1028,14 @@ impl DrawableBoid for Boid {
             // );
         }
 
-        if model.debug_grid {
+        if model.debug_labels {
             draw.text(&self.id.to_string())
-                .xy(self.position + vec2(10., 10.));
+                .color(RED)
+                .xy(self.position + vec2( if self.position.x < 0. { 20.} else { -10.}, if self.position.y < 0. { 20. } else { -10.}));
+    
+            draw.text(&metadata.cluster_id.to_string())
+                .color(BROWN)
+                .xy(self.position + vec2(if self.position.x < 0. { 10.} else { -20.}, if self.position.y < 0. { 10. } else { -20.}));
         }
     }
 }
@@ -1075,15 +1089,14 @@ fn view(app: &App, model: &Model, frame: Frame) {
 
     let distance_boid = model
         .flock
-        .view()
-        .0
-        .iter()
-        .filter(|b| {
+        .view2()
+        .filter(|(b, _)| {
             b.id == model.run_options.clicked_boid_id
         })
         .next();
+
     match distance_boid {
-            Some(db) => { 
+            Some((db, dm)) => { 
                 let distance = distance_dyn(db.position.x, app.mouse.x, db.position.y, app.mouse.y, &model.run_options);
                 let vec_to = tor_vec_p(db.position.x, app.mouse.x, db.position.y, app.mouse.y, &model.run_options.window);
                 draw.text(&format!("cd: {:.2}", distance))
@@ -1093,6 +1106,11 @@ fn view(app: &App, model: &Model, frame: Frame) {
                     .font_size(20);
                 draw.text(&format!("vec to: {:.2}, {:.2}", vec_to.0, vec_to.1))
                     .x_y(0., -20.)
+                    .z(10.)
+                    .color(WHITE)
+                    .font_size(20);
+                draw.text(&format!("flock id: {:.2}", dm.cluster_id))
+                    .x_y(0., -40.)
                     .z(10.)
                     .color(WHITE)
                     .font_size(20);

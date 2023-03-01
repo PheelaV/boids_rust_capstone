@@ -2,7 +2,7 @@ use boids_lib::{
     birdwatcher::Birdwatcher,
     flock::Flock,
     options::{
-        RunOptions, SaveOptions, self, Boundary
+        RunOptions, SaveOptions, self, Boundary, Distance
     },
 };
 use extendr_api::prelude::*;
@@ -65,7 +65,9 @@ fn flock_detailed(
     max_speed: f32,
     max_steering: f32,
     dbscan_clustering: bool,
-    boundary_config: Option<&str>) -> Robj {
+    boundary_config: Option<&str>,
+    distance_config: Option<&str>,
+    field_of_vision: f32) -> Robj {
 
     let mut run_options: RunOptions = Default::default();
 
@@ -86,15 +88,32 @@ fn flock_detailed(
     run_options.max_speed = max_speed;
     run_options.max_steering = max_steering;
     run_options.dbscan_flock_clustering_on = dbscan_clustering;
+    run_options.field_of_vision_deg = field_of_vision;
    
+    // attempts to retreive the boundary, if none is set, uses reflective as default
     if let Some(boundary_config_string) = boundary_config{
         match serde_json::from_str::<Boundary>(boundary_config_string) {
             Ok(boundary) => run_options.boundary = boundary,
             Err(err) => panic!("Error, boundary deserialization failed: {}", err)
         }
+    } else {
+        run_options.boundary = Boundary::Reflective
     }
-    
-    // let boundary: Boundary = ;
+
+    // attempts to retreive the distance, if none is set uses:
+    // - euclidean toroidial if space is toroidial
+    // - euclidean
+    if let Some(distance_config_str) = distance_config{
+        match serde_json::from_str::<Distance>(distance_config_str) {
+            Ok(distance) => run_options.distance = distance,
+            Err(err) => panic!("Error, distance deserialization failed: {}", err)
+        }
+    } else {
+        run_options.distance = match run_options.boundary {
+            Boundary::Toroidal => Distance::EucToroidal,
+            _ => Distance::EucEnclosed,
+        }
+    }
     
     flock_base(no_iter, run_options)
 }

@@ -110,8 +110,11 @@ get_config <- function(config_name, overwrite = list()) {
   converted_config$min_speed = config$min_speed
   converted_config$max_speed = config$max_speed
   converted_config$max_steering = config$max_steering
+  converted_config$field_of_vision = config$field_of_vision
   converted_config$dbscan_clustering = TRUE
   converted_config$boundary_config = "{\"type\": \"Thoroidal\"}"
+  converted_config$distance_config = "{\"type\": \"EucToroidal\"}"
+
 
   if (length(overwrite) == 0) {
     return(converted_config)
@@ -142,8 +145,8 @@ sub_sample_data <- function(data, start = 1, every_nth = 1) {
     slice(seq(start, nrow(data), every_nth))
 }
 
-get_directional_boid_data <- function(data) {
-  data %>%
+get_directional_boid_data <- function(data, remove_boundary = F) {
+  res <- data %>%
     group_by(id) %>%
     reframe(
       dx = diff(x, 1),
@@ -155,7 +158,7 @@ get_directional_boid_data <- function(data) {
       cluster_id = cluster_id[2:n()],
       n_neighbours = n_neighbours[2:n()],
       time = time[2:n()]
-    )%>%
+    ) %>%
     group_by(id) %>%
     reframe(
       id = id[2:n()],
@@ -167,7 +170,13 @@ get_directional_boid_data <- function(data) {
       dy = dy[2:n()],
       cluster_id = cluster_id[2:n()],
       time = time[2:n()]
-    ) %>%
+    )
+  if (!remove_boundary) {
+    return(res)
+  }
+
+
+  res %>%
     slice(-tail(
       remove_boundary_data(data,
                            sensory_distance = config$sensory_distance * max(config$allignment_trs_coef, config$cohesion_trs_coef, config$separation_trs_coef),

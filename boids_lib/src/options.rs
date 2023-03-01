@@ -14,19 +14,18 @@ pub struct RunOptions {
     pub allignment_coefficient: f32,
     pub cohesion_coefficient: f32,
     pub separation_coefficient: f32,
-    
+
     pub sensory_distance: f32,
     pub max_sensory_distance: f32,
-    
+
     pub allignment_treshold_distance: f32,
     pub cohesion_treshold_distance: f32,
     pub separation_treshold_distance: f32,
-    
+
     pub allignment_treshold_coefficient: f32,
     pub cohesion_treshold_coefficient: f32,
     pub separation_treshold_coefficient: f32,
-    
-    
+
     pub alignment_on: bool,
     pub cohesion_on: bool,
     pub separation_on: bool,
@@ -36,7 +35,7 @@ pub struct RunOptions {
     pub wander_radius: f32,
     pub wander_distance: f32,
     pub wander_on: bool,
-    
+
     pub window: WindowSize,
     pub save_options: SaveOptions,
 
@@ -50,6 +49,7 @@ pub struct RunOptions {
     pub allignment_impl_mode: bool,
     pub cohesion_impl_mode: bool,
     pub separation_impl_mode: bool,
+    pub clustering_impl: bool,
     pub col_by_neighbour: bool,
 
     pub field_of_vision_on: bool,
@@ -62,7 +62,7 @@ pub struct RunOptions {
     pub neighbours_cosidered: usize,
     pub stop_movement: bool,
     pub seek_target_on: bool,
-    pub seek_location: Option<Vec2>
+    pub seek_location: Option<Vec2>,
 }
 
 impl RunOptions {
@@ -157,6 +157,7 @@ impl Default for RunOptions {
             allignment_impl_mode: false,
             cohesion_impl_mode: false,
             separation_impl_mode: false,
+            clustering_impl: false,
             col_by_neighbour: false,
             field_of_vision_on,
             field_of_vision_half_rad,
@@ -165,13 +166,13 @@ impl Default for RunOptions {
             dbscan_flock_clustering_on: false,
             neighbours_cosidered: 0,
             stop_movement: false,
-            wander_rate: 0.03, 
+            wander_rate: 0.03,
             wander_on: false,
             wander_radius: 5.2,
             wander_coefficient: 0.4,
             wander_distance: 21.5,
             seek_target_on: false,
-            seek_location: None
+            seek_location: None,
         };
 
         res.update_sensory_distances();
@@ -191,7 +192,7 @@ pub fn get_window_size(init_width: u32, init_height: u32) -> WindowSize {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct WindowSize {
     /// lowest x value
     pub win_left: i32,
@@ -208,8 +209,22 @@ pub struct WindowSize {
 }
 
 impl WindowSize {
-    pub fn new(win_left: i32, win_right: i32, wind_top: i32, win_bottom: i32, win_h: i32, win_w: i32) -> WindowSize {
-        WindowSize { win_left: win_left, win_right: win_right, win_top: wind_top, win_bottom: win_bottom, win_h: win_h, win_w: win_w }
+    pub fn new(
+        win_left: i32,
+        win_right: i32,
+        wind_top: i32,
+        win_bottom: i32,
+        win_h: i32,
+        win_w: i32,
+    ) -> WindowSize {
+        WindowSize {
+            win_left: win_left,
+            win_right: win_right,
+            win_top: wind_top,
+            win_bottom: win_bottom,
+            win_h: win_h,
+            win_w: win_w,
+        }
     }
 }
 
@@ -223,19 +238,19 @@ pub enum InitiationStrategy {
     RandomRandom,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Copy, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
-#[derive(Debug, PartialEq, Copy, Clone)]
+// {"type": "Repulsive", "distance": 100, "force": 0.05}
 pub enum Boundary {
     Toroidal,
     Absorbing,
     Reflective,
-    Repulsive{distance: f32, force: f32},
+    Repulsive { distance: f32, force: f32 },
 }
 
-// {"type": "Repulsive", "distance": 100, "force": 0.05}
-
-#[derive(Debug, PartialEq, Copy, Clone)]
+#[derive(Debug, PartialEq, Copy, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+// {"type": "EucToroidal"}
 pub enum Distance {
     EucToroidal,
     EucEnclosed,

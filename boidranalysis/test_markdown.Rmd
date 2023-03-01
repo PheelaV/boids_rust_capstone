@@ -30,6 +30,7 @@ data_folder <- "./Data/"
 ```{r}
 source("./R/helpers.R")
 source("./R/directions_angles.R")
+source("./R/flock_metrics.R")
 ```
 
 get flocking data
@@ -60,15 +61,19 @@ get flocking data
 tic()
 config <- get_config(
   # "string_ball_hybrid.toml", 
-  "basic.toml", 
+  "basic2.toml", 
     overwrite = list(
-      init_boids = 2^9,
-      no_iter = 2^14,
+      init_boids = 2^12,
+      no_iter = 2^10,
       init_width = 4000, 
       init_height = 4000,
+      min_speed = 2,
+      max_speed = 2,
       sample_rate = 4,
       # boundary_config = "{\"type\": \"Repulsive\", \"distance\": 100, \"force\": 0.05}"
-      boundary_config = "{\"type\": \"Thoroidal\"}"
+      boundary_config = "{\"type\": \"Toroidal\"}",
+      distance_config = "{\"type\": \"EucToroidal\"}",
+      field_of_vision = 360.
     )
 )
 boid_data <- rlang::exec(flock_detailed, !!!config) %>%
@@ -77,11 +82,11 @@ toc()
 ```
 visualize
 ```{r}
-sub_sub_sample_rate <- 128
+sub_sub_sample_rate <- 124
 # direction_data_by_boid <- boid_data %>%
 direction_data_by_boid <- boid_data %>%
-  sub_sample_data(every_nth = sub_sub_sample_rate) %>%
-  get_directional_boid_data()
+  # sub_sample_data(every_nth = sub_sub_sample_rate) %>%
+  get_directional_boid_data(remove_boundary = FALSE)
 
 print("range of bearings:")
 range(direction_data_by_boid$bearings)

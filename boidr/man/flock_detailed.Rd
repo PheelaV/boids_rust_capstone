@@ -22,7 +22,9 @@ flock_detailed(
   max_speed,
   max_steering,
   dbscan_clustering,
-  boundary_config
+  boundary_config,
+  distance_config,
+  field_of_vision
 )
 }
 \description{

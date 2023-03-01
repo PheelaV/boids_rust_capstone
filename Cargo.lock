@@ -212,11 +212,15 @@ dependencies = [
  "csv",
  "flat_spatial",
  "glam",
+ "itertools",
  "lazy_static",
  "linfa",
  "linfa-clustering",
  "linfa-datasets",
+ "linfa-nn",
  "ndarray",
+ "petal-clustering",
+ "petal-neighbors",
  "rand 0.8.5",
  "rand_xoshiro",
  "rstest",
@@ -2227,6 +2231,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ordered-float"
+version = "2.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7940cf2ca942593318d07fcf2596cdca60a85c9e7fab408a5e21a4f9dcd40d87"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "os_str_bytes"
 version = "6.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2328,6 +2341,32 @@ name = "percent-encoding"
 version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "478c572c3d73181ff3c2539045f6eb99e5491218eae919370993b890cdbdd98e"
+
+[[package]]
+name = "petal-clustering"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68d5f9dc85914956f3424f1468c8cc4fbb9dda112e8b5f276467c73f538a39b9"
+dependencies = [
+ "ndarray",
+ "num-traits",
+ "petal-neighbors",
+ "rayon",
+ "serde",
+ "succinct",
+]
+
+[[package]]
+name = "petal-neighbors"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "86b5cf1e1107a56919f81ac4e1291659ca9a026b121690b717a989c3d92c74e0"
+dependencies = [
+ "ndarray",
+ "num-traits",
+ "ordered-float 2.10.0",
+ "thiserror",
+]
 
 [[package]]
 name = "pin-project-lite"
@@ -2736,7 +2775,7 @@ dependencies = [
  "crossbeam-utils 0.7.2",
  "linked-hash-map",
  "num_cpus",
- "ordered-float",
+ "ordered-float 1.1.1",
  "rustc-hash",
  "stb_truetype",
 ]
@@ -2962,6 +3001,16 @@ name = "strsim"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
+
+[[package]]
+name = "succinct"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7798b62081a999bcf090b2f220fee8845dd1c6ffeb17e1bc6ca783825f62a418"
+dependencies = [
+ "byteorder",
+ "num-traits",
+]
 
 [[package]]
 name = "syn"

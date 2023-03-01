@@ -1,5 +1,6 @@
 source("R/helpers.R")
 source("R/flock_metrics.R")
+source("./R/directions_angles.R")
 
 library(tidyr)
 library(readr)
@@ -60,11 +61,13 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
   #
   # }
 
+  preprocess = function(x){ get_directional_boid_data(x, if_else(config$boundary_config == "{\"type\": \"Toroidal\"}", F, T))}
+
   tic("results convex hull")
   results_convex_hull <- mclapply(
     1:length(simulation_files),
     function(file_no){
-      collect_results(file_no, get_convex_hull_data, preprocess = get_directional_boid_data)
+      collect_results(file_no, get_convex_hull_data, preprocess =  preprocess)
     },
     mc.cores = no_cores
   ) %>%
@@ -75,7 +78,7 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
   results_no_flocks <- mclapply(
     1:length(simulation_files),
     function(file_no){
-      collect_results(file_no, get_no_flocks, preprocess = get_directional_boid_data)
+      collect_results(file_no, get_no_flocks, preprocess = preprocess)
     },
     mc.cores = no_cores
   ) %>%
@@ -86,7 +89,7 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
   results_average_norm_vel <- mclapply(
     1:length(simulation_files),
     function(file_no){
-      collect_results(file_no, metric = get_average_norm_vel, preprocess = get_directional_boid_data)
+      collect_results(file_no, metric = get_average_norm_vel, preprocess = preprocess)
     },
     mc.cores = no_cores
   ) %>%
@@ -126,11 +129,11 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
     labs(x = "time t", y = "mean_t mean # flocks",
          title = paste(
            "mean number of flocks;",
-            "agents:", config$init_boids, ";",
-            "iterations:", config$no_iter, ";",
-            "sample:", config$sample_rate, ";"
-           )
-     )
+           "agents:", config$init_boids, ";",
+           "iterations:", config$no_iter, ";",
+           "sample:", config$sample_rate, ";"
+         )
+    )
   ggsave(paste0("mean_no_flocks", figure_postfix), path = experiment_plot_folder, width = figure_width, height = figure_height, units = figure_units, dpi = figure_dpi)
 
   ggplot(
@@ -142,10 +145,10 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
     theme_bw() +
     labs(x = "time t", y = "var_t mean # flocks",
          title = paste("var number of flocks;",
-           "agents:", config$init_boids, ";",
-           "iterations:", config$no_iter, ";",
-           "sample:", config$sample_rate, ";"
-          )
+                       "agents:", config$init_boids, ";",
+                       "iterations:", config$no_iter, ";",
+                       "sample:", config$sample_rate, ";"
+         )
     )
 
   ggsave(paste0("var_no_flocks", figure_postfix), path = experiment_plot_folder, width = figure_width, height = figure_height, units = figure_units, dpi = figure_dpi)
@@ -249,90 +252,161 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
 }
 
 # testing different configs -
-# a -"normal"
-# b - "stringy balls"
-# c - "stringy"
-# d - "normal" but >60K iterations
-tic("experiment1_a start")
+# a - toroidal b/d vs reflective/euclidean b/d
+# b - "stringy ball hybrid, mars = modified diamonds"
+# c - "large stringy"
+tic("experiment2_a1 start")
 
 config <- get_config(
   "basic.toml",
   overwrite = list(
-    init_boids = 2^9,
+    init_boids = 2^11,
     no_iter = 2^15,
     init_width = 4000,
     init_height = 4000,
-    sample_rate = 32,
+    sample_rate = 64,
     boundary_config = "{\"type\": \"Toroidal\"}",
     distance_config = "{\"type\": \"EucEnclosed\"}"
-    # distance_config = "{\"type\": \"EucToroidal\"}"
-  )
-)
-
-no_cores <- 6
-experiment_no_simulations <- 120
-
-run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "experiment1_a")
-toc()
-
-tic("experiment1_a2 start")
-
-config <- get_config(
-  "basic.toml",
-  overwrite = list(
-    init_boids = 2^9,
-    no_iter = 2^16,
-    init_width = 4000,
-    init_height = 4000,
-    sample_rate = 32,
-    boundary_config = "{\"type\": \"Toroidal\"}"
   )
 )
 
 no_cores <- 8
 experiment_no_simulations <- 120
 
-run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "experiment1_a2")
+run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0301_experiment2_a1")
 toc()
 
-tic("experiment1_b start")
+tic("experiment2_a2 start")
+
+config <- get_config(
+  "basic2.toml",
+  overwrite = list(
+    init_boids = 2^11,
+    no_iter = 2^15,
+    init_width = 4000,
+    init_height = 4000,
+    sample_rate = 64,
+    boundary_config = "{\"type\": \"Toroidal\"}",
+    distance_config = "{\"type\": \"EucToroidal\"}"
+  )
+)
+
+no_cores <- 8
+experiment_no_simulations <- 120
+
+run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0301_experiment2_a2")
+toc()
+
+tic("experiment2_a3 start")
+
+config <- get_config(
+  "basic2.toml",
+  overwrite = list(
+    init_boids = 2^11,
+    no_iter = 2^15,
+    init_width = 4000,
+    init_height = 4000,
+    sample_rate = 64,
+    boundary_config = "{\"type\": \"Reflective\"}",
+    distance_config = "{\"type\": \"EucEnclosed\"}"
+  )
+)
+
+no_cores <- 8
+experiment_no_simulations <- 120
+
+run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0301_experiment2_a3")
+toc()
+
+tic("experiment1_b1 start")
 
 config <- get_config(
   "string_ball_hybrid.toml",
   overwrite = list(
     init_boids = 2^9,
     no_iter = 2^15,
-    init_width = 4000,
-    init_height = 4000,
-    sample_rate = 32,
-    boundary_config = "{\"type\": \"Toroidal\"}"
+    init_width = 2000,
+    init_height = 2000,
+    sample_rate = 64,
+    boundary_config = "{\"type\": \"Toroidal\"}",
+    distance_config = "{\"type\": \"EucToroidal\"}"
   )
 )
-
-# no_cores <- 6
+no_cores <- 4
 experiment_no_simulations <- 120
 
-run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "experiment1_b")
+tryCatch(
+  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0301_experiment2_b1"),
+  )
+
 toc()
 
-tic("experiment1_c start")
+tic("experiment1_b2 start")
 
 config <- get_config(
-  "string.toml",
+  "string_ball_hybrid.toml",
   overwrite = list(
     init_boids = 2^9,
     no_iter = 2^15,
+    init_width = 2000,
+    init_height = 2000,
+    sample_rate = 64,
+    boundary_config = "{\"type\": \"Toroidal\"}",
+    distance_config = "{\"type\": \"EucToroidal\"}",
+    field_of_vision = 360.
+  )
+)
+no_cores <- 4
+experiment_no_simulations <- 120
+tryCatch(
+  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0301_experiment2_b2")
+)
+toc()
+
+tic("experiment1_c1 start")
+
+config <- get_config(
+  "mars.toml",
+  overwrite = list(
+    init_boids = 2^13,
+    no_iter = 2^15,
     init_width = 4000,
     init_height = 4000,
-    sample_rate = 32,
+    sample_rate = 64,
+    boundary_config = "{\"type\": \"Toroidal\"}",
+    distance_config = "{\"type\": \"EucToroidal\"}"
+  )
+)
+
+no_cores <- 4
+experiment_no_simulations <- 120
+
+tryCatch(
+  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0301_experiment2_c1")
+)
+toc()
+
+tic("experiment1_c2 start")
+
+config <- get_config(
+  "large_string.toml",
+  overwrite = list(
+    init_boids = 2^13,
+    no_iter = 2^15,
+    init_width = 8000,
+    init_height = 8000,
+    sample_rate = 64,
     boundary_config = "{\"type\": \"Toroidal\"}"
   )
 )
 
-# no_cores <- 6
+no_cores <- 4
 experiment_no_simulations <- 120
 
-run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "experiment1_c")
+
+tryCatch(
+  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0301_experiment2_c2")
+)
 toc()
 
 # data generation: 891.305 sec elapsed
@@ -366,10 +440,12 @@ config <- get_config(
   )
 )
 
-# no_cores <- 6
+no_cores <- 6
 experiment_no_simulations <- 30
 
-run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "experiment1_d")
+tryCatch(
+  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0301_experiment2_d"),
+)
 toc()
 
 # toJSON(config)
