@@ -1,7 +1,18 @@
 deg2rad <- function(deg) deg*pi/180
 rad2deg <- function(rad) rad*180/pi
 
-
+toroidal_vec_pc <- function(pc1, pc2, size, max) {
+  if (is.na(pc1) || is.na(pc2)) {
+    return(NA)
+  }
+  d_pc <- pc2 - pc1
+  if (abs(d_pc) > max) {
+    return(d_pc + if_else(d_pc < 0, size, -size))
+  } else {
+    return(d_pc)
+  }
+}
+print("hey")
 # assumes data is written groups of rows, each representing a single unit, naturally ordered by time
 # takes the group and interlaces it with the rest, keeping the time order and thus creating a relay of the simulation as
 # the data points have been collected in the first place
@@ -145,7 +156,96 @@ sub_sample_data <- function(data, start = 1, every_nth = 1) {
     slice(seq(start, nrow(data), every_nth))
 }
 
-get_directional_boid_data <- function(data, remove_boundary = F) {
+# data <- boid_data
+#
+# boid_data %>%
+#   group_by(id) %>%
+#   mutate(lag_x = dplyr::lag(x, order_by = id)) %>%
+#   rowwise() %>%
+#   mutate(dx = toroidal_vec_pc(x, lag_x, config$init_width, config$init_width / 2))
+#
+# boid_data %>%
+#   group_by(id) %>%
+#   do(mutate(., lag_x = lag(x), lag_y = lag(y))) %>%
+#   rowwise() %>%
+#   mutate( # the toroidial trick will work on eucledian as well
+#     dx = toroidal_vec_pc(lag_x, x, config$init_width, config$init_width / 2),
+#     dy = toroidal_vec_pc(lag_y, y, config$init_height, config$init_height / 2)
+#     ) %>%
+#   ungroup() %>%
+#   group_by(id) %>%
+#   mutate(headings = get_headings2(dx, dy)) %>%
+#   slice_tail(n = -1)
+
+# version 2 solves continuous boundary condition
+get_directional_boid_data2 <- function(data, remove_boundary = F) {
+  res <- data %>%
+    group_by(id) %>%
+    do(mutate(., lag_x = lag(x), lag_y = lag(y))) %>%
+    rowwise() %>%
+    mutate( # the toroidial trick will work on eucledian as well
+      dx = toroidal_vec_pc(lag_x, x, config$init_width, config$init_width / 2),
+      dy = toroidal_vec_pc(lag_y, y, config$init_height, config$init_height / 2)
+    ) %>%
+    ungroup() %>%
+    group_by(id) %>%
+    mutate(headings = get_headings2(dx, dy)) %>%
+    slice_tail(n = -1) %>%
+    reframe(
+      id = id[2:n()],
+      bearings = get_bearings(headings), # returns n-1 records as it does a diff of 1
+      headings = headings[2:length(headings)],
+      x = x[2:n()],
+      y = y[2:n()],
+      dx = dx[2:n()],
+      dy = dy[2:n()],
+      cluster_id = cluster_id[2:n()],
+      time = time[2:n()]
+    )
+  if (!remove_boundary) {
+    return(res)
+  }
+
+
+  res %>%
+    slice(-tail(
+      remove_boundary_data(data,
+                           sensory_distance = config$sensory_distance * max(config$allignment_trs_coef, config$cohesion_trs_coef, config$separation_trs_coef),
+                           init_width = config$init_width,
+                           init_height = config$init_height,
+                           time_dependency = 2),
+      -2
+    ))
+}
+
+my_wedge <- function(a, b) {
+  a <- a / sqrt(sum(a^2))
+  b <- b / sqrt(sum(b^2))
+  a[1] * b[2] - a[2] * b[1]
+}
+library(zoo)
+
+get_curvature_order_data <- function(data, config, tau){
+  wedges <- data %>%
+    group_by(id) %>%
+    arrange(time) %>%
+    mutate(lead_dx = lead(dx), lead_dy = lead(dy)) %>%
+    rowwise() %>%
+    mutate(wedge_i = my_wedge(c(dx, dy), c(lead_dx, lead_dy))) %>%
+    ungroup() %>%
+    group_by(id) %>%
+    mutate(wedge_tau = rollapply(wedge_i, width = tau, FUN = function(x)sum(x / config$max_speed ^ 2) / tau, fill = NA, align = "left")) %>%
+    select(-lead_dx, -lead_dy) %>%
+    filter(!is.na(wedge_tau)) %>%
+    select(time, cluster_id, id, wedge_tau) %>%
+    group_by(time) %>%
+    reframe(rop = mean(wedge_tau))
+
+  return(wedges)
+}
+
+
+get_directional_boid_data1 <- function(data, remove_boundary = F) {
   res <- data %>%
     group_by(id) %>%
     reframe(

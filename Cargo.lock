@@ -183,8 +183,10 @@ dependencies = [
  "boids_lib",
  "extendr-api",
  "geo",
+ "geo-types",
  "serde",
  "serde_json",
+ "voronoice",
 ]
 
 [[package]]
@@ -226,6 +228,7 @@ dependencies = [
  "rstest",
  "serde",
  "serde_json",
+ "voronoice",
 ]
 
 [[package]]
@@ -786,6 +789,15 @@ checksum = "73770f8e1fe7d64df17ca66ad28994a0a623ea497fa69486e14984e715c5d174"
 dependencies = [
  "adler32",
  "byteorder",
+]
+
+[[package]]
+name = "delaunator"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e32042579f09a195d194307fdb2f7db196a960f33f0ceb6f00af11c306cb6c2"
+dependencies = [
+ "robust",
 ]
 
 [[package]]
@@ -3188,6 +3200,15 @@ name = "version_check"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
+
+[[package]]
+name = "voronoice"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23acc5e2a7645f62ff9d7d11b46c15819fb1132fc87352a35bb4a9dee3b27d80"
+dependencies = [
+ "delaunator",
+]
 
 [[package]]
 name = "walkdir"

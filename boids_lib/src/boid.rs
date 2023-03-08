@@ -21,6 +21,7 @@ pub enum BoidType {
 pub struct BoidMetadata {
     pub id: usize,
     pub cluster_id: usize,
+    // pub voronoi_area: f64,
     pub clicked_neighbour_id: usize,
     pub n_neighbours: usize,
     pub accelleration_update: Vec2,
@@ -189,21 +190,33 @@ impl Boid {
                     return false;
                 }
 
-                let atan2_self = self.velocity.y.atan2(self.velocity.x);
-                let atan2_other = vec_to_other.y.atan2(vec_to_other.x);
-                let mut atan2_diff = atan2_other - atan2_self;
+                let vel_norm = self.velocity.normalize();
+                let vec_to_other_norm = vec_to_other.normalize();
 
-                // normalize
-                atan2_diff = if atan2_diff > PI {
-                    atan2_diff - 2. * PI
-                } else if atan2_diff <= -1. * PI {
-                    atan2_diff + 2. * PI
-                } else {
-                    atan2_diff
-                };
+                // this calculates v•u = |v||u|cos(ß), which is cos(ß) because of v and u being unit vectors
+                // vel_norm.dot(vec_to_other_norm) > run_options.field_of_vision_cos
+                let rad_to_other = vel_norm.dot(vec_to_other_norm).acos();
+                // if self.id == run_options.clicked_boid_id {
+                //     println!("cos: {:?}", vel_norm.dot(vec_to_other_norm));
+                //     println!("acos: {:?}", rad_to_other)
+                // }
+                rad_to_other < run_options.field_of_vision_half_rad
 
-                run_options.field_of_vision_on
-                    && atan2_diff.abs() < run_options.field_of_vision_half_rad
+                // let atan2_self = self.velocity.y.atan2(self.velocity.x);
+                // let atan2_other = vec_to_other.y.atan2(vec_to_other.x);
+                // let mut atan2_diff = atan2_other - atan2_self;
+
+                // // normalize
+                // atan2_diff = if atan2_diff > PI {
+                //     atan2_diff - 2. * PI
+                // } else if atan2_diff <= -1. * PI {
+                //     atan2_diff + 2. * PI
+                // } else {
+                //     atan2_diff
+                // };
+
+                // run_options.field_of_vision_on
+                //     && atan2_diff.abs() < run_options.field_of_vision_half_rad
             })
             .map(|b| *b)
             .collect();
@@ -401,23 +414,35 @@ impl Boid {
         metadata: &Vec<BoidMetadata>,
         run_options: &RunOptions,
     ) -> Vec2 {
-        // the current velocity vector normalized
-        let heading = self.velocity.normalize();
-        // gives the center of the circle driving the locomotion
-        // let loco_center = self.position +  heading * (run_options.wander_radius * (2_f32).sqrt());
-        let loco_center = self.position + heading * (run_options.wander_distance * (2_f32).sqrt());
+        match run_options.noise_model {
+            crate::options::NoiseModel::Reynolds => {
+                // the current velocity vector normalized
+                let heading = self.velocity.normalize();
+                // gives the center of the circle driving the locomotion
+                // let loco_center = self.position +  heading * (run_options.wander_radius * (2_f32).sqrt());
+                let loco_center =
+                    self.position + heading * (run_options.wander_distance * (2_f32).sqrt());
 
-        // vector pointing at the point on circumference
-        let wander_point = heading.rotate(Vec2::new(
-            run_options.wander_radius * metadata[self.id].wander_direction.cos(),
-            run_options.wander_radius * metadata[self.id].wander_direction.sin(),
-        ));
+                // vector pointing at the point on circumference
+                let wander_point = heading.rotate(Vec2::new(
+                    run_options.wander_radius * metadata[self.id].wander_direction.cos(),
+                    run_options.wander_radius * metadata[self.id].wander_direction.sin(),
+                ));
 
-        // places the point onto the locomotion circle with respect to agent's location
-        let wander_f = loco_center + wander_point;
+                // places the point onto the locomotion circle with respect to agent's location
+                let wander_f = loco_center + wander_point;
 
-        // steer towards the point on the locomotion circle
-        return self.seek(wander_f, run_options) * run_options.wander_coefficient;
+                // steer towards the point on the locomotion circle
+                self.seek(wander_f, run_options) * run_options.wander_coefficient
+            }
+            crate::options::NoiseModel::Viscek => {
+
+                let wander_vector = Vec2::new(metadata[self.id].wander_direction.cos(), metadata[self.id].wander_direction.sin());
+                let heading = self.velocity.normalize().rotate(wander_vector.clamp_length(run_options.max_speed, run_options.max_speed));
+
+                self.seek(self.position + heading, run_options) * run_options.wander_coefficient
+            }
+        }
     }
 
     // pub fn avoid(&self, x: f32, y:f32, run_options: &RunOptions) {

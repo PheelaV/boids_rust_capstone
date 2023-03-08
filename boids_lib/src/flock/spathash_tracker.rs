@@ -422,12 +422,12 @@ impl SpatHash1D {
             // this should really be in one of the boid rules,
             // but then there goes borrow checker and boids having
             // to mutate their own state for which the current pipeline
-            // simply is not buit for, so here is a workaround
+            // simply is not built for, so here is a workaround
             if run_options.wander_on {
                 let wander_next = MY_RNG
                     .lock()
                     .unwrap()
-                    .gen_range(-run_options.wander_rate..run_options.wander_rate);
+                    .gen_range(-(run_options.wander_rate/2.)..(run_options.wander_rate/2.));
                 metadata[self.table[e].id].wander_direction =
                     (self.metadata[self.table[e].id].wander_direction + wander_next) % (2. * PI);
             }

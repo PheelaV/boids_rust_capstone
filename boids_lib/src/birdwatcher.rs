@@ -62,6 +62,10 @@ impl Birdwatcher {
         self.locations.append(&mut current_locations);
     }
 
+    pub fn restart(&mut self) {
+        self.locations.clear();
+    }
+
     pub fn pop_data(&mut self) -> Vec<BoidData> {
         mem::take(&mut self.locations)
     }
@@ -90,6 +94,7 @@ impl Birdwatcher {
             let file = OpenOptions::new()
                 .write(true)
                 .create(true)
+                .append(false)
                 .open(file_path)
                 .expect("Can't open file");
             let mut wtr = csv::Writer::from_writer(file);

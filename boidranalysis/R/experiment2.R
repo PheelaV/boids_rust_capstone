@@ -3,16 +3,19 @@ source("R/flock_metrics.R")
 source("./R/directions_angles.R")
 
 library(tidyr)
+library(dplyr)
 library(readr)
 library(purrr)
 library(parallel)
 library(patchwork)
-
+library(tictoc)
+library(ggplot2)
+library(RcppTOML)
 # if(FALSE) {
 
 run_experiment <- function(config, experiment_no_simulations, experiment_name = "experiment1", no_cores = 1) {
   # set up the experiment
-  experiment_data_folder <- paste("Data/", experiment_name, "/")
+  experiment_data_folder <- paste0("Data/", experiment_name, "/")
   config$save_locations_path = experiment_data_folder
 
   # ensure data folder exists
@@ -40,12 +43,8 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
 
   simulation_files <- list.files(experiment_data_folder, pattern="boids-data.*")
 
-  # run_experiment() %>% get_convex_hull_data() %>%
-  #   mutate(label =  sprintf("t_%d", time)) %>%
-  #   select(label, average_cluster_volumes) %>%
-  #   pivot_wider(values_from = average_cluster_volumes, names_from = label)
-
-  # collect results
+  # read_csv(paste0(experiment_data_folder, simulation_files[[file_no]])) %>%
+  #   preprocess()
 
   # file_no is the ith file in a data folder
   # metric is a function that expects boid_data and returns a scalar for each time point
@@ -56,13 +55,18 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
       metric() %>%
       into_experiment_record()
   }
-  # TODO: make them all read a file once, instead of for every metric
-  # collect_results2 <- function(data, metrics){
-  #
-  # }
+  preprocess = function(x){ get_directional_boid_data2(x, if_else(config$boundary_config == "{\"type\": \"Toroidal\"}", F, T))}
 
-  preprocess = function(x){ get_directional_boid_data(x, if_else(config$boundary_config == "{\"type\": \"Toroidal\"}", F, T))}
-
+  tic("results average norm vel")
+  results_average_norm_vel <- mclapply(
+    1:length(simulation_files),
+    function(file_no){
+      collect_results(file_no, metric = get_average_norm_vel, preprocess = preprocess)
+    },
+    mc.cores = no_cores
+  ) %>%
+    map_dfr(bind_rows)
+  toc()
   tic("results convex hull")
   results_convex_hull <- mclapply(
     1:length(simulation_files),
@@ -95,17 +99,32 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
   ) %>%
     map_dfr(bind_rows)
   toc()
+  # results voronoi counts: 730.34 sec elapsed
+  tic("results voronoi counts")
+  results_voronoi_counts <- mclapply(
+    1:length(simulation_files),
+    function(file_no){
+      collect_results(file_no, metric = function(x) get_voronoi_area(x, config), preprocess = preprocess)
+    },
+    mc.cores = no_cores
+  ) %>%
+    map_dfr(bind_rows)
+  toc()
 
   tic("visualisation")
   results_stats <- tibble(
-    t = 1:ncol(results_no_flocks) * sample_rate,
+    t = 1:ncol(results_average_norm_vel) * sample_rate,
     mean_no_flocks = apply(results_no_flocks, 2, mean),
     var_no_flocks = apply(results_no_flocks, 2, var),
     mean_convex_hull = apply(results_convex_hull, 2, mean),
     var_convex_hull = apply(results_convex_hull, 2, var),
     mean_average_norm_vel = apply(results_average_norm_vel, 2, mean),
-    # var_average_norm_vel = apply(results_average_norm_vel, 2, var),
+    var_average_norm_vel = apply(results_average_norm_vel, 2, var),
+    var_voronoi_counts = apply(results_voronoi_counts, 2, var),
+    mean_voronoi_counts = apply(results_voronoi_counts, 2, mean),
   )
+
+  write_csv(results_stats, paste0(experiment_data_folder, "results_stats.csv"))
 
   experiment_plot_folder <- paste0(experiment_data_folder, "plots/")
 
@@ -118,6 +137,12 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
   figure_width <- 10
   figure_units <- "in"
   figure_dpi <- "retina" # screen/print/retina or a number
+  figure_subtitle_config <- paste(
+    "agents:", config$init_boids, ";",
+    "iter:", config$no_iter, ";",
+    "smpl:", config$sample_rate, ";",
+    "env:", paste0(config$init_width, "×", config$init_width), ";"
+  )
 
   ggplot(
     data = results_stats,
@@ -132,7 +157,8 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
            "agents:", config$init_boids, ";",
            "iterations:", config$no_iter, ";",
            "sample:", config$sample_rate, ";"
-         )
+         ),
+         subtitle = figure_subtitle_config
     )
   ggsave(paste0("mean_no_flocks", figure_postfix), path = experiment_plot_folder, width = figure_width, height = figure_height, units = figure_units, dpi = figure_dpi)
 
@@ -144,11 +170,8 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
     geom_smooth(method = "gam", level = .9) +
     theme_bw() +
     labs(x = "time t", y = "var_t mean # flocks",
-         title = paste("var number of flocks;",
-                       "agents:", config$init_boids, ";",
-                       "iterations:", config$no_iter, ";",
-                       "sample:", config$sample_rate, ";"
-         )
+         title = "var number of flocks",
+         subtitle = figure_subtitle_config
     )
 
   ggsave(paste0("var_no_flocks", figure_postfix), path = experiment_plot_folder, width = figure_width, height = figure_height, units = figure_units, dpi = figure_dpi)
@@ -161,12 +184,8 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
     geom_smooth(method = "gam", level = .9) +
     theme_bw() +
     labs(x = "time t", y = "mean_t mean flock area",
-         title = paste(
-           "mean flock area;",
-           "agents:", config$init_boids, ";",
-           "iterations:", config$no_iter, ";",
-           "sample:", config$sample_rate, ";"
-         )
+         title = "mean flock area",
+         subtitle = figure_subtitle_config
     )
   ggsave(paste0("mean_area_flock", figure_postfix), path = experiment_plot_folder, width = figure_width, height = figure_height, units = figure_units, dpi = figure_dpi)
 
@@ -178,12 +197,8 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
     geom_smooth(method = "gam", level = .9) +
     theme_bw() +
     labs(x = "time t", y = "var_t mean flock area",
-         title = paste(
-           "var flock area;",
-           "agents:", config$init_boids, ";",
-           "iterations:", config$no_iter, ";",
-           "sample:", config$sample_rate, ";"
-         )
+         title = "var flock area",
+         subtitle = figure_subtitle_config
     )
   ggsave(paste0("var_area_flock", figure_postfix), path = experiment_plot_folder, width = figure_width, height = figure_height, units = figure_units, dpi = figure_dpi)
 
@@ -194,15 +209,47 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
     geom_line() +
     theme_bw() +
     labs(x = "time t", y = "mean average norm vel",
-         title = paste(
-           "average norm vel;",
-           "agents:", config$init_boids, ";",
-           "iterations:", config$no_iter, ";",
-           "sample:", config$sample_rate, ";"
-         )
+         title = "average norm vel",
+         subtitle = figure_subtitle_config
     )
   ggsave(paste0("mean_avg_norm_vel", figure_postfix), path = experiment_plot_folder, width = figure_width, height = figure_height, units = figure_units, dpi = figure_dpi)
 
+
+  ggplot(
+    data = results_stats,
+    aes(x = t, y = var_average_norm_vel)
+  ) +
+    geom_line() +
+    theme_bw() +
+    labs(x = "time t", y = "var average norm vel",
+         title = "var average norm vel",
+         subtitle = figure_subtitle_config
+    )
+  ggsave(paste0("var_avg_norm_vel", figure_postfix), path = experiment_plot_folder, width = figure_width, height = figure_height, units = figure_units, dpi = figure_dpi)
+
+  ggplot(
+    data = results_stats,
+    aes(x = t, y = mean_voronoi_counts)
+  ) +
+    geom_line() +
+    theme_bw() +
+    labs(x = "time t", y = "mean Count(voronoi cells area < pi*R^2)",
+         title = "average voronoi cell area",
+         subtitle = figure_subtitle_config
+    )
+  ggsave(paste0("mean_count_voronoi_cell_area", figure_postfix), path = experiment_plot_folder, width = figure_width, height = figure_height, units = figure_units, dpi = figure_dpi)
+
+  ggplot(
+    data = results_stats,
+    aes(x = t, y = var_voronoi_counts)
+  ) +
+    geom_line() +
+    theme_bw() +
+    labs(x = "time t", y = "var Count(voronoi cells area < pi*R^2)",
+         title = "var voronoi cell area",
+         subtitle = figure_subtitle_config
+    )
+  ggsave(paste0("var_count_voronoi_cell_area", figure_postfix), path = experiment_plot_folder, width = figure_width, height = figure_height, units = figure_units, dpi = figure_dpi)
 
   first_n_average_norm_vel <- results_average_norm_vel %>%
     slice_head(n = 4) %>%
@@ -215,20 +262,6 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
 
   # http://www.sthda.com/english/articles/24-ggpubr-publication-ready-plots/81-ggplot2-easy-way-to-mix-multiple-graphs-on-the-same-page/
 
-  # f_1 <- ggplot(first_n_average_norm_vel, aes(x = time, y = s_1)) +
-  #   geom_line() + labs(x = NULL, y = NULL)
-  # f_2 <- ggplot(first_n_average_norm_vel, aes(x = time, y = s_2)) +
-  #   geom_line() + labs(x = NULL, y = NULL)
-  # f_3 <- ggplot(first_n_average_norm_vel, aes(x = time, y = s_3)) +
-  #   geom_line() + labs(x = NULL, y = NULL)
-  # f_4 <- ggplot(first_n_average_norm_vel, aes(x = time, y = s_4)) +
-  #   geom_line() + labs(x = NULL, y = NULL)
-  #
-  #   # labs(x = "time t", y = "mean average norm vel")
-  #
-  # (f_1 / f_2) & (f_3 / f_4)  + plot_annotation(tag_levels = "1") # Uppercase roman numerics
-
-
   results_average_norm_vel %>%
     slice_head(n = 5) %>%
     mutate(sim_no = row_number()) %>%
@@ -239,16 +272,213 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
     geom_line() +
     facet_grid(rows = vars(label)) +
     theme_bw() +
-    labs(x = "time t", y = "mean average norm vel", title = paste(
-      "average norm vel of first n simulations;",
-      "agents:", config$init_boids, ";",
-      "iterations:", config$no_iter, ";",
-      "sample:", config$sample_rate, ";"
-    ))
+    labs(x = "time t", y = "mean average norm vel",
+      title = "average norm vel of first n simulations",
+      subtitle = figure_subtitle_config
+    )
   ggsave(paste0("first_n_avg_norm_vel", figure_postfix), path = experiment_plot_folder, width = figure_width, height = figure_height, units = figure_units, dpi = figure_dpi)
   toc()
 
+  # 4 by 4 faceted plots
+  tic("4 by 4 faceted plots")
+  no_facets <- 5
+  batch_factor <-10
+  direction_df <- mclapply(
+    1:no_facets,
+    function(file_no){
+      # somehow there is a few (units) records missing here
+     df <- read_csv(paste0(experiment_data_folder, simulation_files[[file_no]])) %>%
+        preprocess() %>%
+        mutate(result_no = file_no)
+
+     n <- nrow(df)
+     section_size <- n %/% batch_factor
+     breaks = c(seq(1, n, section_size + if_else(n %% batch_factor != 0, 1, 0)), n + 1)
+     labels = 1:batch_factor
+     return(
+       df %>%
+        mutate(timeline_facet = cut(1:n+1, breaks = breaks, labels = labels))
+      )
+    },
+    mc.cores = no_cores
+  ) %>%
+    purrr::map_dfr(dplyr::bind_rows)
+
+
+  no_bins <- 180
+  count_em_up <- function(vec, range) {
+    # define all possible values
+    all_values <- min(range):max(range)
+    # get value counts
+    value_counts <- table(vec)
+
+    # add missing values with a count of 0
+    value_counts <- value_counts[match(all_values, names(value_counts))]
+    value_counts[is.na(value_counts)] <- 0
+    names(value_counts) <- all_values
+
+    return(value_counts)
+  }
+
+  direction_counts_df <- direction_df %>%
+  group_by(timeline_facet, result_no) %>%
+  mutate(heading_bin = cut(headings, breaks = seq(0, 2*pi, length.out = no_bins + 1), labels = F)) %>%
+  mutate(bearing_bin = cut(bearings, breaks = seq(-pi, pi, length.out = no_bins + 1), labels = F)) %>%
+  reframe(bin = 1:no_bins, heading_count = c(count_em_up(heading_bin, c(1, no_bins))), bearing_count = c(count_em_up(bearing_bin, c(1, no_bins))))
+
+  write_csv(direction_counts_df, paste0(experiment_data_folder, "direction_counts"))
+
+
+  timeline_labs <- sapply(1:batch_factor, function(x)paste0("k = ",x))
+  names(timeline_labs) <- 1:batch_factor
+
+  result_labs <- sapply(1:no_facets, function(x)paste0("run ",x,"."))
+  names(result_labs) <- 1:no_facets
+
+  ggplot(direction_counts_df, aes(x = bin, y = heading_count)) +
+    coord_polar(theta = "x", start = pi) +
+    geom_bar(stat = "identity", fill = "orange", width = .9) +
+    labs(x =  paste0("k-th iterration section"), subtitle = figure_subtitle_config) +
+    theme_bw() +
+    facet_grid(
+      result_no~timeline_facet,
+      labeller = labeller(
+        timeline_facet = timeline_labs,
+        result_no = result_labs)
+      )
+  ggsave(paste0("heading_top_k_overview", figure_postfix), path = experiment_plot_folder, width = figure_width, height = figure_height, units = figure_units, dpi = figure_dpi)
+
+  ggplot(direction_counts_df, aes(x = bin, y = log(heading_count))) +
+    coord_polar(theta = "x", start = pi) +
+    geom_bar(stat = "identity", fill = "orange", width = .9) +
+    labs(x =  paste0("k-th iterration section"), subtitle = figure_subtitle_config) +
+    theme_bw() +
+    facet_grid(
+      result_no~timeline_facet,
+      labeller = labeller(
+        timeline_facet = timeline_labs,
+        result_no = result_labs)
+    )
+  ggsave(paste0("heading_log_top_k_overview", figure_postfix), path = experiment_plot_folder, width = figure_width, height = figure_height, units = figure_units, dpi = figure_dpi)
+
+  ggplot(direction_counts_df, aes(x = bin, y = bearing_count)) +
+    coord_polar(theta = "x", start = pi) +
+    geom_bar(stat = "identity", fill = "deeppink", width = .9) +
+    labs(x = paste0("k-th iterration section "), subtitle = figure_subtitle_config) +
+    theme_bw() +
+    facet_grid(
+      result_no~timeline_facet,
+      labeller = labeller(
+        timeline_facet = timeline_labs,
+        result_no = result_labs)
+    )
+  ggsave(paste0("bearing_top_k_overview", figure_postfix), path = experiment_plot_folder, width = figure_width, height = figure_height, units = figure_units, dpi = figure_dpi)
+
+
+  ggplot(direction_counts_df, aes(x = bin, y = log(bearing_count))) +
+    coord_polar(theta = "x", start = pi) +
+    geom_bar(stat = "identity", fill = "deeppink", width = .9) +
+    labs(x = paste0("k-th iterration section "), subtitle = figure_subtitle_config) +
+    theme_bw() +
+    facet_grid(
+      result_no~timeline_facet,
+      labeller = labeller(
+        timeline_facet = timeline_labs,
+        result_no = result_labs)
+    )
+  ggsave(paste0("bearing_log_top_k_overview", figure_postfix), path = experiment_plot_folder, width = figure_width, height = figure_height, units = figure_units, dpi = figure_dpi)
+
+  tau <- 5
+  labels = direction_df$result_no
+
+  tic("results voronoi counts")
+  curvature_result <- mclapply(
+    (direction_df %>% select(result_no) %>% distinct())$result_no,
+    function(rn){
+      direction_df %>% filter(result_no == rn) %>%
+        select(-timeline_facet) %>%
+        get_curvature_order_data(config, tau) %>%
+        mutate(result_no = rep(rn, n()), label_time = 1:n() * config$sample_rate, label = sprintf("s_%d", result_no))
+        # bind_cols(tibble(result_no = rep(rn, length(time)), label_time = 1:length(time) * config$sample_rate))
+    },
+    mc.cores = no_cores
+  ) %>%
+    map_dfr(bind_rows)
   toc()
+
+  ggplot(curvature_result, aes(x = label_time, y = rop)) +
+    theme_bw() +
+    labs(
+      title = paste0("mean flock path curvature with tau = ", tau),
+      subtitle = figure_subtitle_config,
+      x = "rate"
+      ) +
+    geom_line() +
+    facet_grid(rows = vars(label))
+  ggsave(paste0("curvature_top_k_overview", figure_postfix), path = experiment_plot_folder, width = figure_width, height = figure_height, units = figure_units, dpi = figure_dpi)
+
+  toc()
+
+  tic("direction data graphs")
+  # testing these
+  direction_df %>%
+    arrange(time) %>%
+    group_by(result_no, id) %>%
+    mutate(bearings_ma =rollapply(bearings, tau ,mean,align='right',fill=NA)) %>%
+    ungroup() %>%
+    mutate(noise = cluster_id == 0) %>%
+    group_by(result_no, time, noise) %>%
+    summarise(bearings_ma = mean(bearings_ma)) %>%
+    ungroup() %>%
+    filter(!is.na(bearings_ma)) %>%
+    group_by(result_no) %>%
+    mutate(time_label = 1:n() * config$sample_rate, label = sprintf("s_%d", result_no)) %>%
+    ggplot(aes(x = time_label, y = bearings_ma)) +
+    geom_point(size = 1.2, alpha = .3, aes(color = noise))  +
+    stat_summary(aes(y = bearings_ma, color = noise), alpha = .8, fun=mean, geom="line") +
+    theme_bw() +
+    facet_grid(rows = vars(label)) +
+    labs(
+      title = paste0("mean average flock curvature tau = ", tau),
+      subtitle = figure_subtitle_config,
+      x = "time"
+    )
+  #   mutate(label = sprintf("s_%d", sim_no), time = time * sample_rate) %>%
+  #   ggplot(aes(x = time, y = vals)) +
+  #   geom_line() +
+  #   facet_grid(rows = vars(label))
+  ggsave(paste0("dir_data_graph_1", figure_postfix), path = experiment_plot_folder, width = figure_width, height = figure_height, units = figure_units, dpi = figure_dpi)
+
+  direction_df %>%
+    arrange(time) %>%
+    group_by(result_no, id) %>%
+    mutate(breaings_ma=rollapply(bearings, tau,mean,align='right',fill=NA)) %>%
+    ungroup() %>%
+    group_by(time, cluster_id) %>%
+    summarise(breaings_ma = mean(breaings_ma)) %>%
+    mutate(noise = cluster_id == 0) %>%
+    ungroup() %>%
+    filter(!is.na(breaings_ma)) %>%
+    mutate(time_label = 1:n() * config$sample_rate) %>%
+    ggplot(aes(x = time_label, y = breaings_ma)) +
+    geom_point(size = .5, alpha = .1, aes(color = noise))  +
+    stat_summary(aes(y = breaings_ma, color = noise), fun=mean, geom="line") +
+    theme_bw() +
+    labs(
+      title = paste0("mean average flock curvature tau = ", tau, "; coerced runs = ", length(table(direction_df$result_no))),
+      subtitle = figure_subtitle_config,
+      x = "time"
+    )
+  ggsave(paste0("dir_data_graph_2", figure_postfix), path = experiment_plot_folder, width = figure_width, height = figure_height, units = figure_units, dpi = figure_dpi)
+
+  toc()
+
+  toc()
+
+  toc()
+  # preserve config at last
+  config$experiment_name = experiment_name
+  jsonlite::write_json(config, paste0(experiment_data_folder, "config.json"))
 }
 
 # testing different configs -
@@ -270,10 +500,33 @@ config <- get_config(
   )
 )
 
-no_cores <- 8
+no_cores <- 6
 experiment_no_simulations <- 120
+tryCatch(
+  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0301_experiment2_a1")
+)
+toc()
 
-run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0301_experiment2_a1")
+tic("experiment2_a12 start")
+
+config <- get_config(
+  "basic2.toml",
+  overwrite = list(
+    init_boids = 2^11,
+    no_iter = 2^15,
+    init_width = 4000,
+    init_height = 4000,
+    sample_rate = 64,
+    boundary_config = "{\"type\": \"Toroidal\"}",
+    distance_config = "{\"type\": \"EucEnclosed\"}"
+  )
+)
+
+no_cores <- 6
+experiment_no_simulations <- 120
+tryCatch(
+  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0301_experiment2_a12")
+)
 toc()
 
 tic("experiment2_a2 start")
@@ -291,7 +544,7 @@ config <- get_config(
   )
 )
 
-no_cores <- 8
+no_cores <- 6
 experiment_no_simulations <- 120
 
 run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0301_experiment2_a2")
@@ -312,13 +565,16 @@ config <- get_config(
   )
 )
 
-no_cores <- 8
+no_cores <- 6
 experiment_no_simulations <- 120
 
 run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0301_experiment2_a3")
 toc()
 
-tic("experiment1_b1 start")
+
+
+
+tic("experiment2_b1 start")
 
 config <- get_config(
   "string_ball_hybrid.toml",
@@ -328,20 +584,23 @@ config <- get_config(
     init_width = 2000,
     init_height = 2000,
     sample_rate = 64,
+    field_of_vision = 200,
+    min_speed = 2,
+    max_speed = 2,
     boundary_config = "{\"type\": \"Toroidal\"}",
     distance_config = "{\"type\": \"EucToroidal\"}"
   )
 )
-no_cores <- 4
+
+no_cores <- 6
 experiment_no_simulations <- 120
-
 tryCatch(
-  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0301_experiment2_b1"),
-  )
-
+  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0301_experiment2_b1")
+)
 toc()
 
-tic("experiment1_b2 start")
+
+tic("experiment2_b2 start")
 
 config <- get_config(
   "string_ball_hybrid.toml",
@@ -351,18 +610,21 @@ config <- get_config(
     init_width = 2000,
     init_height = 2000,
     sample_rate = 64,
+    min_speed = 2,
+    max_speed = 2,
     boundary_config = "{\"type\": \"Toroidal\"}",
-    distance_config = "{\"type\": \"EucToroidal\"}",
-    field_of_vision = 360.
+    distance_config = "{\"type\": \"EucToroidal\"}"
   )
 )
-no_cores <- 4
+
+no_cores <- 6
 experiment_no_simulations <- 120
 tryCatch(
   expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0301_experiment2_b2")
 )
 toc()
 
+# # this took 13.214 hours on 4 M1 Pro P cores
 tic("experiment1_c1 start")
 
 config <- get_config(
@@ -400,9 +662,8 @@ config <- get_config(
   )
 )
 
-no_cores <- 4
+no_cores <- 3
 experiment_no_simulations <- 120
-
 
 tryCatch(
   expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0301_experiment2_c2")
@@ -448,5 +709,124 @@ tryCatch(
 )
 toc()
 
-# toJSON(config)
-# }
+tic("0307_experiment2_e1_1 start")
+config <- get_config(
+  "density.toml",
+  overwrite = list(
+    init_boids = 2^8,
+    no_iter = 2^15,
+    init_width = 1600,
+    init_height = 1600,
+    sample_rate = 32,
+    boundary_config = "{\"type\": \"Toroidal\"}",
+    distance_config = "{\"type\": \"EucToroidal\"}"
+  )
+)
+no_cores <- 8
+experiment_no_simulations <- 50
+tryCatch(
+  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0307_experiment2_e1_1")
+)
+toc()
+
+tic("0307_experiment2_e1_2 start")
+config <- get_config(
+  "density.toml",
+  overwrite = list(
+    init_boids = 2^9,
+    no_iter = 2^15,
+    init_width = 1600,
+    init_height = 1600,
+    sample_rate = 32,
+    boundary_config = "{\"type\": \"Toroidal\"}",
+    distance_config = "{\"type\": \"EucToroidal\"}"
+  )
+)
+no_cores <- 8
+experiment_no_simulations <- 50
+tryCatch(
+  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0307_experiment2_e1_2")
+)
+toc()
+
+tic("0307_experiment2_e1_3 start")
+config <- get_config(
+  "density.toml",
+  overwrite = list(
+    init_boids = 2^10,
+    no_iter = 2^15,
+    init_width = 1600,
+    init_height = 1600,
+    sample_rate = 32,
+    boundary_config = "{\"type\": \"Toroidal\"}",
+    distance_config = "{\"type\": \"EucToroidal\"}"
+  )
+)
+no_cores <- 8
+experiment_no_simulations <- 50
+tryCatch(
+  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0307_experiment2_e1_3")
+)
+toc()
+
+tic("0307_experiment2_e1_4 start")
+config <- get_config(
+  "density.toml",
+  overwrite = list(
+    init_boids = 2^11,
+    no_iter = 2^15,
+    init_width = 1600,
+    init_height = 1600,
+    sample_rate = 32,
+    boundary_config = "{\"type\": \"Toroidal\"}",
+    distance_config = "{\"type\": \"EucToroidal\"}"
+  )
+)
+no_cores <- 8
+experiment_no_simulations <- 50
+tryCatch(
+  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0307_experiment2_e1_4")
+)
+toc()
+
+tic("0307_experiment2_e1_5 start")
+config <- get_config(
+  "density.toml",
+  overwrite = list(
+    init_boids = 2^11 + 2^10,
+    no_iter = 2^15,
+    init_width = 1600,
+    init_height = 1600,
+    sample_rate = 32,
+    boundary_config = "{\"type\": \"Toroidal\"}",
+    distance_config = "{\"type\": \"EucToroidal\"}"
+  )
+)
+no_cores <- 8
+experiment_no_simulations <- 50
+tryCatch(
+  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0307_experiment2_e1_5")
+)
+toc()
+
+tic("0307_experiment2_e1_6 start")
+config <- get_config(
+  "density.toml",
+  overwrite = list(
+    init_boids = 2^12,
+    no_iter = 2^15,
+    init_width = 1600,
+    init_height = 1600,
+    sample_rate = 32,
+    boundary_config = "{\"type\": \"Toroidal\"}",
+    distance_config = "{\"type\": \"EucToroidal\"}"
+  )
+)
+no_cores <- 8
+experiment_no_simulations <- 50
+tryCatch(
+  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0307_experiment2_e1_6")
+)
+toc()
+
+

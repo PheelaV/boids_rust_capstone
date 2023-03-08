@@ -23,5 +23,7 @@ force_recompile <- function() .Call(wrap__force_recompile)
 
 get_convex_hull <- function(x, y) .Call(wrap__get_convex_hull, x, y)
 
+get_voronoi_areas <- function(x, y, width, height) .Call(wrap__get_voronoi_areas, x, y, width, height)
+
 
 # nolint end

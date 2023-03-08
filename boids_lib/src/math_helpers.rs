@@ -95,7 +95,7 @@ pub fn tor_vec(v1: Vec2, v2: Vec2, window_size: &WindowSize) -> Vec2 {
 /// Producess a vector along the shortest path from p1(x1,y1) to p2 (x2, t2) in a toroidal space.
 /// Originally inspired by toroidal distance as per [source](https://blog.demofox.org/2017/10/01/calculating-the-distance-between-points-in-wrap-around-toroidal-space/),
 /// with a modification to preserve directionality (sign)
-
+#[inline]
 pub fn tor_vec_p(x1: f32, x2: f32, y1: f32, y2: f32, window_size: &WindowSize) -> (f32, f32) {
     // The idea big idea is:
     // coordinates are centered w.r.t. (0, 0)
@@ -103,34 +103,7 @@ pub fn tor_vec_p(x1: f32, x2: f32, y1: f32, y2: f32, window_size: &WindowSize) -
     // we went the wrong direction and should consider the other side to get the minimal distance
     // this additionally preserves the sign of the shortest path
 
-    // components pointing towards P2
-    // let mut dx_p2 = x2 - x1;
-    // let mut dy_p2 = y2 - y1;
-
-    // if dx_p2.abs() > window_size.win_right as f32 {
-    //     dx_p2 = if dx_p2 < 0. {
-    //         window_size.win_w
-    //     } else {
-    //         -window_size.win_w
-    //     } as f32
-    //         + dx_p2;
-    // }
-
-    // if dy_p2.abs() > window_size.win_top as f32 {
-    //     dy_p2 = if dy_p2 < 0. {
-    //         window_size.win_h
-    //     } else {
-    //         -window_size.win_h
-    //     } as f32
-    //         + dy_p2;
-    // }
-
-    let dx_p2 = tor_vec_pc(
-        x1,
-        x2,
-        window_size.win_w as f32,
-        window_size.win_right as f32,
-    );
+    let dx_p2 = tor_vec_pc(x1, x2, window_size.win_w as f32, window_size.win_right as f32);
     let dy_p2 = tor_vec_pc(y1, y2, window_size.win_h as f32, window_size.win_top as f32);
 
     (dx_p2, dy_p2)
@@ -140,12 +113,12 @@ pub fn tor_vec_p(x1: f32, x2: f32, y1: f32, y2: f32, window_size: &WindowSize) -
 #[inline]
 pub fn tor_vec_pc(x1: f32, x2: f32, size: f32, max: f32) -> f32 {
     // component pointing towards x2
-    let dx_p2 = x2 - x1;
+    let d_p2 = x2 - x1;
     // if we are crossing more than half the space, the other way it shall be
-    if dx_p2.abs() > max {
-        dx_p2 + if dx_p2 < 0. { size } else { -size } as f32
+    if d_p2.abs() > max {
+        d_p2 + if d_p2 < 0. { size } else { -size } as f32
     } else {
-        dx_p2
+        d_p2
     }
 }
 

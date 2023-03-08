@@ -340,9 +340,9 @@ fn join_adjacent_flocks(
 
     'outer: for (_, (b1, c1)) in boundary_boids.iter() {
         'inner: for b2 in tracker.get_neighbours(b1, run_options) {
-            if run_options.clicked_boid_id == b1.id || run_options.clicked_boid_id == b2.id {
-                println!("jackpot")
-            }
+            // if run_options.clicked_boid_id == b1.id || run_options.clicked_boid_id == b2.id {
+            //     println!("jackpot")
+            // }
             let c2 = if boundary_boids.contains_key(&b2.id) {
                 boundary_boids.get(&b2.id).unwrap().1
             } else {

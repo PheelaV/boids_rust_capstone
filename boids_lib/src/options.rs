@@ -42,6 +42,7 @@ pub struct RunOptions {
     pub size: f32,
     pub boundary: Boundary,
     pub distance: Distance,
+    pub noise_model: NoiseModel,
 
     pub clicked_boid_id: usize,
 
@@ -56,6 +57,7 @@ pub struct RunOptions {
     /// Fiels of vision in radians, [0, π]
     pub field_of_vision_half_rad: f32,
     pub field_of_vision_deg: f32,
+    pub field_of_vision_cos: f32,
 
     pub sample_rate: u64,
     pub dbscan_flock_clustering_on: bool,
@@ -143,7 +145,7 @@ impl Default for RunOptions {
             window: self::get_window_size(init_width, init_height),
             save_options: SaveOptions {
                 save_locations: false,
-                save_locations_path: None,
+                save_locations_path: Some("./".to_owned()),
                 save_locations_timestamp: true,
             },
             size: 8.,
@@ -153,6 +155,7 @@ impl Default for RunOptions {
             // boundary: Boundary::Reflective,
             distance: Distance::EucToroidal,
             // distance: Distance::EucEnclosed,
+            noise_model: NoiseModel::Viscek,
             clicked_boid_id: std::usize::MAX,
             allignment_impl_mode: false,
             cohesion_impl_mode: false,
@@ -160,8 +163,9 @@ impl Default for RunOptions {
             clustering_impl: false,
             col_by_neighbour: false,
             field_of_vision_on,
-            field_of_vision_half_rad,
             field_of_vision_deg,
+            field_of_vision_half_rad,
+            field_of_vision_cos: 0.,
             sample_rate,
             dbscan_flock_clustering_on: false,
             neighbours_cosidered: 0,
@@ -254,6 +258,14 @@ pub enum Boundary {
 pub enum Distance {
     EucToroidal,
     EucEnclosed,
+}
+
+#[derive(Debug, PartialEq, Copy, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+// {"type": "EucToroidal"}
+pub enum NoiseModel {
+    Viscek,
+    Reynolds,
 }
 
 #[derive(Debug)]

@@ -61,19 +61,19 @@ get flocking data
 tic()
 config <- get_config(
   # "string_ball_hybrid.toml", 
-  "basic2.toml", 
+  "large_string.toml", 
     overwrite = list(
       init_boids = 2^12,
-      no_iter = 2^10,
+      no_iter = 2^15,
       init_width = 4000, 
       init_height = 4000,
       min_speed = 2,
       max_speed = 2,
-      sample_rate = 4,
+      sample_rate = 8,
       # boundary_config = "{\"type\": \"Repulsive\", \"distance\": 100, \"force\": 0.05}"
       boundary_config = "{\"type\": \"Toroidal\"}",
-      distance_config = "{\"type\": \"EucToroidal\"}",
-      field_of_vision = 360.
+      distance_config = "{\"type\": \"EucToroidal\"}"
+      # field_of_vision = 360.
     )
 )
 boid_data <- rlang::exec(flock_detailed, !!!config) %>%
@@ -82,19 +82,22 @@ toc()
 ```
 visualize
 ```{r}
-sub_sub_sample_rate <- 124
+# sub_sub_sample_rate <- 124
+# # direction_data_by_boid <- boid_data %>%
 # direction_data_by_boid <- boid_data %>%
-direction_data_by_boid <- boid_data %>%
-  # sub_sample_data(every_nth = sub_sub_sample_rate) %>%
-  get_directional_boid_data(remove_boundary = FALSE)
+#   # sub_sample_data(every_nth = sub_sub_sample_rate) %>%
+#   get_directional_boid_data2(remove_boundary = FALSE)
+# 
+# print("range of bearings:")
+# range(direction_data_by_boid$bearings)
+# 
+# print("range of headings:")
+# range(direction_data_by_boid$headings)
 
-print("range of bearings:")
-range(direction_data_by_boid$bearings)
-
-print("range of headings:")
-range(direction_data_by_boid$headings)
+test_time <- 5
 
 headings_binned <- direction_data_by_boid %>%
+  filter(time <= test_time) %>%
   mutate(
     headings = floor(rad2deg(headings))
   ) %>%
@@ -105,6 +108,7 @@ headings_binned <- direction_data_by_boid %>%
   select(heading = headings, count = count)
 
 bearings_binned <- direction_data_by_boid %>%
+  filter(time <= test_time) %>%
   mutate(
     bearings = floor(rad2deg(bearings))
   ) %>%
@@ -120,13 +124,23 @@ summary(direction_data_by_boid %>% select(-id))
 ```{r}
 ggplot(headings_binned, aes(x = heading, y = log(count))) +
   coord_polar(theta = "x", start = pi) +
-  geom_bar(stat = "identity", fill = "deeppink4", width = .9) +
+  geom_bar(stat = "identity", fill = "orange", width = .9) +
+  labs(x = "Heading w.r.t N") +
+  theme_bw()
+ggplot(headings_binned, aes(x = heading, y = count)) +
+  coord_polar(theta = "x", start = pi) +
+  geom_bar(stat = "identity", fill = "orange", width = .9) +
   labs(x = "Heading w.r.t N") +
   theme_bw()
 ```
 
 ```{r}
 ggplot(bearings_binned, aes(x = bearing, y = log(count))) +
+  coord_polar(theta = "x", start = pi) +
+  geom_bar(stat = "identity", fill = "deeppink4", width = .9) +
+  labs(x = "Turning angle") +
+  theme_bw()
+ggplot(bearings_binned, aes(x = bearing, y = count)) +
   coord_polar(theta = "x", start = pi) +
   geom_bar(stat = "identity", fill = "deeppink4", width = .9) +
   labs(x = "Turning angle") +
@@ -207,4 +221,45 @@ ggplot(headings_binned) +
   coord_polar(theta = "x", start = pi) +
   theme_bw()
 ```
+```{r}
 
+sensory_distance = max(
+  max(config$cohesion_trs_coef * config$sensory_distance,
+      config$separation_trs_coef * config$sensory_distance)
+  ,config$allignment_trs_coef * config$sensory_distance)
+
+pi * sensory_distance^2
+
+
+test <- direction_data_by_boid %>%
+  group_by(time) %>%
+  reframe(voronoi_areas = list(get_voronoi_areas(x, y, 4000, 4000)))
+
+test %>%
+  rowwise() %>%
+  mutate(time, C_voronoi = sum(voronoi_areas < pi * sensory_distance^2) / 2048) %>%
+  select(time, C_voronoi) %>%
+  ggplot(aes(x = time, y = C_voronoi)) +
+  geom_point()
+```
+
+```{r}
+direction_data_by_boid %>%
+  arrange(time) %>%
+  group_by(id) %>%
+  mutate(breaings_ma=rollapply(bearings, 5,mean,align='right',fill=NA)) %>%
+  ungroup() %>%
+  group_by(time, cluster_id) %>%
+  summarise(breaings_ma = mean(breaings_ma)) %>%
+  ungroup() %>%
+  filter(!is.na(breaings_ma)) %>%
+  mutate(noise = cluster_id == 0) %>%
+  ggplot(aes(x = time, y = breaings_ma)) +
+  geom_point(size = .5, alpha = .1, aes(color = noise))  +
+  stat_summary(aes(y = breaings_ma, color = noise), fun=mean, geom="line") +
+  theme_bw()
+```
+```{r}
+
+
+```

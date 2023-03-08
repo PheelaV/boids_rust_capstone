@@ -36,6 +36,7 @@ petal-clustering = "0.5.1"
 petal-neighbors = "0.8.0"
 linfa-nn = "0.6.1"
 itertools = "0.10.5"
+voronoice = "0.2.0"
 
 
 [dev-dependencies]
