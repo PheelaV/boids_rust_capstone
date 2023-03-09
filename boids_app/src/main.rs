@@ -508,16 +508,11 @@ fn update(app: &App, model: &mut Model, update: Update) {
             });
         });
 
-    // update sensory distances
-    run_options.update_sensory_distances();
-    run_options.field_of_vision_half_rad = run_options.field_of_vision_deg * PI / 360.;
-    run_options.field_of_vision_cos = (run_options.field_of_vision_deg / 2.).cos();
-
     // update model
     if model.control_state.execution_paused {
         return;
     }
-    flock.update(&run_options);
+    flock.update(run_options);
     bird_watcher.watch(&flock);
 
     model.update_ticks += 1;
