@@ -1,9 +1,11 @@
 
 /boidranalysis/Data/
+/boidranalysis/Data/
 boids-data.csv
 CACHEDIR.TAG
 .rustc_info.json
 
+boids-data*
 **/*.mp4
 
 /target
@@ -15,7 +17,6 @@ CACHEDIR.TAG
 
 # Icon must end with two \r
 Icon
-
 
 # Thumbnails
 ._*
