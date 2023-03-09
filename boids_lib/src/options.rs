@@ -1,3 +1,4 @@
+use std::f32::consts::PI;
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
@@ -54,9 +55,10 @@ pub struct RunOptions {
     pub col_by_neighbour: bool,
 
     pub field_of_vision_on: bool,
-    /// Fiels of vision in radians, [0, π]
-    pub field_of_vision_half_rad: f32,
     pub field_of_vision_deg: f32,
+    /// field of vision in radians, [0, π]
+    pub field_of_vision_half_rad: f32,
+    /// field of vision in cos [-1, 1]
     pub field_of_vision_cos: f32,
 
     pub sample_rate: u64,
@@ -68,6 +70,7 @@ pub struct RunOptions {
 }
 
 impl RunOptions {
+    /// updates all treshold distances given sensory_distance and all treshold coefficients
     pub fn update_sensory_distances(&mut self) {
         self.allignment_treshold_distance =
             self.sensory_distance * self.allignment_treshold_coefficient;
@@ -80,6 +83,12 @@ impl RunOptions {
             self.cohesion_treshold_distance
                 .max(self.separation_treshold_distance),
         );
+    }
+
+    /// updates fov parameters given fov_deg
+    pub fn update_fov(&mut self) {
+        self.field_of_vision_half_rad = self.field_of_vision_deg * PI / 360.;
+        self.field_of_vision_cos = (self.field_of_vision_deg / 2.).cos();
     }
 }
 

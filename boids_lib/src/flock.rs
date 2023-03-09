@@ -76,7 +76,10 @@ impl Flock {
         self.tracker.view2()
     }
 
-    pub fn update(&mut self, run_options: &RunOptions) {
+    pub fn update(&mut self, run_options: &mut RunOptions) {
+        run_options.update_sensory_distances();
+        run_options.update_fov();
+
         self.tracker.update(run_options);
     }
 
