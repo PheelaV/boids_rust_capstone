@@ -3,7 +3,7 @@ use std::{fs::OpenOptions, mem};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 
-use crate::{flock::Flock, options::SaveOptions};
+use crate::{flock::{Flock}, options::SaveOptions};
 
 // todo: it would be cool to have bird watcher store a reference to the flock, both would have to have the same lifetime anotations
 // the problem is that the nannou Model would also have to be annotated

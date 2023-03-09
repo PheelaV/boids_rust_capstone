@@ -28,17 +28,20 @@ lazy_static! {
 
 use crate::boid::Boid;
 use crate::boid::BoidMetadata;
+use crate::flock::replay_tracker::ReplayTracker;
 use crate::math_helpers::distance_dyn_boid;
 use crate::options::Boundary;
 use crate::options::InitiationStrategy;
 use crate::options::RunOptions;
 
+use self::naive_tracker::BoidTracker;
 use self::spathash_tracker::SpatHash1D;
 use self::tracker::Tracker;
 
 pub mod naive_tracker;
 pub mod spathash_tracker;
 pub mod tracker;
+mod replay_tracker;
 
 // pub mod tracker;
 
@@ -47,19 +50,28 @@ pub mod tracker;
 // type BoidTracker = BoidTracker;
 
 // type FlockTracker = BoidTracker;
-type FlockTracker = SpatHash1D;
-pub struct Flock {
-    pub tracker: FlockTracker,
+// type FlockTracker = SpatHash1D;
+pub struct Flock<'a> {
+    pub tracker: Box<dyn Tracker + 'a>,
+    // pub t: Box<dyn Tracker + 'a>
 }
 
-impl Flock {
+impl<'a> Flock<'a> {
     // const GREY_SCALE: &str =
     //     " .\'`^\",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
     pub fn new(run_options: &RunOptions) -> Self {
         let boids = get_boids(&run_options);
 
+        let tracker : Box<dyn Tracker + 'a> = match &run_options.tracker_type {
+            crate::options::TrackerType::SpatHash => Box::new(SpatHash1D::new(&boids, run_options)), 
+            crate::options::TrackerType::Naive => Box::new(BoidTracker::new(&boids, run_options)),
+            crate::options::TrackerType::Replay(replay_path) => Box::new(ReplayTracker::from_path(replay_path, run_options)),
+        };
+
         Flock {
-            tracker: FlockTracker::new(&boids, run_options),
+            tracker,
+            // tracker: SpatHash1D::new(&boids, run_options),
+            // t: Box::new(SpatHash1D::new(&boids, run_options)),
             // tracker: BoidTracker::new(&boids, run_options),
         }
     }
@@ -72,7 +84,7 @@ impl Flock {
         self.tracker.view()
     }
 
-    pub fn view2<'a>(&'a self) -> Box<dyn Iterator<Item = (&'a Boid, &'a BoidMetadata)> + 'a> {
+    pub fn view2(&'a self) -> Box<dyn Iterator<Item = (&'a Boid, &'a BoidMetadata)> + 'a> {
         self.tracker.view2()
     }
 
@@ -338,7 +350,7 @@ fn join_adjacent_flocks(
         .collect::<HashMap<BoidId, (&Boid, &ClusterId)>>();
 
 
-    'outer: for (_, (b1, c1)) in boundary_boids.iter() {
+    boundary_boids.iter().for_each(|(_, (b1, c1))| {
         'inner: for b2 in tracker.get_neighbours(b1, run_options) {
             // if run_options.clicked_boid_id == b1.id || run_options.clicked_boid_id == b2.id {
             //     println!("jackpot")
@@ -416,7 +428,7 @@ fn join_adjacent_flocks(
                 .or_insert(HashSet::new())
                 .insert(*replacer);
         }
-    }
+    });
 
     // Now we need to deal with noise entities, the tricky part is multiple noise entities
     // can create a chain that connects up to a multiple of existing clusters. That chain is limited

@@ -1,5 +1,5 @@
 use std::{
-    f32::consts::{E, PI},
+    f32::consts::{E},
     fmt::Debug,
 };
 

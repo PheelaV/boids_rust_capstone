@@ -305,26 +305,27 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
     purrr::map_dfr(dplyr::bind_rows)
 
 
-  no_bins <- 180
-  count_em_up <- function(vec, range) {
-    # define all possible values
-    all_values <- min(range):max(range)
-    # get value counts
-    value_counts <- table(vec)
-
-    # add missing values with a count of 0
-    value_counts <- value_counts[match(all_values, names(value_counts))]
-    value_counts[is.na(value_counts)] <- 0
-    names(value_counts) <- all_values
-
-    return(value_counts)
-  }
+  # no_bins <- 180
+  # count_em_up <- function(vec, range) {
+  #   # define all possible values
+  #   all_values <- min(range):max(range)
+  #   # get value counts
+  #   value_counts <- table(vec)
+  #
+  #   # add missing values with a count of 0
+  #   value_counts <- value_counts[match(all_values, names(value_counts))]
+  #   value_counts[is.na(value_counts)] <- 0
+  #   names(value_counts) <- all_values
+  #
+  #   return(value_counts)
+  # }
 
   direction_counts_df <- direction_df %>%
   group_by(timeline_facet, result_no) %>%
-  mutate(heading_bin = cut(headings, breaks = seq(0, 2*pi, length.out = no_bins + 1), labels = F)) %>%
-  mutate(bearing_bin = cut(bearings, breaks = seq(-pi, pi, length.out = no_bins + 1), labels = F)) %>%
-  reframe(bin = 1:no_bins, heading_count = c(count_em_up(heading_bin, c(1, no_bins))), bearing_count = c(count_em_up(bearing_bin, c(1, no_bins))))
+  get_directional_counts(no_bins = 180)
+  # mutate(heading_bin = cut(headings, breaks = seq(0, 2*pi, length.out = no_bins + 1), labels = F)) %>%
+  # mutate(bearing_bin = cut(bearings, breaks = seq(-pi, pi, length.out = no_bins + 1), labels = F)) %>%
+  # reframe(bin = 1:no_bins, heading_count = c(count_em_up(heading_bin, c(1, no_bins))), bearing_count = c(count_em_up(bearing_bin, c(1, no_bins))))
 
   write_csv(direction_counts_df, paste0(experiment_data_folder, "direction_counts"))
 
@@ -802,7 +803,7 @@ config <- get_config(
     distance_config = "{\"type\": \"EucToroidal\"}"
   )
 )
-no_cores <- 8
+no_cores <- 4
 experiment_no_simulations <- 50
 tryCatch(
   expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0307_experiment2_e1_5")
@@ -822,7 +823,7 @@ config <- get_config(
     distance_config = "{\"type\": \"EucToroidal\"}"
   )
 )
-no_cores <- 8
+no_cores <- 4
 experiment_no_simulations <- 50
 tryCatch(
   expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0307_experiment2_e1_6")

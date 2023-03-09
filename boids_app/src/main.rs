@@ -30,10 +30,10 @@ struct ControlsState {
     controls_open: bool,
 }
 
-pub struct Model {
+pub struct Model<'a> {
     egui: Egui,
     color: Hsv,
-    flock: Flock,
+    flock: Flock<'a>,
     run_options: RunOptions,
     last_update_micros: u128,
     last_render_micros: u128,
@@ -52,7 +52,7 @@ pub struct Model {
     repulsive_force: f32,
 }
 
-fn model(app: &App) -> Model {
+fn model<'a>(app: &App) -> Model<'a> {
     // let args = Args::parse();
     // Parse whole args with clap
     let mut args = Args::parse();
@@ -744,7 +744,7 @@ fn window_closed(_app: &App, model: &mut Model) {
 pub trait Drawable {
     fn draw(&self, draw: &Draw, color: &Hsv, run_options: &RunOptions, model: &Model);
 }
-impl Drawable for Flock {
+impl<'a> Drawable for Flock<'a> {
     fn draw(&self, draw: &Draw, color: &Hsv, run_options: &RunOptions, model: &Model) {
         for e in self.view2() {
             e.0.draw(&draw, color, run_options, e.1, model);
@@ -1180,7 +1180,8 @@ fn view(app: &App, model: &Model, frame: Frame) {
         None => (),
     };
 
-    draw.background().color(PLUM);
+    // draw.background().color(PLUM);
+    draw.background().color(hsv(0.5, 0., 0.4));
 
     // for b in &model.flock.boids{
     //     draw.ellipse()

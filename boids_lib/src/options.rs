@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
@@ -43,6 +45,7 @@ pub struct RunOptions {
     pub boundary: Boundary,
     pub distance: Distance,
     pub noise_model: NoiseModel,
+    pub tracker_type: TrackerType,
 
     pub clicked_boid_id: usize,
 
@@ -156,6 +159,7 @@ impl Default for RunOptions {
             distance: Distance::EucToroidal,
             // distance: Distance::EucEnclosed,
             noise_model: NoiseModel::Viscek,
+            tracker_type: TrackerType::SpatHash,
             clicked_boid_id: std::usize::MAX,
             allignment_impl_mode: false,
             cohesion_impl_mode: false,
@@ -266,6 +270,13 @@ pub enum Distance {
 pub enum NoiseModel {
     Viscek,
     Reynolds,
+}
+
+#[derive(Debug)]
+pub enum TrackerType {
+    SpatHash,
+    Naive,
+    Replay(String)
 }
 
 #[derive(Debug)]

@@ -286,3 +286,36 @@ get_directional_boid_data1 <- function(data, remove_boundary = F) {
       -2
     ))
 }
+
+
+# no_bins <- 180
+#
+#
+# direction_counts_df <- direction_df %>%
+#   group_by(timeline_facet, result_no) %>%
+#   mutate(heading_bin = cut(headings, breaks = seq(0, 2*pi, length.out = no_bins + 1), labels = F)) %>%
+#   mutate(bearing_bin = cut(bearings, breaks = seq(-pi, pi, length.out = no_bins + 1), labels = F)) %>%
+#   reframe(bin = 1:no_bins, heading_count = c(count_em_up(heading_bin, c(1, no_bins))), bearing_count = c(count_em_up(bearing_bin, c(1, no_bins))))
+#
+
+get_directional_counts <- function (data, no_bins) {
+  .count_em_up <- function(vec, range) {
+    # define all possible values
+    all_values <- min(range):max(range)
+    # get value counts
+    value_counts <- table(vec)
+
+    # add missing values with a count of 0
+    value_counts <- value_counts[match(all_values, names(value_counts))]
+    value_counts[is.na(value_counts)] <- 0
+    names(value_counts) <- all_values
+
+    return(value_counts)
+  }
+
+  data %>%
+    mutate(heading_bin = cut(headings, breaks = seq(0, 2*pi, length.out = no_bins + 1), labels = F)) %>%
+    mutate(bearing_bin = cut(bearings, breaks = seq(-pi, pi, length.out = no_bins + 1), labels = F)) %>%
+    reframe(bin = 1:no_bins, heading_count = c(.count_em_up(heading_bin, c(1, no_bins))), bearing_count = c(.count_em_up(bearing_bin, c(1, no_bins)))) %>%
+    return()
+}

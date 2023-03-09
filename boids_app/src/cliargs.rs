@@ -23,10 +23,10 @@ pub struct Args{
     pub config: <Config as ClapSerde>::Opt,
 }
 
-#[derive(ClapSerde, Serialize)]
 /// Programatic configuration
 /// 
 /// Uses defaults, which can be overwritten by specifying a filepath for the `-c` or `--config` arg option
+#[derive(ClapSerde, Serialize)]
 pub struct Config{
      
     #[default(64)]
