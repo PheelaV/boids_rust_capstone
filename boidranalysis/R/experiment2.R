@@ -33,8 +33,9 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
   }
 
   # preserve config
-  config$experiment_name = experiment_name
-  jsonlite::write_json(config, paste0(experiment_data_folder, "config.json"))
+  write_config <- config
+  write_config$experiment_name = experiment_name
+  jsonlite::write_json(write_config, paste0(experiment_data_folder, "config.json"))
 
   runs <- experiment_no_simulations - existing_simulations
   tic("data generation")
@@ -566,7 +567,7 @@ tryCatch(
 )
 toc()
 
-tic("experiment2_a12 start")
+tic("0318_experiment2_a12 start")
 
 config <- get_config(
   "basic2.toml",
@@ -581,10 +582,10 @@ config <- get_config(
   )
 )
 
-no_cores <- 6
+no_cores <- 8
 experiment_no_simulations <- 120
 tryCatch(
-  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0301_experiment2_a12")
+  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0318_experiment2_a12")
 )
 toc()
 
@@ -606,7 +607,7 @@ config <- get_config(
 no_cores <- 6
 experiment_no_simulations <- 120
 
-run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0301_experiment2_a2")
+run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0318_experiment2_a2")
 toc()
 
 tic("experiment2_a3 start")
@@ -627,7 +628,7 @@ config <- get_config(
 no_cores <- 6
 experiment_no_simulations <- 120
 
-run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0301_experiment2_a3")
+run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0318_experiment2_a3")
 toc()
 
 

@@ -60,10 +60,10 @@ tic()
 config <- get_config(
   # "string_ball_hybrid.toml", 
   # "large_string.toml", 
-  "smaller_string.toml", 
+  "string_s.toml", 
     overwrite = list(
       init_boids = 2^10,
-      no_iter = 2^17,
+      no_iter = 2^15,
       init_width = 1600, 
       init_height = 1600,
       min_speed = 2,

@@ -465,25 +465,7 @@ impl SpatHash1D {
             .iter()
             .for_each(|cn_id| metadata[*cn_id].clicked_neighbour_id = run_options.clicked_boid_id);
 
-        // // this was a verification of the stability of the spat hash sorting
-        // if run_options.stop_movement {
-        //     match &self.clicked_neighbours {
-        //         Some(n) => {
-        //             let prior = HashSet::<usize>::from_iter(n.iter().map(|b| *b));
-        //             let posterior = HashSet::<usize>::from_iter(clicked_neighbours.iter().map(|b| *b));
 
-        //             println!("!!! {:?} !!!", prior == posterior);
-        //             self.clicked_neighbours = Some(clicked_neighbours.iter().map(|b| *b).collect::<Vec<usize>>());
-        //         },
-        //         None => {
-        //             self.clicked_neighbours = Some(
-        //                 neighbours.iter().map(|b| b.id).collect::<Vec<usize>>()
-        //             );
-        //         },
-        //     }
-        // } else {
-        //     self.clicked_neighbours = None::<Vec<usize>>;
-        // }
         // propagate metadata update
         for id in 0..self.metadata.len() {
             self.metadata[id].clicked_neighbour_id = metadata[id].clicked_neighbour_id;
@@ -548,39 +530,9 @@ impl SpatHash1D {
         let mut destination: usize;
         
         let mut e = 0;
-        // let mut table2: Vec<Boid> = vec![Boid::default();self.table.len()];
+
+        // Now we finally sort through the existing agents using newly created pivots and indeces
         while e < self.table.len() {
-        // #[cfg(debug)]
-        // {
-        //     println!("index:  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
-        //     self.index.iter().enumerate()
-        //     .sorted_by(|(id1, index1), (id2, index2)| index1.cmp(index2))
-        //     .for_each(|a| println!("index:{}, id:{}", a.1, a.0));
-        
-        //     println!("pivots:  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
-        //     self.pivots.iter().for_each(|p| println!("pivot: {:?}", p));
-        //     println!("#############################################");
-        // }
-                        
-            // let id = self.table[e].id;
-
-            // destination = match pivots[self.index[id]].fin {
-            //     Some(d) => {
-            //         if d == 0 {
-            //             panic!("We are trying to sort through too many units!");
-            //         } else {
-            //             d - 1
-            //         }
-            //     },
-            //     None => {
-            //         panic!("Fin was none, invalid state!"); 
-            //     },
-            // };
-            // table2[destination] = self.table[e];
-            // pivots[self.index[id]].fin = Some(destination);
-            // e += 1;
-
-            // #####################################################################
             if sorted[e] {
                 e += 1;
                 continue;
@@ -588,6 +540,11 @@ impl SpatHash1D {
 
             let id = self.table[e].id;
 
+            // destination is the last range of a given pivot
+            // one pivot represents a cell
+            // when we ocupy a cell's range with one agent or find an agent already in place
+            // we decrease the cell's range -> since it is a copy, we are keeping track
+            // of which agen'ts need yet to
             destination = match pivots[self.index[id]].fin {
                 Some(d) => {
                     if d == 0 {
@@ -601,7 +558,8 @@ impl SpatHash1D {
                 },
             };
 
-            if e != destination // if boid is not already sorted
+            // if boid is not already sorted
+            if e != destination
             {
                 self.table.swap(e, destination);
                 sorted[destination] = true;
@@ -610,50 +568,8 @@ impl SpatHash1D {
             }
             
             pivots[self.index[id]].fin = Some(destination);
-// #####################################################################
-            // // if sorted[destination] {
-            // //     e += 1;
-            // //     continue;
-            // // }
-            // // here is where the algorithm differs slightly from the original
-            // // as we are reusing the same table as the set of entities, we
-            // // have to make a swap this collapses into a form of unstable
-            // // insertion sort
-            // if sorted[e] {
-            //     e += 1;
-            //     continue;
-            // }
-            // let id = self.table[e].id;
-
-            // destination = usize::wrapping_sub(pivots[self.index[id]].fin.unwrap(), 1);
-
-            // // skip if the destination has alreade been sorted, current table[e] is in right place
-            // // not checking for 0 but for MAX (18446744073709551615) as we take advantage of wraparound
-            // if destination == std::usize::MAX {
-            //     println!("asdflkjasdfl;kajsdf;lkajsdf")
-            // }
-            // if destination == std::usize::MAX || sorted[destination] || e == destination {
-            //     e += 1;
-            //     pivots[self.index[id]].fin = Some(pivots[self.index[id]].fin.unwrap() - 1);
-            //     continue;
-            // }
-            // self.table.swap(e, destination);
-
-            // // update the pivot now that one entity of the cell has been mapped to the correct place in the 1D table
-            // // each unique value of fin during the iterration effectively represents a unique location for the next
-            // // entity in that cell
-            // // we consume it during swap and then decrease to point at the location of cell's next entity
-            // // until it points at the first(swapped, last in terms of the 1D table) entity of the previous cell
-            // pivots[self.index[id]].fin = Some(pivots[self.index[id]].fin.unwrap() - 1);
-
-            // // set destination as sorted
-            // sorted[destination] = true;
         }
 
-        // self.table = table2;
-        // println!("table:  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
-        // self.table.iter().enumerate()
-        // .for_each(|(index, id)| println!("table index:{:?}, id:{:?}", index, id));
     }
 
     /// Returns "hashed" value representing an index for spatial subdivision, handles a zero centered coordinate system
