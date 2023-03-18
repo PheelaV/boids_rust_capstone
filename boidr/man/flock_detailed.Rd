@@ -24,7 +24,12 @@ flock_detailed(
   dbscan_clustering,
   boundary_config,
   distance_config,
-  field_of_vision
+  field_of_vision,
+  sep_bias,
+  wander_on,
+  wander_coef,
+  wander_rate,
+  wander_radius
 )
 }
 \description{

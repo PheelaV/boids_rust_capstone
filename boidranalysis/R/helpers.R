@@ -125,7 +125,11 @@ get_config <- function(config_name, overwrite = list()) {
   converted_config$dbscan_clustering = TRUE
   converted_config$boundary_config = "{\"type\": \"Thoroidal\"}"
   converted_config$distance_config = "{\"type\": \"EucToroidal\"}"
-
+  converted_config$sep_bias = FALSE
+  converted_config$wander_on = config$wander_on
+  converted_config$wander_rate = config$wander_rate
+  converted_config$wander_radius = config$wander_radius
+  converted_config$wander_coef = config$wander_coefficient
 
   if (length(overwrite) == 0) {
     return(converted_config)
@@ -177,6 +181,48 @@ sub_sample_data <- function(data, start = 1, every_nth = 1) {
 #   mutate(headings = get_headings2(dx, dy)) %>%
 #   slice_tail(n = -1)
 
+get_directional_boid_data1 <- function(data, remove_boundary = F) {
+  res <- data %>%
+    group_by(id) %>%
+    reframe(
+      dx = diff(x, 1),
+      dy = diff(y, 1),
+      id = id[2:n()],
+      x = x[2:n()],
+      y = y[2:n()],
+      headings = get_headings2(dx, dy),
+      cluster_id = cluster_id[2:n()],
+      n_neighbours = n_neighbours[2:n()],
+      time = time[2:n()]
+    ) %>%
+    group_by(id) %>%
+    reframe(
+      id = id[2:n()],
+      bearings = get_bearings(headings), # returns n-1 records as it does a diff of 1
+      headings = headings[2:length(headings)],
+      x = x[2:n()],
+      y = y[2:n()],
+      dx = dx[2:n()],
+      dy = dy[2:n()],
+      cluster_id = cluster_id[2:n()],
+      time = time[2:n()]
+    )
+  if (!remove_boundary) {
+    return(res)
+  }
+
+
+  res %>%
+    slice(-tail(
+      remove_boundary_data(data,
+                           sensory_distance = config$sensory_distance * max(config$allignment_trs_coef, config$cohesion_trs_coef, config$separation_trs_coef),
+                           init_width = config$init_width,
+                           init_height = config$init_height,
+                           time_dependency = 2),
+      -2
+    ))
+}
+
 # version 2 solves continuous boundary condition
 get_directional_boid_data2 <- function(data, remove_boundary = F) {
   res <- data %>%
@@ -188,6 +234,47 @@ get_directional_boid_data2 <- function(data, remove_boundary = F) {
       dy = toroidal_vec_pc(lag_y, y, config$init_height, config$init_height / 2)
     ) %>%
     ungroup() %>%
+    group_by(id) %>%
+    mutate(headings = get_headings2(dx, dy)) %>%
+    slice_tail(n = -1) %>%
+    reframe(
+      id = id[2:n()],
+      bearings = get_bearings(headings), # returns n-1 records as it does a diff of 1
+      headings = headings[2:length(headings)],
+      x = x[2:n()],
+      y = y[2:n()],
+      dx = dx[2:n()],
+      dy = dy[2:n()],
+      cluster_id = cluster_id[2:n()],
+      time = time[2:n()]
+    )
+  if (!remove_boundary) {
+    return(res)
+  }
+
+
+  res %>%
+    slice(-tail(
+      remove_boundary_data(data,
+                           sensory_distance = config$sensory_distance * max(config$allignment_trs_coef, config$cohesion_trs_coef, config$separation_trs_coef),
+                           init_width = config$init_width,
+                           init_height = config$init_height,
+                           time_dependency = 2),
+      -2
+    ))
+}
+
+# version 3 relies on boidr to get the dx/dy values (files >300MB were a problem)
+get_directional_boid_data3 <- function(data, remove_boundary = F) {
+  res <- data %>%
+    # group_by(id) %>%
+    # do(mutate(., lag_x = lag(x), lag_y = lag(y))) %>%
+    # rowwise() %>%
+    # mutate( # the toroidial trick will work on eucledian as well
+    #   dx = toroidal_vec_pc(lag_x, x, config$init_width, config$init_width / 2),
+    #   dy = toroidal_vec_pc(lag_y, y, config$init_height, config$init_height / 2)
+    # ) %>%
+    # ungroup() %>%
     group_by(id) %>%
     mutate(headings = get_headings2(dx, dy)) %>%
     slice_tail(n = -1) %>%
@@ -243,50 +330,6 @@ get_curvature_order_data <- function(data, config, tau){
 
   return(wedges)
 }
-
-
-get_directional_boid_data1 <- function(data, remove_boundary = F) {
-  res <- data %>%
-    group_by(id) %>%
-    reframe(
-      dx = diff(x, 1),
-      dy = diff(y, 1),
-      id = id[2:n()],
-      x = x[2:n()],
-      y = y[2:n()],
-      headings = get_headings2(dx, dy),
-      cluster_id = cluster_id[2:n()],
-      n_neighbours = n_neighbours[2:n()],
-      time = time[2:n()]
-    ) %>%
-    group_by(id) %>%
-    reframe(
-      id = id[2:n()],
-      bearings = get_bearings(headings), # returns n-1 records as it does a diff of 1
-      headings = headings[2:length(headings)],
-      x = x[2:n()],
-      y = y[2:n()],
-      dx = dx[2:n()],
-      dy = dy[2:n()],
-      cluster_id = cluster_id[2:n()],
-      time = time[2:n()]
-    )
-  if (!remove_boundary) {
-    return(res)
-  }
-
-
-  res %>%
-    slice(-tail(
-      remove_boundary_data(data,
-                           sensory_distance = config$sensory_distance * max(config$allignment_trs_coef, config$cohesion_trs_coef, config$separation_trs_coef),
-                           init_width = config$init_width,
-                           init_height = config$init_height,
-                           time_dependency = 2),
-      -2
-    ))
-}
-
 
 # no_bins <- 180
 #

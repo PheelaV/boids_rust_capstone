@@ -23,7 +23,7 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
     dir.create(experiment_data_folder)
   }
 
-  existing_simulations <- length(list.files(experiment_data_folder, pattern="boids-data.*"))
+  existing_simulations <- length(list.files(experiment_data_folder, pattern="(prepro_)?boids-data.*"))
   sample_rate <- config$sample_rate
 
   # collect data
@@ -31,6 +31,10 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
     rlang::exec(flock_detailed, !!!config)
     return(i)
   }
+
+  # preserve config
+  config$experiment_name = experiment_name
+  jsonlite::write_json(config, paste0(experiment_data_folder, "config.json"))
 
   runs <- experiment_no_simulations - existing_simulations
   tic("data generation")
@@ -41,37 +45,81 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
   }
   toc()
 
-  simulation_files <- list.files(experiment_data_folder, pattern="boids-data.*")
+  simulation_files <- list.files(experiment_data_folder, pattern="(prepro_)?boids-data.*")[1:experiment_no_simulations]
 
-  # read_csv(paste0(experiment_data_folder, simulation_files[[file_no]])) %>%
-  #   preprocess()
+  fetch_file <- function(file, init_width, init_height, no_boids, version = 3){
+    if (version != 3) {
+      return(read_csv(file))
+    }
+
+   # this inflates the files by about 1.5x, but is 7.5x times quicker and most importantly is able to chew through >300MB files
+    prep_file <-  file
+    if(!startsWith(basename(file), "prepro_")) {
+      prep_file <- file.path(dirname(file), paste0("prepro_", basename(file)))
+    }
+
+    if (!file.exists(prep_file)) {
+      # prepro file does not exist
+      if (!file.exists(file)) {
+        # nor does the original
+        stop(paste0("Did not find the raw or preprocessed data file, file: ", file))
+      } else {
+        # preprocess the file
+        preprocess_file(file, init_width = init_width, init_height = init_height, no_boids = no_boids)
+        # remove the original
+        if (file.exists(prep_file)) {
+          file.remove(file)
+        } else {
+          stop(paste0("Something went wrong with file preprocessing, file: ", file))
+        }
+      }
+    }
+
+    return(read_csv(prep_file))
+  }
 
   # file_no is the ith file in a data folder
   # metric is a function that expects boid_data and returns a scalar for each time point
   tic("evaluation")
-  collect_results <- function(file_no, metric, preprocess = function(x)x){
-    read_csv(paste0(experiment_data_folder, simulation_files[[file_no]])) %>%
-      preprocess() %>%
-      metric() %>%
+  collect_results <- function(file_no, metric, process = function(x)x, fetch = fetch_file){
+    fetch_file(
+      paste0(experiment_data_folder, simulation_files[[file_no]]),
+      init_width = config$init_width,
+      init_height = config$init_height,
+      no_boids = config$init_boids
+      ) |>
+      process() |>
+      metric() |>
       into_experiment_record()
   }
-  preprocess = function(x){ get_directional_boid_data2(x, if_else(config$boundary_config == "{\"type\": \"Toroidal\"}", F, T))}
+
+  # process <-  function(x){ get_directional_boid_data2(x, if_else(config$boundary_config == "{\"type\": \"Toroidal\"}", F, T))}
+  process = function(x, version = 3){
+    remove_boundary = if_else(config$boundary_config == "{\"type\": \"Toroidal\"}", F, T);
+
+    if (version != 3) {
+      get_directional_boid_data2(x, remove_boundary)
+    } else {
+      get_directional_boid_data3(x, remove_boundary)
+    }
+  }
 
   tic("results average norm vel")
   results_average_norm_vel <- mclapply(
     1:length(simulation_files),
     function(file_no){
-      collect_results(file_no, metric = get_average_norm_vel, preprocess = preprocess)
+      collect_results(file_no, metric = get_average_norm_vel, process = process)
     },
     mc.cores = no_cores
   ) %>%
     map_dfr(bind_rows)
   toc()
+
   tic("results convex hull")
   results_convex_hull <- mclapply(
     1:length(simulation_files),
     function(file_no){
-      collect_results(file_no, get_convex_hull_data, preprocess =  preprocess)
+      collect_results(file_no, get_convex_hull_data, process =  process)
     },
     mc.cores = no_cores
   ) %>%
@@ -82,7 +130,7 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
   results_no_flocks <- mclapply(
     1:length(simulation_files),
     function(file_no){
-      collect_results(file_no, get_no_flocks, preprocess = preprocess)
+      collect_results(file_no, get_no_flocks, process = process)
     },
     mc.cores = no_cores
   ) %>%
@@ -93,7 +141,7 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
   results_average_norm_vel <- mclapply(
     1:length(simulation_files),
     function(file_no){
-      collect_results(file_no, metric = get_average_norm_vel, preprocess = preprocess)
+      collect_results(file_no, metric = get_average_norm_vel, process = process)
     },
     mc.cores = no_cores
   ) %>%
@@ -104,7 +152,7 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
   results_voronoi_counts <- mclapply(
     1:length(simulation_files),
     function(file_no){
-      collect_results(file_no, metric = function(x) get_voronoi_area(x, config), preprocess = preprocess)
+      collect_results(file_no, metric = function(x) get_voronoi_area(x, config), process = process)
     },
     mc.cores = no_cores
   ) %>%
@@ -287,9 +335,9 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
     1:no_facets,
     function(file_no){
       # somehow there is a few (units) records missing here
-     df <- read_csv(paste0(experiment_data_folder, simulation_files[[file_no]])) %>%
-        preprocess() %>%
-        mutate(result_no = file_no)
+     df <- fetch_file(paste0(experiment_data_folder, simulation_files[[file_no]])) %>%
+       process() %>%
+       mutate(result_no = file_no)
 
      n <- nrow(df)
      section_size <- n %/% batch_factor
@@ -407,6 +455,15 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
     map_dfr(bind_rows)
   toc()
 
+  # quit early for large no_iter numbers as the code bellow is really memory inefficient
+
+  if (config$no_iter > 2^16) {
+    toc()
+    toc()
+    toc()
+    return()
+  }
+
   ggplot(curvature_result, aes(x = label_time, y = rop)) +
     theme_bw() +
     labs(
@@ -477,15 +534,16 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
   toc()
 
   toc()
-  # preserve config at last
-  config$experiment_name = experiment_name
-  jsonlite::write_json(config, paste0(experiment_data_folder, "config.json"))
 }
 
 # testing different configs -
 # a - toroidal b/d vs reflective/euclidean b/d
 # b - "stringy ball hybrid, mars = modified diamonds"
 # c - "large stringy"
+# e - ?
+# f - one run of g with a longer sequence
+# g - testing out different noise levels
+# h - do longer runs trully stabilise?
 tic("experiment2_a1 start")
 
 config <- get_config(
@@ -829,5 +887,86 @@ tryCatch(
   expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0307_experiment2_e1_6")
 )
 toc()
+
+tic("0314_experiment2_f1 start")
+config <- get_config(
+  "smaller_string.toml",
+  overwrite = list(
+    init_boids = 2^10,
+    no_iter = 2^15,
+    init_width = 1600,
+    init_height = 1600,
+    sample_rate = 32,
+    boundary_config = "{\"type\": \"Toroidal\"}",
+    distance_config = "{\"type\": \"EucToroidal\"}",
+    sep_bias = TRUE
+  )
+)
+no_cores <- 6
+experiment_no_simulations <- 48
+tryCatch(
+  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0314_experiment2_f1")
+)
+toc()
+
+for (eta in 0:30) {
+  name <- paste0("0314_experiment2_g_", sprintf("%02d", eta))
+  tic(name)
+
+  print(name)
+  print(eta / 100)
+  config <- get_config(
+    "string_m.toml",
+    overwrite = list(
+      init_boids = 2^10,
+      no_iter = 2^15,
+      init_width = 1600,
+      init_height = 1600,
+      sample_rate = 32,
+      boundary_config = "{\"type\": \"Toroidal\"}",
+      distance_config = "{\"type\": \"EucToroidal\"}",
+      sep_bias = TRUE,
+      wander_coef = eta/100
+    )
+  )
+  no_cores <- 8
+  experiment_no_simulations <- 8
+  tryCatch(
+    expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = name)
+  )
+  toc()
+}
+
+eta_results_stats = tibble()
+for (eta in 0:30) {
+  name <- paste0("Data/0314_experiment2_g_", sprintf("%02d", eta))
+
+  eta_results_stats <- eta_results_stats %>% bind_rows(
+    read_csv(paste0(name, "/results_stats.csv")) %>%
+      mutate(eta = eta / 100)
+  )
+}
+
+# h and i are the same, except for decreased no_iter
+tic("0314_experiment2_i1 start")
+config <- get_config(
+  "string_s.toml",
+  overwrite = list(
+    init_boids = 1417,
+    no_iter = 2^17,
+    init_width = 500,
+    init_height = 500,
+    sample_rate = 32,
+    boundary_config = "{\"type\": \"Toroidal\"}",
+    distance_config = "{\"type\": \"EucToroidal\"}",
+    sep_bias = TRUE
+  )
+)
+
+no_cores <- 2
+experiment_no_simulations <- 8
+tryCatch(
+  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0314_experiment2_i1")
+)
 
 

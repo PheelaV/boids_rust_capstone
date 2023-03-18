@@ -1,12 +1,17 @@
+use std::{env, path::Path, result};
+
 use boids_lib::{
-    birdwatcher::Birdwatcher,
+    birdwatcher::{Birdwatcher, BoidData},
     flock::Flock,
+    math_helpers::{tor_vec_p, tor_vec_pc},
     options::{self, Boundary, Distance, RunOptions, SaveOptions},
 };
+use csv::{Reader, Writer};
 use extendr_api::prelude::*;
 
-use geo::{Area, ConvexHull, MultiPoint, Point, LineString, Polygon};
-use voronoice::{VoronoiBuilder, BoundingBox};
+use geo::{Area, ConvexHull, LineString, MultiPoint, Point, Polygon};
+use serde::{Deserialize, Serialize};
+use voronoice::{BoundingBox, VoronoiBuilder};
 
 #[derive(Debug, IntoDataFrameRow)]
 struct TestData {
@@ -72,6 +77,11 @@ fn flock_detailed(
     boundary_config: Option<&str>,
     distance_config: Option<&str>,
     field_of_vision: f32,
+    sep_bias: bool,
+    wander_on: bool,
+    wander_coef: f32,
+    wander_rate: f32,
+    wander_radius: f32,
 ) -> Robj {
     let mut run_options: RunOptions = Default::default();
 
@@ -93,6 +103,11 @@ fn flock_detailed(
     run_options.max_steering = max_steering;
     run_options.dbscan_flock_clustering_on = dbscan_clustering;
     run_options.field_of_vision_deg = field_of_vision;
+    run_options.wander_on = wander_on;
+    run_options.sep_bias = sep_bias;
+    run_options.wander_rate = wander_rate;
+    run_options.wander_radius = wander_radius;
+    run_options.wander_coefficient = wander_coef;
 
     // attempts to retreive the boundary, if none is set, uses reflective as default
     if let Some(boundary_config_string) = boundary_config {
@@ -194,9 +209,7 @@ fn get_voronoi_areas(x: &[f64], y: &[f64], width: i32, height: i32) -> Vec<f64> 
     let points: Vec<voronoice::Point> = x
         .iter()
         .zip(y.iter())
-        .map(|(x, y)| {
-            voronoice::Point{x: *x, y:*y}
-        })
+        .map(|(x, y)| voronoice::Point { x: *x, y: *y })
         .collect();
 
     let my_voronoi = VoronoiBuilder::default()
@@ -208,23 +221,111 @@ fn get_voronoi_areas(x: &[f64], y: &[f64], width: i32, height: i32) -> Vec<f64> 
     if let Some(v) = my_voronoi {
         v.iter_cells()
             .map(|c| {
-                let geom_cell_points = c.iter_vertices()
+                let geom_cell_points = c
+                    .iter_vertices()
                     .map(|p| Point::new(p.x, p.y))
                     .collect::<Vec<Point>>();
-                Polygon::new(LineString::from(geom_cell_points), vec![])
-                 .unsigned_area()
-            }).collect()
+                Polygon::new(LineString::from(geom_cell_points), vec![]).unsigned_area()
+            })
+            .collect()
     } else {
         panic!("Somethign went wrong with the voronoid creation!")
     }
+}
 
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default)]
+pub struct BoidDataPrep {
+    pub id: usize,
+    pub x: f32,
+    pub y: f32,
+    pub dx: f32,
+    pub dy: f32,
+    pub cluster_id: usize,
+    pub n_neighbours: usize,
+    pub time: u64,
+}
 
+impl BoidDataPrep {
+    fn new(data: BoidData) -> Self {
+        Self {
+            id: data.id,
+            x: data.x,
+            y: data.y,
+            dx: Default::default(),
+            dy: Default::default(),
+            cluster_id: data.cluster_id,
+            n_neighbours: data.n_neighbours,
+            time: data.time,
+        }
+    }
 }
 
 #[extendr]
-fn force_recompile() -> &'static str {
-    return r#"hello world"#; // hey there
+fn preprocess_file(file_path: &str, init_width: u32, init_height: u32, no_boids: u32) -> String {
+    let p = Path::new(file_path);
+
+    if !p.exists() {
+        panic!("Path does not exist! Path: {}", p.to_str().unwrap());
+    }
+
+    let mut results: Vec<BoidDataPrep> = Vec::new();
+
+    // we need the records sorted by time and id
+    // unless we want to get into external sorting on disk, we have to load everything and sort
+    // to ensure that, at the moment birdwatcher records everything as is given 
+    // (spathash1d does not guarantee order)
+    let mut rdr = Reader::from_path(p).expect("Failed to open CSV file!");
+    // let mut wtr2 = Writer::from_writer(vec![]);
+    // let mut count: usize = 0;
+
+    let win_max_w  = init_width as f32/ 2.;
+    let win_max_h  = init_height as f32/ 2.;
+    let win_w = init_width as f32;
+    let win_h = init_height as f32;
+
+    for result in rdr.deserialize() {
+        let record: BoidData = result.expect("single record");
+        let updated = BoidDataPrep::new(record);
+        results.push(updated);
+    }
+
+    results.sort_unstable_by(|a, b| 
+        a.time.cmp(&b.time).then(a.id.cmp(&b.id)));
+
+    let time_steps = results.len() as u32 / no_boids;
+
+    let diff = 1;
+    for i in 0..no_boids {
+        for t in diff..time_steps{
+            let b_cur = (i + t * no_boids) as usize;
+            let b_pas = (i + (t - diff) * no_boids) as usize;
+
+            results[b_cur].dx = tor_vec_pc(results[b_pas].x, results[b_cur].x, win_w, win_max_w);
+            results[b_cur].dy = tor_vec_pc(results[b_pas].y, results[b_cur].y, win_h, win_max_h);
+        }
+    }
+    let location = match p.parent(){
+        Some(parent) => parent.to_path_buf(),
+        None => Path::new("./").to_path_buf()
+    };
+
+    let file_name = vec!["prepro_", p.file_name().unwrap().to_str().unwrap()].join("");
+    let mut wtr2 = Writer::from_path(location.join(file_name)).unwrap();
+    let mut wtr = Writer::from_writer(vec![]);
+    results.iter().for_each(|d| {
+        // wtr1.serialize(*d).expect("boid data prep failed");
+        wtr2.serialize(*d).expect("boid data prep failed");
+    });
+
+    // let data = String::from_utf8(wtr.into_inner().unwrap()).unwrap();
+    results.len().to_string()
+    // data
 }
+
+// #[extendr]
+// fn force_recompile() -> &'static str {
+//     return r#"hello world"#; // hey there
+// }
 // Macro to generate exports.
 // This ensures exported functions are registered with R.
 // See corresponding C code in `entrypoint.c`.
@@ -233,9 +334,10 @@ extendr_module! {
     fn flock;
     fn flock_return;
     fn flock_detailed;
-    fn force_recompile;
+    // fn force_recompile;
     fn get_convex_hull;
     fn get_voronoi_areas;
+    fn preprocess_file;
 }
 
 #[cfg(test)]

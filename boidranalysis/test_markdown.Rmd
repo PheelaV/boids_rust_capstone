@@ -7,20 +7,18 @@ output:
 
 Load libraries, install boidr
 ```{r}
+library(tidyverse)
 library(tidyr)
-library(dplyr)
 library(ggplot2)
 library(tictoc)
 # there is a bug, need to be installed from github to use the latest version: remotes::install_github("extendr/rextendr")
 library(rextendr)
 setwd("~/Source/Repos/boids_rust/boidr")
 
-
 rextendr::document()
 devtools::load_all(".")
 # this is loud
 invisible({capture.output({
-
 
 })})
 
@@ -61,15 +59,17 @@ get flocking data
 tic()
 config <- get_config(
   # "string_ball_hybrid.toml", 
-  "large_string.toml", 
+  # "large_string.toml", 
+  "smaller_string.toml", 
     overwrite = list(
-      init_boids = 2^12,
-      no_iter = 2^15,
-      init_width = 4000, 
-      init_height = 4000,
+      init_boids = 2^10,
+      no_iter = 2^17,
+      init_width = 1600, 
+      init_height = 1600,
       min_speed = 2,
       max_speed = 2,
-      sample_rate = 8,
+      sample_rate = 32,
+      wander_coef = .1,
       # boundary_config = "{\"type\": \"Repulsive\", \"distance\": 100, \"force\": 0.05}"
       boundary_config = "{\"type\": \"Toroidal\"}",
       distance_config = "{\"type\": \"EucToroidal\"}"
@@ -80,6 +80,32 @@ boid_data <- rlang::exec(flock_detailed, !!!config) %>%
     tibble()
 toc()
 ```
+
+```{r}
+tic("get_directional_boid_data_2 on 400MB data")
+direction_data_by_boid <-  read_csv("Data/0314_experiment2_h1/boids-data_1678856512443.csv") |>
+  get_directional_boid_data2()
+toc()
+tic("get_directional_boid_data_2 on 400MB data")
+direction_data_by_boid <-  read_csv("Data/0307_experiment2_e1_1/boids-data_1678166144706.csv") |>
+  get_directional_boid_data2()
+toc()
+
+
+tic("get_directional_boid_data_2 on 141MB data")
+direction_data_by_boid <-  read_csv("Data/0301_experiment2_c2/boids-data_1677727700033.csv") |>
+  get_directional_boid_data2()
+toc()
+
+tic()
+preprocess_file("./Data/0301_experiment2_c2/boids-data_1677727700033.csv", init_width = 8000, init_height = 8000, no_boids = 8192)
+
+file.remove("./Data/0301_experiment2_c2/boids-data_1677727700033.csv")
+direction_data_by_boid <- read_csv("./Data/0301_experiment2_c2/prepro_boids-data_1677727700033.csv") |>
+  get_directional_boid_data3()
+toc()
+```
+
 visualize
 ```{r}
 # sub_sub_sample_rate <- 124
@@ -167,7 +193,7 @@ avg_norm_data <- get_average_norm_vel(direction_data_by_boid)
   ggplot(
     data = tibble(
       avg_norm_vel = avg_norm_data$avg_norm_vel,
-      t = avg_norm_data$time * config$sample_rate * sub_sub_sample_rate
+      t = avg_norm_data$time * config$sample_rate * 32# * sub_sub_sample_rate
     ),
     aes(x = t, y = avg_norm_vel)
   ) +
