@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use glam::Vec2;
 
 
@@ -181,6 +183,11 @@ pub fn tor_vec_pc(x1: f32, x2: f32, size: f32, max: f32) -> f32 {
 //         result.sqrt()
 //     }
 // }
+
+#[inline]
+pub fn deg_to_half_rad(deg: f32) -> f32 {
+    deg * PI / 360.
+}
 
 // because of nannou I have to keep glam version at .17
 // as glam is not stable yet, there are breaking changes

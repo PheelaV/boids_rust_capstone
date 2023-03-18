@@ -102,6 +102,7 @@ fn model<'a>(app: &App) -> Model<'a> {
     run_options.wander_radius = config.wander_radius;
     run_options.wander_rate = config.wander_rate;
     run_options.size = config.size;
+    run_options.sep_bias = config.sep_bias;
 
     let main_window = app
         .new_window()
@@ -126,7 +127,7 @@ fn model<'a>(app: &App) -> Model<'a> {
 
     Model {
         egui: Egui::from_window(&window),
-        color: Hsv::new(RgbHue::from_degrees(316.), 1., 0.94),
+        color: Hsv::new(RgbHue::from_degrees(20.), 1., 0.0),
         flock: Flock::new(&run_options),
         run_options,
         last_update_micros: 0,
@@ -291,8 +292,8 @@ fn update(app: &App, model: &mut Model, update: Update) {
                         );
                         ui.selectable_value(
                             &mut run_options.noise_model,
-                            NoiseModel::Viscek,
-                            "Viscek",
+                            NoiseModel::Vicsek,
+                            "Vicsek",
                         );
                     });
             });
@@ -401,10 +402,18 @@ fn update(app: &App, model: &mut Model, update: Update) {
             });
 
             ui.horizontal(|ui| {
+                ui.label("wander rate");
+                ui.add(egui::Slider::new(
+                    &mut run_options.wander_rate,
+                    0.000001_f32..=1_f32,
+                ))
+            });
+
+            ui.horizontal(|ui| {
                 ui.label("sensory distance");
                 ui.add(egui::Slider::new(
                     &mut run_options.sensory_distance,
-                    5.0..=60.0,
+                    5.0..=100.0,
                 ))
             });
 
@@ -432,19 +441,11 @@ fn update(app: &App, model: &mut Model, update: Update) {
                 ))
             });
 
-            ui.horizontal(|ui| {
-                ui.label("wander rate");
-                ui.add(egui::Slider::new(
-                    &mut run_options.wander_rate,
-                    0.000001_f32..=1_f32,
-                ))
-            });
-
             ui.separator();
 
             ui.horizontal(|ui| {
                 ui.label("size");
-                ui.add(egui::Slider::new(&mut run_options.size, 1.0..=60.))
+                ui.add(egui::Slider::new(&mut run_options.size, 1.0..=160.))
             });
 
             ui.horizontal(|ui| {
@@ -481,6 +482,10 @@ fn update(app: &App, model: &mut Model, update: Update) {
                 ui.add(egui::Checkbox::new(
                     &mut model.debug_distance,
                     "Debug distance",
+                ));
+                ui.add(egui::Checkbox::new(
+                    &mut run_options.sep_bias,
+                    "rules impl",
                 ));
             });
 
@@ -654,14 +659,16 @@ fn key_pressed(app: &App, model: &mut Model, key: Key) -> () {
         // alternative implementation of cohesion
         run_options.cohesion_impl_mode = !run_options.cohesion_impl_mode;
     } else if key == Key::F3 {
-        // alternative implementation of separationk
         run_options.separation_impl_mode = !run_options.separation_impl_mode;
-    } else if key == Key::F10 {
-        // alternative implementation of separationk
-        run_options.clustering_impl = !run_options.clustering_impl;
+    } else if key == Key::F5 {
+        run_options.sep_bias = !run_options.sep_bias;
     } else if key == Key::F9 {
-        // alternative implementation of separationk
         model.debug_labels = !model.debug_labels;
+    } else if key == Key::F10 {
+        // run_options.clustering_impl = !run_options.clustering_impl;
+        model.debug_distance = !model.debug_distance;
+    } else if key == Key::F11 {
+        model.debug_grid = !model.debug_grid;
     } else if key == Key::F12 {
         // switch on or of coloring of no_boids in vision
         run_options.col_by_neighbour = !run_options.col_by_neighbour;
@@ -1166,11 +1173,17 @@ fn view(app: &App, model: &Model, frame: Frame) {
                 .z(10.)
                 .color(WHITE)
                 .font_size(20);
-            draw.text(&format!("cosine test: {:.2}", app.mouse.position().normalize().dot(Vec2::new(1.,1.).normalize())))
-                .x_y(0., -60.)
-                .z(10.)
-                .color(WHITE)
-                .font_size(20);
+            draw.text(&format!(
+                "cosine test: {:.2}",
+                app.mouse
+                    .position()
+                    .normalize()
+                    .dot(Vec2::new(1., 1.).normalize())
+            ))
+            .x_y(0., -60.)
+            .z(10.)
+            .color(WHITE)
+            .font_size(20);
         }
         None => (),
     };

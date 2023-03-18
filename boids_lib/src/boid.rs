@@ -1,7 +1,4 @@
-use std::{
-    f32::consts::{E},
-    fmt::Debug,
-};
+use std::{f32::consts::E, fmt::Debug};
 
 use glam::f32::Vec2;
 use rand::Rng;
@@ -11,13 +8,13 @@ use crate::{
     options::{Boundary, Distance, RunOptions},
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum BoidType {
     Mob,
     Disruptor,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct BoidMetadata {
     pub id: usize,
     pub cluster_id: usize,
@@ -53,7 +50,7 @@ impl Default for BoidMetadata {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub struct Boid {
     // sequential id starting from 0
     pub id: usize,
@@ -65,6 +62,13 @@ pub struct Boid {
     // pub cluster_id: usize
 }
 
+impl Debug for Boid {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Boid")
+        .field("id", &self.id)
+        .finish()
+    }
+}
 impl Boid {
     /// Creates a new [`Boid`].
     pub fn new(x: f32, y: f32, velocity: Vec2, id: usize) -> Self {
@@ -91,26 +95,53 @@ impl Boid {
     ) -> Vec2 {
         let mut sum = Vec2::ZERO;
 
-        let filtered = if !run_options.field_of_vision_on {
-            nearest_boids.to_owned()
+        if run_options.sep_bias {
+            let filtered = if !run_options.field_of_vision_on {
+                nearest_boids.to_owned()
+            } else {
+                self.filter_sight2(&nearest_boids, run_options)
+            };
+    
+            if run_options.separation_on {
+                sum += self.separation(&filtered, run_options);
+            }
+    
+            if sum == Vec2::ZERO {
+                if run_options.cohesion_on {
+                    sum += self.cohesion(&filtered, run_options);
+                }
+            }
+            if run_options.alignment_on {
+                sum += self.alignment(&filtered, run_options);
+            }
         } else {
-            self.filter_sight2(&nearest_boids, run_options)
-        };
-
-        if run_options.separation_on {
-            sum += self.separation(&filtered, run_options);
+            if run_options.separation_on {
+                sum += self.separation(&self.filter_sight3(&nearest_boids, run_options, run_options.separation_fov_half_cos), run_options);
+            }
+    
+            if run_options.cohesion_on {
+                sum += self.cohesion(&self.filter_sight3(&nearest_boids, run_options, run_options.cohesion_fov_half_cos), run_options);
+            }
+    
+            if run_options.alignment_on {
+                sum += self.alignment(&self.filter_sight3(&nearest_boids, run_options, run_options.allignment_fov_half_cos), run_options);
+            }
         }
 
-        if run_options.cohesion_on {
-            sum += self.cohesion(&filtered, run_options);
-        }
+        // if run_options.wander_on {
+        //     sum += self.wander(&filtered, metadata, run_options);
+        // }
 
-        if run_options.alignment_on {
-            sum += self.alignment(&filtered, run_options);
-        }
+        // if run_options.cohesion_on {
+        //     sum += self.cohesion(&filtered, run_options);
+        // }
+
+        // if run_options.alignment_on {
+        //     sum += self.alignment(&filtered, run_options);
+        // }
 
         if run_options.wander_on {
-            sum += self.wander(&filtered, metadata, run_options);
+            sum += self.wander(metadata, run_options);
         }
 
         if run_options.seek_target_on {
@@ -193,15 +224,30 @@ impl Boid {
                 let vel_norm = self.velocity.normalize();
                 let vec_to_other_norm = vec_to_other.normalize();
 
+                // let rad_to_other = vel_norm.dot(vec_to_other_norm).acos();
                 // this calculates v•u = |v||u|cos(ß), which is cos(ß) because of v and u being unit vectors
-                // vel_norm.dot(vec_to_other_norm) > run_options.field_of_vision_cos
-                let rad_to_other = vel_norm.dot(vec_to_other_norm).acos();
+                vel_norm.dot(vec_to_other_norm) > run_options.field_of_vision_cos
+                // if self.id == run_options.clicked_boid_id {
+                //     println!("-----------");
+                //     println!("dot: {:?}", vel_norm.dot(vec_to_other_norm));
+                //     println!(
+                //         "{:?}",
+                //         vel_norm.dot(vec_to_other_norm) > run_options.field_of_vision_cos
+                //     );
+                //     println!(
+                //         "fov cos: {:?}",
+                //         run_options.field_of_vision_cos
+                //     );
+                //     println!("dot.acos: {:?}", rad_to_other);
+                //     println!("{:?}", rad_to_other < run_options.field_of_vision_half_rad);
+                //     println!("fov half rad: {:?}", run_options.field_of_vision_half_rad);
+                // }
                 // if self.id == run_options.clicked_boid_id {
                 //     println!("cos: {:?}", vel_norm.dot(vec_to_other_norm));
                 //     println!("acos: {:?}", rad_to_other)
                 // }
-                rad_to_other < run_options.field_of_vision_half_rad
 
+                // rad_to_other < run_options.field_of_vision_half_rad
                 // let atan2_self = self.velocity.y.atan2(self.velocity.x);
                 // let atan2_other = vec_to_other.y.atan2(vec_to_other.x);
                 // let mut atan2_diff = atan2_other - atan2_self;
@@ -217,6 +263,43 @@ impl Boid {
 
                 // run_options.field_of_vision_on
                 //     && atan2_diff.abs() < run_options.field_of_vision_half_rad
+            })
+            .map(|b| *b)
+            .collect();
+
+        res
+    }
+
+    pub fn filter_sight3<'a>(
+        &self,
+        others: &Vec<&'a Boid>,
+        run_options: &RunOptions,
+        half_cos_treshold: f32,
+    ) -> Vec<&'a Boid> {
+        let res: Vec<&Boid> = others
+            .iter()
+            .filter(|b_other| {
+                if self.id == b_other.id {
+                    return false;
+                }
+
+                let vec_to_other = match run_options.distance {
+                    Distance::EucToroidal => {
+                        tor_vec(self.position, b_other.position, &run_options.window)
+                    }
+                    Distance::EucEnclosed => b_other.position - self.position,
+                };
+
+                if vec_to_other.length() < 0.01 {
+                    return false;
+                }
+
+                let vel_norm = self.velocity.normalize();
+                let vec_to_other_norm = vec_to_other.normalize();
+
+                // let rad_to_other = vel_norm.dot(vec_to_other_norm).acos();
+                // this calculates v•u = |v||u|cos(ß), which is cos(ß) because of v and u being unit vectors
+                vel_norm.dot(vec_to_other_norm) > half_cos_treshold
             })
             .map(|b| *b)
             .collect();
@@ -410,7 +493,6 @@ impl Boid {
 
     pub fn wander(
         &self,
-        _: &Vec<&Boid>,
         metadata: &Vec<BoidMetadata>,
         run_options: &RunOptions,
     ) -> Vec2 {
@@ -435,10 +517,14 @@ impl Boid {
                 // steer towards the point on the locomotion circle
                 self.seek(wander_f, run_options) * run_options.wander_coefficient
             }
-            crate::options::NoiseModel::Viscek => {
-
-                let wander_vector = Vec2::new(metadata[self.id].wander_direction.cos(), metadata[self.id].wander_direction.sin());
-                let heading = self.velocity.normalize().rotate(wander_vector.clamp_length(run_options.max_speed, run_options.max_speed));
+            crate::options::NoiseModel::Vicsek => {
+                let wander_vector = Vec2::new(
+                    metadata[self.id].wander_direction.cos(),
+                    metadata[self.id].wander_direction.sin(),
+                );
+                let heading = self.velocity.normalize().rotate(
+                    wander_vector.clamp_length(run_options.max_speed, run_options.max_speed),
+                );
 
                 self.seek(self.position + heading, run_options) * run_options.wander_coefficient
             }

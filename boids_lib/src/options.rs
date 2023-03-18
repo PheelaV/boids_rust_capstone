@@ -2,7 +2,9 @@ use std::f32::consts::PI;
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug)]
+use crate::math_helpers::deg_to_half_rad;
+
+#[derive(Debug, Clone)]
 pub struct RunOptions {
     pub init_boids: usize,
     pub initiation_strat: InitiationStrategy,
@@ -55,12 +57,22 @@ pub struct RunOptions {
     pub clustering_impl: bool,
     pub col_by_neighbour: bool,
 
+    pub sep_bias: bool,
+
     pub field_of_vision_on: bool,
     pub field_of_vision_deg: f32,
     /// field of vision in radians, [0, π]
     pub field_of_vision_half_rad: f32,
     /// field of vision in cos [-1, 1]
     pub field_of_vision_cos: f32,
+
+    pub allignment_fov_deg: f32,
+    pub cohesion_fov_deg: f32,
+    pub separation_fov_deg: f32,
+
+    pub allignment_fov_half_cos: f32,
+    pub cohesion_fov_half_cos: f32,
+    pub separation_fov_half_cos: f32,
 
     pub sample_rate: u64,
     pub dbscan_flock_clustering_on: bool,
@@ -89,7 +101,12 @@ impl RunOptions {
     /// updates fov parameters given fov_deg
     pub fn update_fov(&mut self) {
         self.field_of_vision_half_rad = self.field_of_vision_deg * PI / 360.;
-        self.field_of_vision_cos = (self.field_of_vision_deg / 2.).cos();
+        self.field_of_vision_half_rad = deg_to_half_rad(self.field_of_vision_deg);
+        self.field_of_vision_cos = deg_to_half_rad(self.field_of_vision_deg).cos();
+
+        self.allignment_fov_half_cos = deg_to_half_rad(self.allignment_fov_deg).cos();
+        self.cohesion_fov_half_cos = deg_to_half_rad(self.cohesion_fov_deg).cos();
+        self.separation_fov_half_cos = deg_to_half_rad(self.separation_fov_deg).cos();
     }
 }
 
@@ -165,7 +182,10 @@ impl Default for RunOptions {
             // boundary: Boundary::Reflective,
             distance: Distance::EucToroidal,
             // distance: Distance::EucEnclosed,
-            noise_model: NoiseModel::Viscek,
+            noise_model: NoiseModel::Reynolds,
+            // tracker_type: TrackerType::Replay("./boids-data_1677829114108.csv".to_owned()),
+            // tracker_type: TrackerType::Replay("/Users/filipvlcek/Source/Repos/boids_rust/boidranalysis/Data/0307_experiment2_e1_6/boids-data_1678243239806.csv".to_owned()),
+            // tracker_type: TrackerType::Replay("/Users/filipvlcek/Source/Repos/boids_rust/boidranalysis/Data/0307_experiment2_e1_6/boids-data_1678243967602.csv".to_owned()),
             tracker_type: TrackerType::SpatHash,
             clicked_boid_id: std::usize::MAX,
             allignment_impl_mode: false,
@@ -188,9 +208,17 @@ impl Default for RunOptions {
             wander_distance: 21.5,
             seek_target_on: false,
             seek_location: None,
+            allignment_fov_deg: 45.,
+            cohesion_fov_deg: 100.,
+            separation_fov_deg: 135.,
+            allignment_fov_half_cos: 0.,
+            cohesion_fov_half_cos: 0.,
+            separation_fov_half_cos: 0.,
+            sep_bias: false,
         };
 
         res.update_sensory_distances();
+        res.update_fov();
 
         res
     }
@@ -243,7 +271,7 @@ impl WindowSize {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum InitiationStrategy {
     CircleCenterOut,
     CircleCircumferenceIn,
@@ -275,18 +303,18 @@ pub enum Distance {
 #[serde(tag = "type")]
 // {"type": "EucToroidal"}
 pub enum NoiseModel {
-    Viscek,
+    Vicsek,
     Reynolds,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TrackerType {
     SpatHash,
     Naive,
     Replay(String)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SaveOptions {
     pub save_locations: bool,
     pub save_locations_path: Option<String>,

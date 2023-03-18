@@ -28,7 +28,7 @@ linfa-datasets = {version = "0.6.0", features = ["generate"]}
 ndarray = "0.15.6"
 rand = "0.8.5"
 rand_xoshiro = "0.6.0"
-serde = {version = "1.0.147", features = ["derive"]}
+serde = {version = "1", features = ["derive"]}
 serde_json = "1.0.87"
 flat_spatial = "0.5.0"
 lazy_static = "1.4.0"
@@ -37,6 +37,7 @@ petal-neighbors = "0.8.0"
 linfa-nn = "0.6.1"
 itertools = "0.10.5"
 voronoice = "0.2.0"
+thiserror = "1.0.39"
 
 
 [dev-dependencies]

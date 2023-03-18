@@ -1,6 +1,7 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, f32::consts::PI};
 
 use glam::Vec2;
+use rand::Rng;
 
 use crate::{
     boid::{Boid, BoidMetadata},
@@ -8,16 +9,18 @@ use crate::{
     options::RunOptions,
 };
 
-use super::{get_flock_ids, tracker::Tracker};
+use super::{get_flock_ids, tracker::Tracker, MY_RNG};
 
 /// A naive implementation of boids tracking, which uses an O(N^2) algorithm for
 /// finding boid's neighbours.
-pub struct BoidTracker {
+pub struct NaiveTracker {
     boids: Vec<Boid>,
     metadata: Vec<BoidMetadata>,
 }
 
-impl BoidTracker {
+
+// TODO: naive tracker is behind at the moment in terms of noise and in terms of the acceleration update
+impl NaiveTracker {
     // pub(self) fn get_neighbours<'a>(
     //     &'a self,
     //     boid: &Boid,
@@ -55,9 +58,9 @@ impl BoidTracker {
     }
 }
 
-impl Tracker for BoidTracker {
+impl Tracker for NaiveTracker {
     fn new(entities: &[Boid], run_options: &RunOptions) -> Self {
-        BoidTracker {
+        NaiveTracker {
             boids: entities.to_vec(),
             metadata: vec![Default::default(); run_options.init_boids],
         }
@@ -66,7 +69,7 @@ impl Tracker for BoidTracker {
     fn get_neighbours<'a>(&'a self, boid: &Boid, run_options: &RunOptions) -> Vec<&'a Boid> {
         let mut res = Vec::<&'a Boid>::new();
 
-        BoidTracker::get_neighbours_naive(boid, &self.boids, run_options, &mut res);
+        NaiveTracker::get_neighbours_naive(boid, &self.boids, run_options, &mut res);
 
         res
     }
@@ -85,16 +88,31 @@ impl Tracker for BoidTracker {
             let b_current = &self.boids[i_cur];
 
             metadata[i_cur].id = b_current.id;
+                        // this should really be in one of the boid rules,
+            // but then there goes borrow checker and boids having
+            // to mutate their own state for which the current pipeline
+            // simply is not built for, so here is a workaround
+            if run_options.wander_on {
+                let wander_next = MY_RNG
+                    .lock()
+                    .unwrap()
+                    .gen_range(-(run_options.wander_rate/2.)..(run_options.wander_rate/2.));
+                metadata[i_cur].wander_direction = match run_options.noise_model {
+                    crate::options::NoiseModel::Vicsek => wander_next,
+                    crate::options::NoiseModel::Reynolds => (metadata[i_cur].wander_direction + wander_next) % (2. * PI),
+                }
+                    
+            }
 
-            BoidTracker::get_neighbours_naive(b_current, &self.boids, run_options, &mut neighbours);
+            NaiveTracker::get_neighbours_naive(b_current, &self.boids, run_options, &mut neighbours);
             accelleration.push(self.boids[i_cur].run_rules(&neighbours, &metadata, &run_options));
             // for cn in &clicked_neighbours {
             //     metadata[cn.id].clicked_neighbour_id = run_options.clicked_boid_id;
             // }
             if metadata[i_cur].id == run_options.clicked_boid_id {
                 for cn in neighbours.iter() {
-                    metadata[cn.id].clicked_neighbour_id = metadata[i_cur].id
-                }
+                    metadata[cn.id].clicked_neighbour_id = metadata[i_cur].id;
+               }
             }
         }
         // update loop
@@ -171,5 +189,9 @@ impl Tracker for BoidTracker {
     fn view2<'a>(&'a self) -> Box<dyn Iterator<Item = (&'a Boid, &'a BoidMetadata)> + 'a> {
         // self.table.iter().map
         Box::new(self.boids.iter().map(|e| (e, &self.metadata[e.id])))
+    }
+
+    fn signal(&mut self, signal: super::tracker::TrackerSignal) {
+        () // noop
     }
 }

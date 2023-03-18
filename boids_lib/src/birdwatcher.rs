@@ -1,7 +1,7 @@
 use std::{fs::OpenOptions, mem};
 
 use chrono::{DateTime, Utc};
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 
 use crate::{flock::{Flock}, options::SaveOptions};
 
@@ -9,7 +9,7 @@ use crate::{flock::{Flock}, options::SaveOptions};
 // the problem is that the nannou Model would also have to be annotated
 
 // so right now, this is more of a bird data acummulator than a birdwatcher
-#[derive(Serialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct BoidData {
     pub id: usize,
     pub x: f32,

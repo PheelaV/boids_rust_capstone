@@ -6,7 +6,7 @@ use rand::Rng;
 
 use crate::{options::{RunOptions, Distance}, boid::{BoidMetadata, Boid}, math_helpers::distance_dyn_boid};
 
-use super::{Tracker, MY_RNG, get_flock_ids_optics, get_flock_ids, naive_tracker::BoidTracker};
+use super::{Tracker, MY_RNG, get_flock_ids_optics, get_flock_ids, naive_tracker::NaiveTracker, tracker::{self, TrackerSignal}};
 
 /// Uses a spatial hashing space division method, where all cells of the underlying
 /// table are stored in a 1D array, with the individual cell's being allocated
@@ -55,9 +55,11 @@ pub struct SpatHash1D {
     query_metadata: Option<[[[i32; 2]; 9]; 16]>,
 
     distance: Distance,
+
+    // clicked_neighbours: Option<Vec::<usize>>
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct SpatHashPiv {
     usg: usize,
     init: Option<usize>,
@@ -90,6 +92,7 @@ impl Tracker for SpatHash1D {
             settings,
             query_metadata: None,
             distance: run_options.distance,
+            // clicked_neighbours: None::<Vec<usize>>
         }
     }
 
@@ -221,6 +224,10 @@ impl Tracker for SpatHash1D {
         self.get_neighbours(boid, cell_index, run_options, &mut result);
 
         result
+    }
+
+    fn signal(&mut self, _: TrackerSignal) {
+        () // noop
     }
 }
 
@@ -428,8 +435,11 @@ impl SpatHash1D {
                     .lock()
                     .unwrap()
                     .gen_range(-(run_options.wander_rate/2.)..(run_options.wander_rate/2.));
-                metadata[self.table[e].id].wander_direction =
-                    (self.metadata[self.table[e].id].wander_direction + wander_next) % (2. * PI);
+                metadata[self.table[e].id].wander_direction = match run_options.noise_model {
+                    crate::options::NoiseModel::Vicsek => wander_next * 2. * PI,
+                    crate::options::NoiseModel::Reynolds => (self.metadata[self.table[e].id].wander_direction + wander_next) % (2. * PI),
+                }
+                    
             }
 
             metadata[self.table[e].id].n_neighbours = neighbours.len();
@@ -455,12 +465,31 @@ impl SpatHash1D {
             .iter()
             .for_each(|cn_id| metadata[*cn_id].clicked_neighbour_id = run_options.clicked_boid_id);
 
+        // // this was a verification of the stability of the spat hash sorting
+        // if run_options.stop_movement {
+        //     match &self.clicked_neighbours {
+        //         Some(n) => {
+        //             let prior = HashSet::<usize>::from_iter(n.iter().map(|b| *b));
+        //             let posterior = HashSet::<usize>::from_iter(clicked_neighbours.iter().map(|b| *b));
+
+        //             println!("!!! {:?} !!!", prior == posterior);
+        //             self.clicked_neighbours = Some(clicked_neighbours.iter().map(|b| *b).collect::<Vec<usize>>());
+        //         },
+        //         None => {
+        //             self.clicked_neighbours = Some(
+        //                 neighbours.iter().map(|b| b.id).collect::<Vec<usize>>()
+        //             );
+        //         },
+        //     }
+        // } else {
+        //     self.clicked_neighbours = None::<Vec<usize>>;
+        // }
         // propagate metadata update
         for id in 0..self.metadata.len() {
             self.metadata[id].clicked_neighbour_id = metadata[id].clicked_neighbour_id;
             self.metadata[id].n_neighbours = metadata[id].n_neighbours;
             self.metadata[id].accelleration_update = metadata[id].accelleration_update;
-            self.metadata[id].wander_direction = metadata[id].wander_direction
+            self.metadata[id].wander_direction = metadata[id].wander_direction;
         }
 
         // apply the forces
@@ -514,38 +543,117 @@ impl SpatHash1D {
 
         let mut pivots = self.pivots.to_owned();
 
+        
         let mut sorted = vec![false; self.table.len()];
         let mut destination: usize;
-
+        
         let mut e = 0;
+        // let mut table2: Vec<Boid> = vec![Boid::default();self.table.len()];
         while e < self.table.len() {
-            // here is where the algorithm differs slightly from the original
-            // as we are reusing the same table as the set of entities, we
-            // have to make a swap this collapses into a form of unstable
-            // insertion sort
+        // #[cfg(debug)]
+        // {
+        //     println!("index:  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+        //     self.index.iter().enumerate()
+        //     .sorted_by(|(id1, index1), (id2, index2)| index1.cmp(index2))
+        //     .for_each(|a| println!("index:{}, id:{}", a.1, a.0));
+        
+        //     println!("pivots:  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+        //     self.pivots.iter().for_each(|p| println!("pivot: {:?}", p));
+        //     println!("#############################################");
+        // }
+                        
+            // let id = self.table[e].id;
 
-            let id = self.table[e].id;
+            // destination = match pivots[self.index[id]].fin {
+            //     Some(d) => {
+            //         if d == 0 {
+            //             panic!("We are trying to sort through too many units!");
+            //         } else {
+            //             d - 1
+            //         }
+            //     },
+            //     None => {
+            //         panic!("Fin was none, invalid state!"); 
+            //     },
+            // };
+            // table2[destination] = self.table[e];
+            // pivots[self.index[id]].fin = Some(destination);
+            // e += 1;
 
-            destination = usize::wrapping_sub(pivots[self.index[id]].fin.unwrap(), 1);
-
-            // skip if the destination has alreade been sorted, current table[e] is in right place
-            // not checking for 0 but for MAX (18446744073709551615) as we take advantage of wraparound
-            if destination == std::usize::MAX || sorted[destination] || e == destination {
+            // #####################################################################
+            if sorted[e] {
                 e += 1;
                 continue;
             }
-            self.table.swap(e, destination);
 
-            // update the pivot now that one entity of the cell has been mapped to the correct place in the 1D table
-            // each unique value of fin during the iterration effectively represents a unique location for the next
-            // entity in that cell
-            // we consume it during swap and then decrease to point at the location of cell's next entity
-            // until it points at the first(swapped, last in terms of the 1D table) entity of the previous cell
-            pivots[self.index[id]].fin = Some(pivots[self.index[id]].fin.unwrap() - 1);
+            let id = self.table[e].id;
 
-            // set destination as sorted
-            sorted[destination] = true;
+            destination = match pivots[self.index[id]].fin {
+                Some(d) => {
+                    if d == 0 {
+                        panic!("We are trying to sort through too many units!");
+                    } else {
+                        d - 1
+                    }
+                },
+                None => {
+                    panic!("Fin was none, invalid state!"); 
+                },
+            };
+
+            if e != destination // if boid is not already sorted
+            {
+                self.table.swap(e, destination);
+                sorted[destination] = true;
+            } else {
+                e += 1;
+            }
+            
+            pivots[self.index[id]].fin = Some(destination);
+// #####################################################################
+            // // if sorted[destination] {
+            // //     e += 1;
+            // //     continue;
+            // // }
+            // // here is where the algorithm differs slightly from the original
+            // // as we are reusing the same table as the set of entities, we
+            // // have to make a swap this collapses into a form of unstable
+            // // insertion sort
+            // if sorted[e] {
+            //     e += 1;
+            //     continue;
+            // }
+            // let id = self.table[e].id;
+
+            // destination = usize::wrapping_sub(pivots[self.index[id]].fin.unwrap(), 1);
+
+            // // skip if the destination has alreade been sorted, current table[e] is in right place
+            // // not checking for 0 but for MAX (18446744073709551615) as we take advantage of wraparound
+            // if destination == std::usize::MAX {
+            //     println!("asdflkjasdfl;kajsdf;lkajsdf")
+            // }
+            // if destination == std::usize::MAX || sorted[destination] || e == destination {
+            //     e += 1;
+            //     pivots[self.index[id]].fin = Some(pivots[self.index[id]].fin.unwrap() - 1);
+            //     continue;
+            // }
+            // self.table.swap(e, destination);
+
+            // // update the pivot now that one entity of the cell has been mapped to the correct place in the 1D table
+            // // each unique value of fin during the iterration effectively represents a unique location for the next
+            // // entity in that cell
+            // // we consume it during swap and then decrease to point at the location of cell's next entity
+            // // until it points at the first(swapped, last in terms of the 1D table) entity of the previous cell
+            // pivots[self.index[id]].fin = Some(pivots[self.index[id]].fin.unwrap() - 1);
+
+            // // set destination as sorted
+            // sorted[destination] = true;
         }
+
+        // self.table = table2;
+        // println!("table:  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
+        // self.table.iter().enumerate()
+        // .for_each(|(index, id)| println!("table index:{:?}, id:{:?}", index, id));
     }
 
     /// Returns "hashed" value representing an index for spatial subdivision, handles a zero centered coordinate system
@@ -635,9 +743,13 @@ impl SpatHash1D {
             y_cell_count = 1;
         } else {
             x_cell_count =
-                x_range as usize / (run_options.max_sensory_distance.ceil() as usize * 2);
+                x_range as usize / (run_options.max_sensory_distance.ceil() as usize);
             y_cell_count =
-                y_range as usize / (run_options.max_sensory_distance.ceil() as usize * 2);
+                y_range as usize / (run_options.max_sensory_distance.ceil() as usize);
+            // x_cell_count =
+            //     x_range as usize / (run_options.max_sensory_distance.ceil() as usize * 2);
+            // y_cell_count =
+            //     y_range as usize / (run_options.max_sensory_distance.ceil() as usize * 2);
         }
 
         if y_cell_count < 2 || x_cell_count < 2 {
@@ -671,12 +783,8 @@ impl SpatHash1D {
         // if the table grid is less than 4x4
         if self.settings.x_cell_count <= 3 && self.settings.y_cell_count <= 3 {
             // fall back to naive method
-            return BoidTracker::get_neighbours_naive(boid, &self.table, run_options, neighbours);
+            return NaiveTracker::get_neighbours_naive(boid, &self.table, run_options, neighbours);
         }
-
-        // if boid.id == run_options.clicked_boid_id {
-        //      println!("delete me ")
-        // }
 
         // only add it once
         let is_left = cell_index % self.settings.x_cell_count as usize == 0;
@@ -702,12 +810,11 @@ impl SpatHash1D {
             }
         };
 
-        // if boid.id == run_options.clicked_boid_id {
-        //     println !("{:?}", m);
-        // }
-        // if run_options.clicked_boid_id == boid.id {
-        //     println!("-----");
-        // }
+        // #[cfg(debug)]
+        if boid.id == run_options.clicked_boid_id {
+            println !("lookup vectors: {:?}", m);
+        }
+
         for cell in m
             // depending on the match, iterate the vectors
             .iter()
@@ -728,10 +835,11 @@ impl SpatHash1D {
                 continue;
             }
             for index in self.pivots[cell].init.unwrap()..self.pivots[cell].fin.unwrap() {
-                // if run_options.clicked_boid_id == boid.id && self.table[index].id != boid.id {
-                //     let a = distance_dyn_boid(boid, &self.table[index], run_options);
-                //     println!("{:?}", a);
-                // }
+                // #[cfg(debug)]
+                if run_options.clicked_boid_id == boid.id && self.table[index].id != boid.id {
+                    let a = distance_dyn_boid(boid, &self.table[index], run_options);
+                    println!("from:{:?}, to:{:?}, distance:{:?}", boid.id, self.table[index].id, a);
+                }
                 if self.table[index].id != boid.id
                     && distance_dyn_boid(boid, &self.table[index], run_options)
                         <= run_options.max_sensory_distance
@@ -744,6 +852,11 @@ impl SpatHash1D {
                     }
                 }
             }
+        }
+
+        // #[cfg(debug)]
+        if run_options.clicked_boid_id == boid.id {
+            println!("neighbours: {:?}", neighbours);
         }
     }
 }
