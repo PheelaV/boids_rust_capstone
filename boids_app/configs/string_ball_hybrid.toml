@@ -1,3 +1,4 @@
+baseline_speed = 1.0
 no_boids = 512 
 sample_rate = 8
 save = true
@@ -16,8 +17,8 @@ max_speed = 2
 max_steering = 0.9
 field_of_vision = 200.0
 wander_on = true
-wander_rate = 0.7
+wander_rate = 0.375
 wander_radius = 5.2
 wander_distance = 21.5
 wander_coefficient = 0.3
-size = 1.5
+size = 3

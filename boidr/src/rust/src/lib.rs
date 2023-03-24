@@ -1,9 +1,8 @@
-use std::{env, path::Path, result};
-
+use std::path::Path;
 use boids_lib::{
     birdwatcher::{Birdwatcher, BoidData},
     flock::Flock,
-    math_helpers::{tor_vec_p, tor_vec_pc},
+    math_helpers::tor_vec_pc,
     options::{self, Boundary, Distance, RunOptions, SaveOptions},
 };
 use csv::{Reader, Writer};
@@ -47,7 +46,7 @@ fn flock_return(
 
     run_options.init_boids = init_boids as usize;
     run_options.save_options = get_save_options(save_locations_path);
-    run_options.sample_rate = sample_rate as u64; // this intentional is because of R shenanigans
+    run_options.sample_rate = sample_rate as u16; // this intentional is because of R shenanigans
 
     run_options.window = options::get_window_size(init_width, init_height);
 
@@ -77,17 +76,19 @@ fn flock_detailed(
     boundary_config: Option<&str>,
     distance_config: Option<&str>,
     field_of_vision: f32,
-    sep_bias: bool,
+    rules_impl: bool,
     wander_on: bool,
     wander_coef: f32,
     wander_rate: f32,
     wander_radius: f32,
+    wander_distance: f32,
+    baseline_speed: f32
 ) -> Robj {
     let mut run_options: RunOptions = Default::default();
 
     run_options.init_boids = init_boids as usize;
     run_options.save_options = get_save_options(save_locations_path);
-    run_options.sample_rate = sample_rate as u64; // this intentional is because of R shenanigans
+    run_options.sample_rate = sample_rate as u16; //  
 
     run_options.window = options::get_window_size(init_width, init_height);
 
@@ -104,10 +105,12 @@ fn flock_detailed(
     run_options.dbscan_flock_clustering_on = dbscan_clustering;
     run_options.field_of_vision_deg = field_of_vision;
     run_options.wander_on = wander_on;
-    run_options.sep_bias = sep_bias;
+    run_options.rules_impl = rules_impl;
     run_options.wander_rate = wander_rate;
     run_options.wander_radius = wander_radius;
     run_options.wander_coefficient = wander_coef;
+    run_options.wander_distance = wander_distance;
+    run_options.baseline_speed = baseline_speed;
 
     // attempts to retreive the boundary, if none is set, uses reflective as default
     if let Some(boundary_config_string) = boundary_config {
@@ -322,10 +325,10 @@ fn preprocess_file(file_path: &str, init_width: u32, init_height: u32, no_boids:
     // data
 }
 
-// #[extendr]
-// fn force_recompile() -> &'static str {
-//     return r#"hello world"#; // hey there
-// }
+#[extendr]
+fn force_recompile() -> &'static str {
+    return r#"hello world"#; // hey there
+}
 // Macro to generate exports.
 // This ensures exported functions are registered with R.
 // See corresponding C code in `entrypoint.c`.
@@ -334,7 +337,7 @@ extendr_module! {
     fn flock;
     fn flock_return;
     fn flock_detailed;
-    // fn force_recompile;
+    fn force_recompile;
     fn get_convex_hull;
     fn get_voronoi_areas;
     fn preprocess_file;
@@ -359,7 +362,7 @@ mod tests {
         let boundary: Boundary = serde_json::from_str(data).unwrap();
 
         match boundary {
-            // Boundary::Thoroidal => todo!(),
+            // Boundary::Toroidal => todo!(),
             // Boundary::Absorbing => todo!(),
             // Boundary::Reflective => todo!(),
             Boundary::Repulsive { distance, force } => {
@@ -376,7 +379,7 @@ mod tests {
         let boundary: Boundary = serde_json::from_str(data).unwrap();
 
         match boundary {
-            // Boundary::Thoroidal => todo!(),
+            // Boundary::Toroidal => todo!(),
             // Boundary::Absorbing => todo!(),
             // Boundary::Reflective => todo!(),
             Boundary::Repulsive { distance, force } => {

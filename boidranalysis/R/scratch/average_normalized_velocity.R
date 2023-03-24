@@ -8,7 +8,7 @@ config <- get_config(
     init_height = 4000,
     sample_rate = 32,
     # boundary_config = "{\"type\": \"Repulsive\", \"distance\": 100, \"force\": 0.05}"
-    boundary_config = "{\"type\": \"Thoroidal\"}"
+    boundary_config = "{\"type\": \"Toroidal\"}"
   )
 )
 boid_data <- rlang::exec(flock_detailed, !!!config) %>%

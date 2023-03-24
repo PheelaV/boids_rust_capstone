@@ -226,7 +226,7 @@ if (FALSE) {
                      max_speed = 2.,
                      max_steering = .65,
                      dbscan_clustering = T,
-                     boundary_config = "{\"type\": \"Thoroidal\"}") %>%
+                     boundary_config = "{\"type\": \"Toroidal\"}") %>%
         tibble()
     )
   }

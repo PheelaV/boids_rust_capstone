@@ -25,11 +25,13 @@ flock_detailed(
   boundary_config,
   distance_config,
   field_of_vision,
-  sep_bias,
+  rules_impl,
   wander_on,
   wander_coef,
   wander_rate,
-  wander_radius
+  wander_radius,
+  wander_distance,
+  baseline_speed
 )
 }
 \description{

@@ -12,7 +12,7 @@ toroidal_vec_pc <- function(pc1, pc2, size, max) {
     return(d_pc)
   }
 }
-print("hey")
+
 # assumes data is written groups of rows, each representing a single unit, naturally ordered by time
 # takes the group and interlaces it with the rest, keeping the time order and thus creating a relay of the simulation as
 # the data points have been collected in the first place
@@ -123,13 +123,15 @@ get_config <- function(config_name, overwrite = list()) {
   converted_config$max_steering = config$max_steering
   converted_config$field_of_vision = config$field_of_vision
   converted_config$dbscan_clustering = TRUE
-  converted_config$boundary_config = "{\"type\": \"Thoroidal\"}"
+  converted_config$boundary_config = "{\"type\": \"Toroidal\"}"
   converted_config$distance_config = "{\"type\": \"EucToroidal\"}"
-  converted_config$sep_bias = FALSE
+  converted_config$rules_impl = FALSE
   converted_config$wander_on = config$wander_on
   converted_config$wander_rate = config$wander_rate
   converted_config$wander_radius = config$wander_radius
   converted_config$wander_coef = config$wander_coefficient
+  converted_config$wander_distance = config$wander_distance
+  converted_config$baseline_speed = config$baseline_speed
 
   if (length(overwrite) == 0) {
     return(converted_config)

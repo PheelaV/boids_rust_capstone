@@ -14,6 +14,7 @@ library(tictoc)
 # there is a bug, need to be installed from github to use the latest version: remotes::install_github("extendr/rextendr")
 library(rextendr)
 setwd("~/Source/Repos/boids_rust/boidr")
+# remotes::install_github("extendr/rextendr")
 
 rextendr::document()
 devtools::load_all(".")
@@ -51,7 +52,7 @@ get flocking data
 #                              max_speed = 2.,
 #                              max_steering = .65,
 #                              dbscan_clustering = T,
-#                              boundary_config = "{\"type\": \"Thoroidal\"}"
+#                              boundary_config = "{\"type\": \"Toroidal\"}"
 #                              # boundary_config = "{\"type\": \"Repulsive\", \"distance\": 100, \"force\": 0.05}"
 #                             ) %>%
 #     tibble()
@@ -63,7 +64,7 @@ config <- get_config(
   "string_s.toml", 
     overwrite = list(
       init_boids = 2^10,
-      no_iter = 2^15,
+      no_iter = 2^13,
       init_width = 1600, 
       init_height = 1600,
       min_speed = 2,

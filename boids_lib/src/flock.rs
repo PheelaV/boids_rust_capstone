@@ -1,24 +1,11 @@
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::sync::Mutex;
-
+use std::{collections::{HashMap, HashSet}, sync::Mutex};
 use glam::Vec2;
 use itertools::Itertools;
-use linfa::traits::Transformer;
-use linfa::DatasetBase;
+use linfa::{traits::Transformer, DatasetBase};
 use linfa_clustering::Dbscan;
-use linfa_nn::distance::L2Dist;
-use linfa_nn::CommonNearestNeighbour;
-// use linfa_clustering::Optics;
+use linfa_nn::{distance::L2Dist, CommonNearestNeighbour};
 use ndarray::Array2;
-use petal_clustering::{
-    //  Dbscan as pDbscan,
-    Fit as pFit,
-    Optics as pOptics,
-};
-use petal_neighbors::distance::Euclidean;
 use rand::Rng;
-
 use lazy_static::lazy_static;
 use rand::SeedableRng;
 use rand_xoshiro::Xoshiro128Plus;
@@ -39,21 +26,12 @@ use self::spathash_tracker::SpatHash1D;
 use self::tracker::Tracker;
 
 pub mod naive_tracker;
+pub mod replay_tracker;
 pub mod spathash_tracker;
 pub mod tracker;
-mod replay_tracker;
 
-// pub mod tracker;
-
-// pub use tracker::*;
-// type BoidTracker = SpatHash1D;
-// type BoidTracker = BoidTracker;
-
-// type FlockTracker = BoidTracker;
-// type FlockTracker = SpatHash1D;
 pub struct Flock<'a> {
     pub tracker: Box<dyn Tracker + 'a>,
-    // pub t: Box<dyn Tracker + 'a>
 }
 
 impl<'a> Flock<'a> {
@@ -62,24 +40,21 @@ impl<'a> Flock<'a> {
     pub fn new(run_options: &RunOptions) -> Self {
         let boids = get_boids(&run_options);
 
-        let tracker : Box<dyn Tracker + 'a> = match &run_options.tracker_type {
-            crate::options::TrackerType::SpatHash => Box::new(SpatHash1D::new(&boids, run_options)), 
+        let tracker: Box<dyn Tracker + 'a> = match &run_options.tracker_type {
+            crate::options::TrackerType::SpatHash => Box::new(SpatHash1D::new(&boids, run_options)),
             crate::options::TrackerType::Naive => Box::new(NaiveTracker::new(&boids, run_options)),
-            crate::options::TrackerType::Replay(replay_path) => {
+            crate::options::TrackerType::Replay(replay_path, _) => {
                 let res = ReplayTracker::from_path(replay_path, run_options);
 
                 match res {
                     Ok(rt) => Box::new(rt),
-                    Err(err) => panic!("{:?}", err) 
+                    Err(err) => panic!("{:?}", err),
                 }
-            },
+            }
         };
 
         Flock {
             tracker,
-            // tracker: SpatHash1D::new(&boids, run_options),
-            // t: Box::new(SpatHash1D::new(&boids, run_options)),
-            // tracker: BoidTracker::new(&boids, run_options),
         }
     }
 
@@ -87,12 +62,8 @@ impl<'a> Flock<'a> {
         todo!()
     }
 
-    pub fn view(&self) -> (&Vec<Boid>, &Vec<BoidMetadata>) {
-        self.tracker.view()
-    }
-
     pub fn view2(&'a self) -> Box<dyn Iterator<Item = (&'a Boid, &'a BoidMetadata)> + 'a> {
-        self.tracker.view2()
+        self.tracker.view()
     }
 
     pub fn update(&mut self, run_options: &mut RunOptions) {
@@ -103,12 +74,12 @@ impl<'a> Flock<'a> {
     }
 
     pub fn insert_single(&mut self, run_options: &RunOptions) {
-        let b = get_boid(run_options, self.tracker.view().0.len());
+        let b = get_boid(run_options, self.tracker.get_no_entities());
         self.tracker.insert_single(b, run_options);
     }
 
     pub fn insert_multiple(&mut self, run_options: &RunOptions) {
-        let no_boids = self.tracker.view().0.len();
+        let no_boids = self.tracker.get_no_entities();
         let boid_difference = run_options.init_boids - no_boids;
         let boids = get_boids_n(boid_difference, no_boids, run_options);
         self.tracker.insert_multiple(&boids, run_options);
@@ -133,26 +104,6 @@ impl<'a> Flock<'a> {
 }
 
 fn get_boids(run_options: &RunOptions) -> Vec<Boid> {
-    // todo: this was an arbitrary set up, remove
-    // let mut boid: Vec<Boid> = Vec::new();
-    // boid.push(
-    //     Boid::new(
-    //         run_options.window.win_left as f32 + 1.,
-    //         0.,
-    //         vec2(run_options.max_speed, 0.),
-    //         0
-    //     )
-    // );
-    // boid.push(
-    //     Boid::new(
-    //         run_options.window.win_right as f32 - 1.,
-    //         0.,
-    //         vec2(-run_options.max_speed, 0.),
-    //         1
-    //     )
-    // );
-    // return boid;
-
     get_boids_n(run_options.init_boids, 0, run_options)
 }
 
@@ -204,91 +155,71 @@ fn get_boid(run_options: &RunOptions, id: usize) -> Boid {
     }
 }
 
-// fn get_flock_ids_gmm(entities: &[Boid], run_options: &RunOptions) -> Vec<usize> {
+// fn get_flock_ids_optics(entities: &[Boid], run_options: &RunOptions) -> Vec<usize> {
 //     let test_data: Array2<f32> = entities
 //         .iter()
 //         .map(|row| [row.position.x, row.position.y])
 //         .collect::<Vec<_>>()
 //         .into();
 
-//     let test_dataset: DatasetBase<_, _> = test_data.into();
+//     // let test_dataset: DatasetBase<_, _> = test_data.into();
 
-//     // let gmm = GaussianMixtureModel::params(n_clusters)
-//     //         .n_runs(10)
-//     //         .tolerance(1e-4)
-//     //         .with_rng(rng)
-//     //         .fit(&dataset).expect("GMM fitting");
-//     todo!()
+//     let (clusters, noise) =
+//         pOptics::new(run_options.sensory_distance, 3, Euclidean::default()).fit(&test_data);
+
+//     // for map in clusters.iter() {
+//     //     println!("-----------------");
+//     //     println!("label: {:?}, len: {:?}", map.0, map.1.len());
+//     //     for point in map.1 {
+//     //         println!("    point: {:?}", point)
+//     //     }
+//     // }
+
+//     // println!("-----------------");
+//     // println!("label: {:?}, len: {:?}", -1, noise.len());
+//     // for noise_point in noise.iter() {
+//     //     println!("    point: {:?}", noise_point)
+//     // }
+
+//     // let res_map: HashMap<usize, usize> = HashMap::new();
+
+//     let mut output = vec![0 as usize; entities.len()];
+
+//     for (label, points) in clusters {
+//         for p in points {
+//             output[p] = label + 1;
+//         }
+//     }
+
+//     for noise_point in noise {
+//         output[noise_point] = 0;
+//     }
+
+//     return output;
+
+//     // let res = Optics::params(3)
+//     //     .tolerance(run_options.sensory_distance)
+//     //     .transform(test_data.view())
+//     //     .unwrap();
+
+//     // println!();
+//     // println!("OPTICS Result: ");
+//     // for sample in res.iter() {
+//     //     println!("{:?}", sample.index());
+//     // }
+//     // println!();
 // }
-
-fn get_flock_ids_optics(entities: &[Boid], run_options: &RunOptions) -> Vec<usize> {
-    let test_data: Array2<f32> = entities
-        .iter()
-        .map(|row| [row.position.x, row.position.y])
-        .collect::<Vec<_>>()
-        .into();
-
-    // let test_dataset: DatasetBase<_, _> = test_data.into();
-
-    let (clusters, noise) =
-        pOptics::new(run_options.sensory_distance, 3, Euclidean::default()).fit(&test_data);
-
-    // for map in clusters.iter() {
-    //     println!("-----------------");
-    //     println!("label: {:?}, len: {:?}", map.0, map.1.len());
-    //     for point in map.1 {
-    //         println!("    point: {:?}", point)
-    //     }
-    // }
-
-    // println!("-----------------");
-    // println!("label: {:?}, len: {:?}", -1, noise.len());
-    // for noise_point in noise.iter() {
-    //     println!("    point: {:?}", noise_point)
-    // }
-
-    // let res_map: HashMap<usize, usize> = HashMap::new();
-
-    let mut output = vec![0 as usize; entities.len()];
-
-    for (label, points) in clusters {
-        for p in points {
-            output[p] = label + 1;
-        }
-    }
-
-    for noise_point in noise {
-        output[noise_point] = 0;
-    }
-
-    return output;
-
-    // let res = Optics::params(3)
-    //     .tolerance(run_options.sensory_distance)
-    //     .transform(test_data.view())
-    //     .unwrap();
-
-    // println!();
-    // println!("OPTICS Result: ");
-    // for sample in res.iter() {
-    //     println!("{:?}", sample.index());
-    // }
-    // println!();
-}
 
 fn get_flock_ids(tracker: &dyn Tracker, entities: &[Boid], run_options: &RunOptions) -> Vec<usize> {
     // if run_options.dbscan_flock_clustering_on {
     let test_data: Array2<f32> = entities
         .iter()
-        // .sorted_by(|b1, b2| b1.id.cmp(&b2.id))
         .map(|row| [row.position.x, row.position.y])
         .collect::<Vec<_>>()
         .into();
     let test_dataset: DatasetBase<_, _> = test_data.into();
-    // let linfa_dist_metric = TorL2Dist::new(run_options.window.clone());
 
-    // let res = Dbscan::params_with(3, linfa_dist_metric, CommonNearestNeighbour::KdTree)
-    let res = Dbscan::params_with(3, L2Dist, CommonNearestNeighbour::BallTree)
+    let res = Dbscan::params_with(3, L2Dist, CommonNearestNeighbour::KdTree)
         .tolerance(run_options.sensory_distance)
         .transform(test_dataset)
         .unwrap();
@@ -301,7 +232,6 @@ fn get_flock_ids(tracker: &dyn Tracker, entities: &[Boid], run_options: &RunOpti
             None => 0,
         })
         .collect::<Vec<usize>>();
-    // res_labels
 
     return match run_options.boundary {
         Boundary::Toroidal => {
@@ -358,7 +288,6 @@ fn join_adjacent_flocks(
         })
         .map(|tuple| (*tuple.0, *tuple.1))
         .collect::<HashMap<BoidId, (&Boid, &ClusterId)>>();
-
 
     boundary_boids.iter().for_each(|(_, (b1, c1))| {
         'inner: for b2 in tracker.get_neighbours(b1, run_options) {
@@ -505,9 +434,6 @@ fn join_adjacent_flocks(
                 }
             }
         }
-        //  else {
-        //     // it has not been included as part of the initial scan, it is a border point
-        // }
     }
 
     // finally, regarding noise, we get to spook their cluster membership so that they are mapped
@@ -534,7 +460,6 @@ fn join_adjacent_flocks(
 
     // using the replace_map we traverse the unidirected graph (in case there is a cycle we simply break it)
     // this gives us all the available clusters to merge, we simply pick the largest label to be the final and voala
-    // dbg!(&replaced_map);
     while replaced_map.len() > 0 {
         let mut to_be_replaced: Vec<usize> = Vec::new();
         let mut current_replacer: usize;
@@ -580,9 +505,6 @@ fn join_adjacent_flocks(
                 None => panic!("Invalid state!"),
             };
 
-            // println!("replaced: {:?}", &to_be_replaced);
-            // println!("replacer: {:?}", &current_replacer);
-
             for replaced in to_be_replaced.iter().filter(|r| **r != current_replacer) {
                 let old_flock_members = inverse_map.get(replaced).expect("should always contain values as no single flock should be merged more than once, exception being noise");
                 for old_member in old_flock_members {
@@ -607,11 +529,9 @@ mod tests {
     use rand_xoshiro::{self, Xoshiro128StarStar};
 
     use crate::flock::spathash_tracker::{SpatHash1D, SpatialHashingTableSettings};
-    // use crate::flock::{BoidTracker, SpatialHashingTableSettings};
     use crate::math_helpers::distance_dyn;
     use crate::{
         boid::Boid,
-        // flock::SpatHash1D,
         options::{self, RunOptions, WindowSize},
     };
 

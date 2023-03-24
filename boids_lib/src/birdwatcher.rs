@@ -1,12 +1,7 @@
 use std::{fs::OpenOptions, mem};
-
 use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
-
-use crate::{flock::{Flock}, options::SaveOptions};
-
-// todo: it would be cool to have bird watcher store a reference to the flock, both would have to have the same lifetime anotations
-// the problem is that the nannou Model would also have to be annotated
+use crate::{flock::Flock, options::SaveOptions};
 
 // so right now, this is more of a bird data acummulator than a birdwatcher
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
@@ -23,17 +18,19 @@ pub struct Birdwatcher {
     locations: Vec<BoidData>,
     render_ticker: u64,
     sample_rate: u64,
+    // ghost_queue: Option<CircularQueue<(Boid, BoidMetadata)>>
     // flock: &'a Flock,
 }
 
 const PREFIX: &'static str = "boids-data";
 
 impl Birdwatcher {
-    pub fn new(sample_rate: u64) -> Self {
+    pub fn new(sample_rate: u16) -> Self {
         Birdwatcher {
             locations: Vec::new(),
             render_ticker: 0,
-            sample_rate: sample_rate,
+            sample_rate: sample_rate as u64,
+            // ghost_queue: None,
             // flock
         }
     }
@@ -44,26 +41,77 @@ impl Birdwatcher {
             return;
         }
 
-        let mut current_locations: Vec<BoidData> = flock
-            .view()
-            .0
-            .iter()
-            .zip(flock.view().1.iter())
-            .map(|(e, m)| BoidData {
+        // if let None = self.ghost_queue {
+        //     self.ghost_queue =
+        // }
+
+        self.locations.extend(flock.view2().map(|(e, m)| {
+            if e.id != m.id {
+                panic!("mismatch of boid and metadata id");
+            }
+
+            BoidData {
                 id: e.id,
                 x: e.position.x,
                 y: e.position.y,
                 cluster_id: m.cluster_id,
                 n_neighbours: m.n_neighbours,
                 time: self.render_ticker / self.sample_rate,
-            })
-            .collect();
+            }
+        }));
+        // let mut current_locations = flock.view2().map(|(e, m)| {
+        //     if e.id != m.id {
+        //         panic!("mismatch of boid and metadata id");
+        //     }
 
-        self.locations.append(&mut current_locations);
+        //     BoidData {
+        //         id: e.id,
+        //         x: e.position.x,
+        //         y: e.position.y,
+        //         cluster_id: m.cluster_id,
+        //         n_neighbours: m.n_neighbours,
+        //         time: self.render_ticker / self.sample_rate,
+        //     }
+        // }).collect_vec();
+
+        // self.locations.append(&mut current_locations);
     }
+
+    // pub fn get_ghosts<'a>(&'a  mut self, no_ghosts: usize, run_options: &RunOptions) 
+    // -> Option<Box<dyn Iterator<Item = (&'a Boid, &'a BoidMetadata)> + 'a> > {
+    //     let RunOptions { 
+    //         init_boids, 
+    //         ..
+    //     } = run_options;
+
+    //     let time = self.locations.len() / *init_boids;
+
+    //     if time < no_ghosts { return None }
+
+    //     if let Some(gq) = &mut self.ghost_queue {
+
+    //     } else {
+    //         let mut gq  = CircularQueue::with_capacity(no_ghosts * init_boids);
+
+    //         let skip = self.locations.len() - (no_ghosts + 1) * init_boids;
+ 
+            
+    //         self.ghost_queue = Some(gq);
+    //     }
+
+    //     // assuming number of agents is frozen since the beginning of the run (after start or reset)
+
+        
+
+
+    //     // let to_skip = (init_boids * (time - 1)) - (no_ghosts * init_boids);
+
+    //     todo!();
+    // }
 
     pub fn restart(&mut self) {
         self.locations.clear();
+        self.render_ticker = 0;
     }
 
     pub fn pop_data(&mut self) -> Vec<BoidData> {

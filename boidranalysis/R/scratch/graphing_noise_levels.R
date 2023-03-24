@@ -1,3 +1,4 @@
+library(RColorBrewer)
 ggplot(
   data = eta_results_stats,
   aes(x = t, y = mean_no_flocks, color = factor(eta))
@@ -17,7 +18,7 @@ ggplot(
 # ggsave(paste0("mean_no_flocks", figure_postfix), path = experiment_plot_folder, width = figure_width, height = figure_height, units = figure_units, dpi = figure_dpi)
 
 ggplot(
-  data = eta_results_stats,
+  data = eta_results_stats |> arrange(desc(eta)),
   aes(x = t, y = var_no_flocks, color = factor(eta))
 ) +
   geom_line() +
@@ -44,7 +45,7 @@ ggplot(
 # ggsave(paste0("mean_area_flock", figure_postfix), path = experiment_plot_folder, width = figure_width, height = figure_height, units = figure_units, dpi = figure_dpi)
 
 ggplot(
-  data = eta_results_stats
+  data = eta_results_stats,
     # filter ((eta * 100) %% 5 == 0),
   aes(x = t, y = var_convex_hull, color = eta)
 ) +
@@ -60,8 +61,8 @@ ggplot(
 
 
 ggplot(
-  data = eta_results_stats,
-  aes(x = t, y = mean_average_norm_vel, color = eta)
+  data = eta_results_stats |> arrange(desc(eta)),
+  aes(x = t, y = mean_average_norm_vel, color = eta, alpha = .8)
 ) +
   geom_line() +
   theme_bw() +
@@ -85,7 +86,7 @@ ggplot(
 # ggsave(paste0("var_avg_norm_vel", figure_postfix), path = experiment_plot_folder, width = figure_width, height = figure_height, units = figure_units, dpi = figure_dpi)
 
 ggplot(
-  data = eta_results_stats,
+  data = eta_results_stats |> arrange(desc(eta)),
   aes(x = t, y = mean_voronoi_counts, color = eta)
 ) +
   geom_line() +
@@ -97,7 +98,7 @@ ggplot(
 # ggsave(paste0("mean_count_voronoi_cell_area", figure_postfix), path = experiment_plot_folder, width = figure_width, height = figure_height, units = figure_units, dpi = figure_dpi)
 
 ggplot(
-  data = eta_results_stats,
+  data = eta_results_stats |> arrange(desc(eta)),
   aes(x = t, y = var_voronoi_counts, color = eta)
 ) +
   geom_line() +

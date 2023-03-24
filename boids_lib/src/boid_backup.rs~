@@ -19,6 +19,7 @@ pub enum BoidType {
 pub struct BoidMetadata {
     pub id: usize,
     pub cluster_id: usize,
+    // pub voronoi_area: f64,
     pub clicked_neighbour_id: usize,
     pub n_neighbours: usize,
     pub accelleration_update: Vec2,
@@ -65,9 +66,9 @@ pub struct Boid {
 impl Debug for Boid {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Boid")
-            .field("id", &self.id)
-            .field("position", &self.position)
-            .finish()
+        .field("id", &self.id)
+        .field("position", &self.position)
+        .finish()
     }
 }
 impl Boid {
@@ -97,88 +98,90 @@ impl Boid {
         let mut sum = Vec2::ZERO;
 
         // if run_options.rules_impl {
-        let filtered = if !run_options.field_of_vision_on {
-            nearest_boids.to_owned()
-        } else {
-            self.filter_sight2(&nearest_boids, run_options)
-        };
+            let filtered = if !run_options.field_of_vision_on {
+                nearest_boids.to_owned()
+            } else {
+                self.filter_sight2(&nearest_boids, run_options)
+            };
 
-        if run_options.separation_on {
-            // let sep = self.separation(&filtered, run_options);
-            // if self.id == run_options.clicked_boid_id {
-            //     println!("separation: {:?}, len: {:?}", sep, sep.length());
-            // }
-            // sum += sep
-            sum += self.separation(&filtered, run_options);
-            Boid::check_for_unruly_rule(sum, "separation");
-        }
-
-        if run_options.cohesion_on && (!run_options.rules_impl || sum == Vec2::ZERO) {
-            // let cohes = self.cohesion(&filtered, run_options);
-            // if self.id == run_options.clicked_boid_id {
-            //     println!("cohesion: {:?}, len: {:?}", cohes, cohes.length());
-            // }
-            // sum += cohes;
-            sum += self.cohesion(&filtered, run_options);
-            Boid::check_for_unruly_rule(sum, "cohesion");
-        }
-
-        if run_options.alignment_on {
-            let align = self.allignment(&filtered, run_options);
-            if self.id == run_options.clicked_boid_id {
-                println!("align: {:?}, len: {:?}", align, align.length());
+            if run_options.separation_on {
+                // let sep = self.separation(&filtered, run_options);
+                // if self.id == run_options.clicked_boid_id {
+                //     println!("separation: {:?}, len: {:?}", sep, sep.length());
+                // }
+                // sum += sep
+                sum += self.separation(&filtered, run_options);
+                Boid::check_for_unruly_rule(sum, "separation");
             }
-            sum += align;
-            // sum += self.allignment(&filtered, run_options);
-            Boid::check_for_unruly_rule(sum, "allignment");
-        }
-
-        if run_options.wander_on {
-            let wander = self.wander(metadata, run_options);
-            if self.id == run_options.clicked_boid_id {
-                println!("wander: {:?}, len: {:?}", wander, wander.length());
+    
+            if !run_options.rules_impl && sum == Vec2::ZERO {
+                if run_options.cohesion_on {
+                    // let cohes = self.cohesion(&filtered, run_options);
+                    // if self.id == run_options.clicked_boid_id {
+                    //     println!("cohesion: {:?}, len: {:?}", cohes, cohes.length());
+                    // }
+                    // sum += cohes;
+                    sum += self.cohesion(&filtered, run_options);
+                    Boid::check_for_unruly_rule(sum, "cohesion");
+                }
             }
-            sum += wander;
-            // sum += self.wander(metadata, run_options);
-            Boid::check_for_unruly_rule(sum, "wander");
-        }
 
-        // this is mostly for manual manipulation when testing, is not used in experiments atm
-        if run_options.seek_target_on {
-            match run_options.seek_location {
-                Some(target) => sum = self.seek(target, run_options),
-                None => (),
+            if run_options.alignment_on {
+                // let align = self.alignment(&filtered, run_options);
+                // if self.id == run_options.clicked_boid_id {
+                //     println!("align: {:?}, len: {:?}", align, align.length());
+                // }
+                // sum += align;
+                sum += self.allignment(&filtered, run_options);
+                Boid::check_for_unruly_rule(sum, "allignment");
             }
-        }
+
+            if run_options.wander_on {
+                // let wander = self.wander(metadata, run_options);
+                // if self.id == run_options.clicked_boid_id {
+                //     println!("wander: {:?}, len: {:?}", wander, wander.length());
+                // }
+                // sum += wander;
+                sum += self.wander(metadata, run_options);
+                Boid::check_for_unruly_rule(sum, "wander");
+            }
+    
+            // this is mostly for manual manipulation when testing, is not used in experiments atm
+            if run_options.seek_target_on {
+                match run_options.seek_location {
+                    Some(target) => sum = self.seek(target, run_options),
+                    None => (),
+                }
+            }
         // } else {
-        // if run_options.separation_on {
-        //     sum += self.separation(&self.filter_sight3(&nearest_boids, run_options, run_options.separation_fov_half_cos), run_options);
-        // }
+            // if run_options.separation_on {
+            //     sum += self.separation(&self.filter_sight3(&nearest_boids, run_options, run_options.separation_fov_half_cos), run_options);
+            // }
+    
+            // if run_options.cohesion_on {
+            //     sum += self.cohesion(&self.filter_sight3(&nearest_boids, run_options, run_options.cohesion_fov_half_cos), run_options);
+            // }
+    
+            // if run_options.alignment_on {
+            //     sum += self.alignment(&self.filter_sight3(&nearest_boids, run_options, run_options.allignment_fov_half_cos), run_options);
+            // }
+            // let filtered = if !run_options.field_of_vision_on {
+            //     nearest_boids.to_owned()
+            // } else {
+            //     self.filter_sight2(&nearest_boids, run_options)
+            // };
+    
+            // if run_options.separation_on {
+            //     sum += self.separation(&filtered, run_options);
+            // }
 
-        // if run_options.cohesion_on {
-        //     sum += self.cohesion(&self.filter_sight3(&nearest_boids, run_options, run_options.cohesion_fov_half_cos), run_options);
-        // }
+            // if run_options.cohesion_on {
+            //     sum += self.cohesion(&filtered, run_options);
+            // }
 
-        // if run_options.alignment_on {
-        //     sum += self.alignment(&self.filter_sight3(&nearest_boids, run_options, run_options.allignment_fov_half_cos), run_options);
-        // }
-        // let filtered = if !run_options.field_of_vision_on {
-        //     nearest_boids.to_owned()
-        // } else {
-        //     self.filter_sight2(&nearest_boids, run_options)
-        // };
-
-        // if run_options.separation_on {
-        //     sum += self.separation(&filtered, run_options);
-        // }
-
-        // if run_options.cohesion_on {
-        //     sum += self.cohesion(&filtered, run_options);
-        // }
-
-        // if run_options.alignment_on {
-        //     sum += self.alignment(&filtered, run_options);
-        // }
+            // if run_options.alignment_on {
+            //     sum += self.alignment(&filtered, run_options);
+            // }
         // }
 
         // if run_options.wander_on {
@@ -325,24 +328,24 @@ impl Boid {
             for other in others {
                 let distance = distance_dyn_boid(self, other, &run_options);
                 if distance < run_options.separation_treshold_distance {
+
                     count += 1;
 
-                    let value = match run_options.distance {
+                    let mut value = match run_options.distance {
                         Distance::EucToroidal => {
                             tor_vec(other.position, self.position, &run_options.window)
                         }
                         Distance::EucEnclosed => self.position - other.position,
                     };
-                    
+                    value /= distance;
+
                     // res += value;
-                    
+
                     if !run_options.separation_impl_mode {
                         // value /= distance;
-                        // value /= distance;
-                        // res += value * Self::sep_scale(distance, run_options)
-                        res += value.normalize() / distance;
+                        res += value * Self::sep_scale(distance, run_options)
                     } else {
-                        res += value.normalize() * Self::scale_sigmoid(distance, run_options);
+                        res += value.normalize() * Self::sep_scale(distance, run_options);
                     }
 
                     // if !run_options.separation_impl_mode {
@@ -366,19 +369,15 @@ impl Boid {
         }
 
         if count > 0 {
-            res /= count as f32;
-            res = res.normalize();
-            // res.normalize() * run_options.separation_coefficient;
-            res *= run_options.max_speed;
-            res -= self.velocity;
-            res.clamp_length_max(run_options.max_steering);
-            res * run_options.separation_coefficient
+            // res
+            res.normalize() * run_options.separation_coefficient
+            // res.clamp_length_max(run_options.max_steering)
         } else {
             Vec2::ZERO
         }
     }
 
-    fn scale_fall_off(distance: f32, run_options: &RunOptions) -> f32 {
+    fn sep_scale(distance: f32, run_options: &RunOptions) -> f32 {
         let dist_ration = distance / run_options.separation_treshold_distance;
 
         // 0 < beta <= 1
@@ -387,18 +386,10 @@ impl Boid {
 
         // i.e. soft transition from y = 1 with a sharp turn as we approach x = 1
 
-        const ALPHA: f32 = 4.;
-        const BETA: f32 = 1.;
+        const ALPHA: f32 = 8.;
+        const BETA: f32 = 0.9;
 
         1. - BETA * E.powf(ALPHA * dist_ration - ALPHA)
-    }
-
-    fn scale_sigmoid(distance: f32, run_options: &RunOptions) -> f32 {
-        let dist_ration = distance / run_options.separation_treshold_distance;
-        const ALPHA: f32 = 15.;
-        const BETA: f32 = 0.6;
-
-        1. - (1. / ( 1. + E.powf(-ALPHA * (dist_ration - BETA))))
     }
 
     pub fn cohesion(&self, others: &Vec<&Boid>, run_options: &RunOptions) -> Vec2 {
@@ -451,13 +442,11 @@ impl Boid {
         if desired.length() == 0. {
             Vec2::new(0., 0.)
         } else {
-            desired = desired.normalize();
-            if !run_options.cohesion_impl_mode { 
-                // this is used on cohesion, Reynolds does not do this (but has other mechanics in place later in his pipeline)
-                desired *= run_options.max_speed;
-                desired -= self.velocity;
-                desired = desired.clamp_length_max(run_options.max_steering);
+            if !run_options.cohesion_impl_mode {
+                desired = desired.normalize();
+                // desired *= run_options.max_speed;
             }
+            // desired = desired.clamp_length_max(run_options.max_steering);
             desired
         }
     }
@@ -476,16 +465,10 @@ impl Boid {
 
         if count > 0. {
             avg_vel /= count;
-            // if !run_options.allignment_impl_mode {
-            //     avg_vel = avg_vel.normalize();
-            //     avg_vel *= run_options.max_speed;
-
-            // }
-            // //  else {
-            // // }
-            // avg_vel = (avg_vel - self.velocity).normalize_or_zero();
-            // avg_vel.clamp_length_max(run_options.max_steering);
-            // avg_vel * run_options.allignment_coefficient
+            // avg_vel = avg_vel.normalize();
+            // avg_vel *= run_options.max_speed;
+            avg_vel = (avg_vel - self.velocity).normalize_or_zero() * run_options.allignment_coefficient;
+            // avg_vel.clamp_length_max(run_options.max_steering)
             avg_vel
         } else {
             Vec2::new(0.0, 0.0)
@@ -520,7 +503,11 @@ impl Boid {
         }
     }
 
-    pub fn wander(&self, metadata: &Vec<BoidMetadata>, run_options: &RunOptions) -> Vec2 {
+    pub fn wander(
+        &self,
+        metadata: &Vec<BoidMetadata>,
+        run_options: &RunOptions,
+    ) -> Vec2 {
         match run_options.noise_model {
             crate::options::NoiseModel::Reynolds => {
                 // the current velocity vector normalized
@@ -596,6 +583,11 @@ impl Boid {
         if !run_options.stop_movement {
             self.position += self.velocity * run_options.baseline_speed;
         }
+
+        if self.position.x.is_infinite() || self.position.x.is_nan() || self.position.y.is_infinite() || self.position.y.is_nan() {
+            panic!("I SMELL SHEIT");
+        }
+
 
         self.acceleration *= 0.0;
 

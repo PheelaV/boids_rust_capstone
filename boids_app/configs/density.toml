@@ -1,3 +1,4 @@
+baseline_speed = 1.0
 no_boids = 256
 sample_rate = 4
 save = true

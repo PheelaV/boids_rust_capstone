@@ -54,10 +54,9 @@ pub struct RunOptions {
     pub allignment_impl_mode: bool,
     pub cohesion_impl_mode: bool,
     pub separation_impl_mode: bool,
-    pub clustering_impl: bool,
     pub col_by_neighbour: bool,
 
-    pub sep_bias: bool,
+    pub rules_impl: bool,
 
     pub field_of_vision_on: bool,
     pub field_of_vision_deg: f32,
@@ -74,7 +73,7 @@ pub struct RunOptions {
     pub cohesion_fov_half_cos: f32,
     pub separation_fov_half_cos: f32,
 
-    pub sample_rate: u64,
+    pub sample_rate: u16,
     pub dbscan_flock_clustering_on: bool,
     pub neighbours_cosidered: usize,
     pub stop_movement: bool,
@@ -145,7 +144,7 @@ impl Default for RunOptions {
         let field_of_vision_half_rad = 3. / 4. * std::f32::consts::PI / 2.;
         let field_of_vision_deg = 1. * 180. + 1.;
 
-        let sample_rate = 1u64;
+        let sample_rate = 1_u16;
 
         let mut res = RunOptions {
             init_boids,
@@ -180,18 +179,23 @@ impl Default for RunOptions {
             boundary: Boundary::Toroidal,
             // boundary: Boundary::Repulsive{distance: 100., force: 0.05},
             // boundary: Boundary::Reflective,
-            distance: Distance::EucToroidal,
-            // distance: Distance::EucEnclosed,
+            // distance: Distance::EucToroidal,
+            distance: Distance::EucEnclosed,
             noise_model: NoiseModel::Reynolds,
-            // tracker_type: TrackerType::Replay("./boids-data_1677829114108.csv".to_owned()),
-            // tracker_type: TrackerType::Replay("/Users/filipvlcek/Source/Repos/boids_rust/boidranalysis/Data/0307_experiment2_e1_6/boids-data_1678243239806.csv".to_owned()),
-            // tracker_type: TrackerType::Replay("/Users/filipvlcek/Source/Repos/boids_rust/boidranalysis/Data/0307_experiment2_e1_6/boids-data_1678243967602.csv".to_owned()),
+            // tracker_type: TrackerType::Naive,
             tracker_type: TrackerType::SpatHash,
+            // tracker_type: TrackerType::Replay("boids-data.csv".to_owned(), 0), // demo
+            // tracker_type: TrackerType::Replay("/Users/filipvlcek/Source/Repos/boids_rust/boidranalysis/Data/0318_experiment2_a2/prepro_boids-data_1679117619532.csv".to_owned(), 0),
+            // tracker_type: TrackerType::Replay("boids-data_1679316314043.csv".to_owned(), 0), // demo
+            // tracker_type: TrackerType::Replay("boids-data_1.csv".to_owned(), 0), // demo
+            // tracker_type: TrackerType::Replay("boids-data_2.csv".to_owned(), 0), // demo
+            // tracker_type: TrackerType::Replay("boids-data_3.csv".to_owned(), 0), // demok
+            // tracker_type: TrackerType::Replay("/Users/filipvlcek/Source/Repos/boids_rust/boidranalysis/Data/0324_experiment2_k_11/prepro_boids-data_1679672635630.csv".to_owned(), 0),
+            // tracker_type: TrackerType::Replay("/Users/filipvlcek/Source/Repos/boids_rust/boidranalysis/Data/0324_experiment2_k_01/prepro_boids-data_1679666885599.csv".to_owned(), 0),
             clicked_boid_id: std::usize::MAX,
             allignment_impl_mode: false,
             cohesion_impl_mode: false,
             separation_impl_mode: false,
-            clustering_impl: false,
             col_by_neighbour: false,
             field_of_vision_on,
             field_of_vision_deg,
@@ -214,7 +218,7 @@ impl Default for RunOptions {
             allignment_fov_half_cos: 0.,
             cohesion_fov_half_cos: 0.,
             separation_fov_half_cos: 0.,
-            sep_bias: false,
+            rules_impl: false,
         };
 
         res.update_sensory_distances();
@@ -289,6 +293,7 @@ pub enum Boundary {
     Absorbing,
     Reflective,
     Repulsive { distance: f32, force: f32 },
+    RepulsiveCircle { radius: f32}
 }
 
 #[derive(Debug, PartialEq, Copy, Clone, Serialize, Deserialize)]
@@ -311,7 +316,7 @@ pub enum NoiseModel {
 pub enum TrackerType {
     SpatHash,
     Naive,
-    Replay(String)
+    Replay(String, u64)
 }
 
 #[derive(Debug, Clone)]

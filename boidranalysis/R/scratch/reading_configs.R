@@ -20,7 +20,7 @@ min_speed = .5,
 max_speed = 2.,
 max_steering = .65,
 dbscan_clustering = T,
-boundary_config = "{\"type\": \"Thoroidal\"}"
+boundary_config = "{\"type\": \"Toroidal\"}"
 )
 
 test_config$init_boids = config$no_boids
@@ -39,7 +39,7 @@ test_config$min_speed = config$min_speed
 test_config$max_speed = config$max_speed
 test_config$max_steering = config$max_steering
 test_config$dbscan_clustering = TRUE
-test_config$boundary_config = "{\"type\": \"Thoroidal\"}"
+test_config$boundary_config = "{\"type\": \"Toroidal\"}"
 
 
 rlang::exec(flock_detailed, !!!test_config)
@@ -73,7 +73,7 @@ get_config <- function(config_name) {
   converted_config$max_speed = config$max_speed
   converted_config$max_steering = config$max_steering
   converted_config$dbscan_clustering = TRUE
-  converted_config$boundary_config = "{\"type\": \"Thoroidal\"}"
+  converted_config$boundary_config = "{\"type\": \"Toroidal\"}"
 
   return(converted_config)
 }

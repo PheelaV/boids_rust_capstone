@@ -196,13 +196,16 @@ name = "boids_app"
 version = "0.1.0"
 dependencies = [
  "boids_lib",
+ "circular-queue",
  "clap 4.1.6",
  "clap-serde-derive",
  "csv",
+ "itertools",
  "nannou",
  "nannou_egui",
  "serde",
  "serde_yaml",
+ "splines",
  "toml 0.7.2",
 ]
 
@@ -305,6 +308,15 @@ dependencies = [
  "time",
  "wasm-bindgen",
  "winapi",
+]
+
+[[package]]
+name = "circular-queue"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d34327ead1c743a10db339de35fb58957564b99d248a67985c55638b22c59b5"
+dependencies = [
+ "version_check",
 ]
 
 [[package]]
@@ -2988,6 +3000,15 @@ checksum = "246bfa38fe3db3f1dfc8ca5a2cdeb7348c78be2112740cc0ec8ef18b6d94f830"
 dependencies = [
  "bitflags",
  "num-traits",
+]
+
+[[package]]
+name = "splines"
+version = "4.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "345f11dca845086e60f1076569dedb4c2026e8dfe420d2900de8683142480bcf"
+dependencies = [
+ "glam",
 ]
 
 [[package]]

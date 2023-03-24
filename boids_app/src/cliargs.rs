@@ -28,31 +28,35 @@ pub struct Args{
 /// Uses defaults, which can be overwritten by specifying a filepath for the `-c` or `--config` arg option
 #[derive(ClapSerde, Serialize)]
 pub struct Config{
-     
-    #[default(8)]
+    #[default(1.)]
+    #[arg(short = 'b', long)]
+    /// number of boids
+    pub baseline_speed: f32,
+
+    #[default(128)]
     #[arg(short = 'n', long)]
     /// number of boids
     pub no_boids: usize,
 
-    #[default(4)]
+    #[default(32)]
     #[arg(short = 'r', long)]
     /// ratio of renders/sample_rate, e,g, 4 = sample every 4th render
-    pub sample_rate: u64,
+    pub sample_rate: u16,
 
     #[default(true)]
     #[arg(short = 's', long)]
     pub save: bool,
     
-    #[default(false)]
+    #[default(true)]
     #[arg(short = 't', long)]
     pub save_timestamp: bool,
    
     // #[default(1350)]
-    #[default(280)]
+    #[default(700)]
     #[arg(short = 'x', long)]
     pub init_width: u32,
     
-    #[default(280)]
+    #[default(700)]
     #[arg(short = 'y', long)]
     pub init_height: u32,
 
@@ -60,13 +64,16 @@ pub struct Config{
     #[arg(long = "sens_dist")]
     pub sensory_distance: f32,
 
-    #[default(0.02)]
+    // #[default(0.02)]
+    #[default(0.7)]
     #[arg(long = "ali_coef")]
     pub allignment_coefficient: f32,
-    #[default(0.002)]
+    // #[default(0.002)]
+    #[default(0.3)]
     #[arg(long = "coh_coef")]
     pub cohesion_coefficient: f32,
-    #[default(4.1)]
+    // #[default(4.1)]
+    #[default(4.)]
     #[arg(long = "sep_coef")]
     pub separation_coefficient: f32,
 
@@ -80,25 +87,25 @@ pub struct Config{
     #[arg(long = "sep_trs_coef")]
     pub separation_treshold_coefficient: f32,
 
-    #[default(0.65)]
+    #[default(1.)]
     #[arg(long = "min_speed")]
     pub min_speed: f32,
-    #[default(2.35)]
+    #[default(1.)]
     #[arg(long = "max_speed")]
     pub max_speed: f32,
     #[default(0.65)]
     #[arg(long = "max_steering")]
     pub max_steering: f32,
-    #[default(180.)]
+    #[default(220.)]
     #[arg(long = "fov")]
     pub field_of_vision: f32,
-    #[default(false)]
+    #[default(true)]
     #[arg(long = "dbscan")]
     pub dbscan_flock_clustering_on: bool,
-    #[default(false)]
+    #[default(true)]
     #[arg(long = "wander")]
     pub wander_on: bool, 
-    #[default(0.03)]
+    #[default(0.2)]
     #[arg(long = "wrate")]
     pub wander_rate: f32, 
     #[default(5.2)]
@@ -115,6 +122,6 @@ pub struct Config{
     /// number of boids
     pub size: f32, 
     #[default(true)]
-    #[arg(long = "sep_bias")]
-    pub sep_bias: bool,
+    #[arg(long = "rules_impl")]
+    pub rules_impl: bool,
 }

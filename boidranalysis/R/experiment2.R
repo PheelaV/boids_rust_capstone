@@ -567,7 +567,7 @@ tryCatch(
 )
 toc()
 
-tic("0318_experiment2_a12 start")
+tic("experiment2_a12 start")
 
 config <- get_config(
   "basic2.toml",
@@ -585,7 +585,7 @@ config <- get_config(
 no_cores <- 8
 experiment_no_simulations <- 120
 tryCatch(
-  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0318_experiment2_a12")
+  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0319_experiment2_a12")
 )
 toc()
 
@@ -604,10 +604,10 @@ config <- get_config(
   )
 )
 
-no_cores <- 6
+no_cores <- 8
 experiment_no_simulations <- 120
 
-run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0318_experiment2_a2")
+run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0319_experiment2_a2")
 toc()
 
 tic("experiment2_a3 start")
@@ -625,12 +625,129 @@ config <- get_config(
   )
 )
 
-no_cores <- 6
+no_cores <- 8
 experiment_no_simulations <- 120
 
-run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0318_experiment2_a3")
+run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0319_experiment2_a3")
 toc()
 
+tic("experiment3_a12 start")
+
+config <- get_config(
+  "basic3-blows.toml",
+  overwrite = list(
+    init_boids = 2^10,
+    no_iter = 2^15,
+    init_width = 1000,
+    init_height = 1000,
+    sample_rate = 32,
+    boundary_config = "{\"type\": \"Toroidal\"}",
+    distance_config = "{\"type\": \"EucEnclosed\"}"
+    # dbscan_clustering = FALSE
+  )
+)
+
+print(Sys.setenv(RUST_BACKTRACE = "1"))  # `A+C` could also be used
+Sys.getenv("RUST_BACKTRACE")
+no_cores <- 6
+experiment_no_simulations <- 36
+tryCatch(
+  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "00_test_0323_experiment3_a12")
+)
+Sys.unsetenv("RUST_BACKTRACE") #
+toc()
+
+tic("experiment2_a2 start")
+
+config <- get_config(
+  "basic3.toml",
+  overwrite = list(
+    init_boids = 2^10,
+    no_iter = 2^15,
+    init_width = 1000,
+    init_height = 1000,
+    sample_rate = 32,
+    boundary_config = "{\"type\": \"Toroidal\"}",
+    distance_config = "{\"type\": \"EucToroidal\"}"
+  )
+)
+
+no_cores <- 8
+experiment_no_simulations <- 120
+
+run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0323_experiment3_a2")
+toc()
+
+tic("experiment3_a3 start")
+
+config <- get_config(
+  "basic3.toml",
+  overwrite = list(
+    init_boids = 2^10,
+    no_iter = 2^15,
+    init_width = 1000,
+    init_height = 1000,
+    sample_rate = 32,
+    boundary_config = "{\"type\": \"Reflective\"}",
+    distance_config = "{\"type\": \"EucEnclosed\"}"
+  )
+)
+
+no_cores <- 8
+experiment_no_simulations <- 120
+
+run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0323_experiment3_a3")
+toc()
+
+tic("0324_experiment3_a4 start")
+
+config <- get_config(
+  "basic3.toml",
+  overwrite = list(
+    init_boids = 2^10,
+    no_iter = 2^15,
+    init_width = 1000,
+    init_height = 1000,
+    sample_rate = 32,
+    boundary_config = "{\"type\": \"Toroidal\"}",
+    distance_config = "{\"type\": \"EucToroidal\"}",
+    allignment_coef = 0.6,
+    cohesion_coef = 0.2,
+    separation_coef = 1.0,
+    wander_on = FALSE
+  )
+)
+
+no_cores <- 8
+experiment_no_simulations <- 60
+
+run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0324_experiment3_a4")
+toc()
+
+tic("0324_experiment3_a5 start")
+
+config <- get_config(
+  "basic3.toml",
+  overwrite = list(
+    init_boids = 2^10,
+    no_iter = 2^15,
+    init_width = 1000,
+    init_height = 1000,
+    sample_rate = 32,
+    boundary_config = "{\"type\": \"Reflective\"}",
+    distance_config = "{\"type\": \"EucEnclosed\"}",
+    allignment_coef = 0.6,
+    cohesion_coef = 0.2,
+    separation_coef = 1.0,
+    wander_on = FALSE
+  )
+)
+
+no_cores <- 6
+experiment_no_simulations <- 60
+
+run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0324_experiment3_a5")
+toc()
 
 
 
@@ -652,10 +769,10 @@ config <- get_config(
   )
 )
 
-no_cores <- 6
+no_cores <- 8
 experiment_no_simulations <- 120
 tryCatch(
-  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0301_experiment2_b1")
+  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0319_experiment2_b1")
 )
 toc()
 
@@ -680,7 +797,7 @@ config <- get_config(
 no_cores <- 6
 experiment_no_simulations <- 120
 tryCatch(
-  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0301_experiment2_b2")
+  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0319_experiment2_b2")
 )
 toc()
 
@@ -900,7 +1017,7 @@ config <- get_config(
     sample_rate = 32,
     boundary_config = "{\"type\": \"Toroidal\"}",
     distance_config = "{\"type\": \"EucToroidal\"}",
-    sep_bias = TRUE
+    rules_impl = TRUE
   )
 )
 no_cores <- 6
@@ -911,7 +1028,7 @@ tryCatch(
 toc()
 
 for (eta in 0:30) {
-  name <- paste0("0314_experiment2_g_", sprintf("%02d", eta))
+  name <- paste0("0319_experiment2_g_", sprintf("%02d", eta))
   tic(name)
 
   print(name)
@@ -926,7 +1043,7 @@ for (eta in 0:30) {
       sample_rate = 32,
       boundary_config = "{\"type\": \"Toroidal\"}",
       distance_config = "{\"type\": \"EucToroidal\"}",
-      sep_bias = TRUE,
+      rules_impl = TRUE,
       wander_coef = eta/100
     )
   )
@@ -940,7 +1057,7 @@ for (eta in 0:30) {
 
 eta_results_stats = tibble()
 for (eta in 0:30) {
-  name <- paste0("Data/0314_experiment2_g_", sprintf("%02d", eta))
+  name <- paste0("Data/0319_experiment2_g_", sprintf("%02d", eta))
 
   eta_results_stats <- eta_results_stats %>% bind_rows(
     read_csv(paste0(name, "/results_stats.csv")) %>%
@@ -949,7 +1066,7 @@ for (eta in 0:30) {
 }
 
 # h and i are the same, except for decreased no_iter
-tic("0314_experiment2_i1 start")
+tic("experiment2_i1 start")
 config <- get_config(
   "string_s.toml",
   overwrite = list(
@@ -960,14 +1077,119 @@ config <- get_config(
     sample_rate = 32,
     boundary_config = "{\"type\": \"Toroidal\"}",
     distance_config = "{\"type\": \"EucToroidal\"}",
-    sep_bias = TRUE
+    rules_impl = TRUE
   )
 )
 
 no_cores <- 2
 experiment_no_simulations <- 8
 tryCatch(
-  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0314_experiment2_i1")
+  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0319_experiment2_i1")
 )
 
+for (d in 1:10) {
+  densities = c(31.25, 44.19417382,54.12658774,62.5,69.8771243,76.54655446,82.67972847,88.38834765,93.75,98.82117688)
+  name <- paste0("0324_experiment2_j_", sprintf("%02d", d))
+  tic(name)
 
+  print(name)
+  config <- get_config(
+    "vicsek.toml",
+    overwrite = list(
+      init_boids = 2^10,
+      no_iter = 2^15,
+      init_width = 1000,
+      init_height = 1000,
+      sample_rate = 32,
+      boundary_config = "{\"type\": \"Toroidal\"}",
+      distance_config = "{\"type\": \"EucToroidal\"}",
+      rules_impl = TRUE,
+      sensory_distance = densities[d],
+      field_of_vision = 360.0
+    )
+  )
+  no_cores <- 8
+  experiment_no_simulations <- 8
+  tryCatch(
+    expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = name)
+  )
+  toc()
+}
+
+noise_results_stats = tibble()
+for (d in 1:10) {
+  densities = c(31.25, 44.19417382,54.12658774,62.5,69.8771243,76.54655446,82.67972847,88.38834765,93.75,98.82117688)
+  name <- paste0("Data/0324_experiment2_j_", sprintf("%02d", d))
+
+  noise_results_stats <- noise_results_stats %>% bind_rows(
+    read_csv(paste0(name, "/results_stats.csv")) %>%
+      mutate(density = densities[d])
+  )
+}
+noise_results_stats |>
+  group_by(density) |>
+  reframe(mean_average_norm_vel = mean(mean_average_norm_vel)) |>
+  select(density, mean_average_norm_vel) |>
+  ggplot(aes(x = density, y = mean_average_norm_vel)) +
+  geom_point()
+
+
+for (d in 11:19) {
+  sensory_distances = c(
+    # initial run
+    c(31.25, 44.19417382,54.12658774,62.5,69.8771243,76.54655446,82.67972847,88.38834765,93.75,98.82117688),
+    # afterwards searching for more detail in between [1.1, 1.9]
+    c(33.1662479, 34.64101615, 36.05551275, 37.41657387, 38.72983346, 40, 41.23105626, 42.42640687, 43.58898944)
+  )
+  name <- paste0("0324_experiment2_k_", sprintf("%02d", d))
+  tic(name)
+
+  print(name)
+  config <- get_config(
+    "vicsek.toml",
+    overwrite = list(
+      init_boids = 2^10,
+      no_iter = 2^15,
+      init_width = 1000,
+      init_height = 1000,
+      sample_rate = 32,
+      boundary_config = "{\"type\": \"Toroidal\"}",
+      distance_config = "{\"type\": \"EucToroidal\"}",
+      rules_impl = TRUE,
+      sensory_distance = sensory_distances[d],
+      field_of_vision = 360.0
+    )
+  )
+  no_cores <- 6
+  experiment_no_simulations <- 8
+  tryCatch(
+    expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = name)
+  )
+  toc()
+}
+
+noise_results_stats = tibble()
+for (d in 11:19) {
+
+  sensory_distances = c(
+    # initial run
+    c(31.25, 44.19417382,54.12658774,62.5,69.8771243,76.54655446,82.67972847,88.38834765,93.75,98.82117688),
+    # afterwards searching for more detail in between [1.1, 1.9]
+    c(33.1662479, 34.64101615, 36.05551275, 37.41657387, 38.72983346, 40, 41.23105626, 42.42640687, 43.58898944)
+  )
+  densities = c(1:10, c(1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9))
+  name <- paste0("Data/0324_experiment2_k_", sprintf("%02d", d))
+
+  noise_results_stats <- noise_results_stats %>% bind_rows(
+    read_csv(paste0(name, "/results_stats.csv")) %>%
+      mutate(density = densities[d], sensory_distance = sensory_distances[d])
+  )
+}
+noise_results_stats |>
+  group_by(density) |>
+  reframe(mean_average_norm_vel = mean(mean_average_norm_vel)) |>
+  select(density, mean_average_norm_vel) |>
+  ggplot(aes(x = density, y = mean_average_norm_vel)) +
+  labs(title = "Density (p) vs mean average norm vel") +
+  geom_point(size = 2) +
+  geom_line()

@@ -13,6 +13,10 @@ csv = "1.1.6"
 clap-serde-derive = "0.2.0"
 serde_yaml = "0.9.14"
 toml = "0.7.1"
+splines = { version = "4.2.0", features = [ "glam"]}
+itertools = "0.10.5"
+circular-queue = "0.2.6"
+
 # glam = "0.23.0"
 
 [profile.release]

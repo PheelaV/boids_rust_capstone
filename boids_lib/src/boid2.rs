@@ -8,17 +8,17 @@ use crate::{
     options::{Boundary, Distance, RunOptions},
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)]
 pub enum BoidType {
     Mob,
     Disruptor,
-    Ghost,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct BoidMetadata {
     pub id: usize,
     pub cluster_id: usize,
+    // pub voronoi_area: f64,
     pub clicked_neighbour_id: usize,
     pub n_neighbours: usize,
     pub accelleration_update: Vec2,
@@ -65,9 +65,8 @@ pub struct Boid {
 impl Debug for Boid {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Boid")
-            .field("id", &self.id)
-            .field("position", &self.position)
-            .finish()
+        .field("id", &self.id)
+        .finish()
     }
 }
 impl Boid {
@@ -96,90 +95,38 @@ impl Boid {
     ) -> Vec2 {
         let mut sum = Vec2::ZERO;
 
-        // if run_options.rules_impl {
-        let filtered = if !run_options.field_of_vision_on {
-            nearest_boids.to_owned()
+        if run_options.sep_bias {
+            let filtered = if !run_options.field_of_vision_on {
+                nearest_boids.to_owned()
+            } else {
+                self.filter_sight2(&nearest_boids, run_options)
+            };
+    
+            if run_options.separation_on {
+                sum += self.separation(&filtered, run_options);
+            }
+    
+            if sum == Vec2::ZERO {
+                if run_options.cohesion_on {
+                    sum += self.cohesion(&filtered, run_options);
+                }
+            }
+            if run_options.alignment_on {
+                sum += self.alignment(&filtered, run_options);
+            }
         } else {
-            self.filter_sight2(&nearest_boids, run_options)
-        };
-
-        if run_options.separation_on {
-            // let sep = self.separation(&filtered, run_options);
-            // if self.id == run_options.clicked_boid_id {
-            //     println!("separation: {:?}, len: {:?}", sep, sep.length());
-            // }
-            // sum += sep
-            sum += self.separation(&filtered, run_options);
-            Boid::check_for_unruly_rule(sum, "separation");
-        }
-
-        if run_options.cohesion_on && (!run_options.rules_impl || sum == Vec2::ZERO) {
-            // let cohes = self.cohesion(&filtered, run_options);
-            // if self.id == run_options.clicked_boid_id {
-            //     println!("cohesion: {:?}, len: {:?}", cohes, cohes.length());
-            // }
-            // sum += cohes;
-            sum += self.cohesion(&filtered, run_options);
-            Boid::check_for_unruly_rule(sum, "cohesion");
-        }
-
-        if run_options.alignment_on {
-            let align = self.allignment(&filtered, run_options);
-            if self.id == run_options.clicked_boid_id {
-                println!("align: {:?}, len: {:?}", align, align.length());
+            if run_options.separation_on {
+                sum += self.separation(&self.filter_sight3(&nearest_boids, run_options, run_options.separation_fov_half_cos), run_options);
             }
-            sum += align;
-            // sum += self.allignment(&filtered, run_options);
-            Boid::check_for_unruly_rule(sum, "allignment");
-        }
-
-        if run_options.wander_on {
-            let wander = self.wander(metadata, run_options);
-            if self.id == run_options.clicked_boid_id {
-                println!("wander: {:?}, len: {:?}", wander, wander.length());
+    
+            if run_options.cohesion_on {
+                sum += self.cohesion(&self.filter_sight3(&nearest_boids, run_options, run_options.cohesion_fov_half_cos), run_options);
             }
-            sum += wander;
-            // sum += self.wander(metadata, run_options);
-            Boid::check_for_unruly_rule(sum, "wander");
-        }
-
-        // this is mostly for manual manipulation when testing, is not used in experiments atm
-        if run_options.seek_target_on {
-            match run_options.seek_location {
-                Some(target) => sum = self.seek(target, run_options),
-                None => (),
+    
+            if run_options.alignment_on {
+                sum += self.alignment(&self.filter_sight3(&nearest_boids, run_options, run_options.allignment_fov_half_cos), run_options);
             }
         }
-        // } else {
-        // if run_options.separation_on {
-        //     sum += self.separation(&self.filter_sight3(&nearest_boids, run_options, run_options.separation_fov_half_cos), run_options);
-        // }
-
-        // if run_options.cohesion_on {
-        //     sum += self.cohesion(&self.filter_sight3(&nearest_boids, run_options, run_options.cohesion_fov_half_cos), run_options);
-        // }
-
-        // if run_options.alignment_on {
-        //     sum += self.alignment(&self.filter_sight3(&nearest_boids, run_options, run_options.allignment_fov_half_cos), run_options);
-        // }
-        // let filtered = if !run_options.field_of_vision_on {
-        //     nearest_boids.to_owned()
-        // } else {
-        //     self.filter_sight2(&nearest_boids, run_options)
-        // };
-
-        // if run_options.separation_on {
-        //     sum += self.separation(&filtered, run_options);
-        // }
-
-        // if run_options.cohesion_on {
-        //     sum += self.cohesion(&filtered, run_options);
-        // }
-
-        // if run_options.alignment_on {
-        //     sum += self.alignment(&filtered, run_options);
-        // }
-        // }
 
         // if run_options.wander_on {
         //     sum += self.wander(&filtered, metadata, run_options);
@@ -193,6 +140,16 @@ impl Boid {
         //     sum += self.alignment(&filtered, run_options);
         // }
 
+        if run_options.wander_on {
+            sum += self.wander(metadata, run_options);
+        }
+
+        if run_options.seek_target_on {
+            match run_options.seek_location {
+                Some(target) => sum = self.seek(target, run_options),
+                None => (),
+            }
+        }
         // match metadata[self.id].boid_type {
         //     BoidType::Mob => (),
         //     BoidType::Disruptor => {
@@ -202,12 +159,44 @@ impl Boid {
         // }
 
         // dbg!("{:?}", sum);
-        // sum = sum.
-        // if self.id == run_options.clicked_boid_id {
-        //     println!("sum: {:?}, len: {:?}", sum, sum.length());
-        // }
         sum
     }
+
+    // pub fn filter_sight<'a>(&self, others: &[&'a Boid], run_options: &RunOptions) -> Vec<&'a Boid> {
+    //     let res: Vec<&Boid> = others
+    //         .iter()
+    //         .filter(|b_other| {
+    //             if self.id == b_other.id {
+    //                 return false;
+    //             }
+
+    //             let vec_to_other = b_other.position - self.position;
+
+    //             if vec_to_other.length() < 0.01 {
+    //                 return false;
+    //             }
+
+    //             let atan2_self = self.velocity.y.atan2(self.velocity.x);
+    //             let atan2_other = vec_to_other.y.atan2(vec_to_other.x);
+    //             let mut atan2_diff = atan2_other - atan2_self;
+
+    //             // normalize
+    //             atan2_diff = if atan2_diff > PI {
+    //                 atan2_diff - 2. * PI
+    //             } else if atan2_diff <= -1. * PI {
+    //                 atan2_diff + 2. * PI
+    //             } else {
+    //                 atan2_diff
+    //             };
+
+    //             run_options.field_of_vision_on
+    //                 && atan2_diff.abs() < run_options.field_of_vision_half_rad
+    //         })
+    //         .map(|b| *b)
+    //         .collect();
+
+    //     res
+    // }
 
     pub fn filter_sight2<'a>(
         &self,
@@ -325,24 +314,29 @@ impl Boid {
             for other in others {
                 let distance = distance_dyn_boid(self, other, &run_options);
                 if distance < run_options.separation_treshold_distance {
+                    // todo: delete
+                    // if self.id == run_options.clicked_boid_id {
+                    //     println!("debug")
+                    // }
                     count += 1;
 
-                    let value = match run_options.distance {
+                    let mut value = match run_options.distance {
                         Distance::EucToroidal => {
                             tor_vec(other.position, self.position, &run_options.window)
                         }
                         Distance::EucEnclosed => self.position - other.position,
                     };
-                    
-                    // res += value;
-                    
+                    value /= distance;
+
+                    // res += value.normalize();
+                    res += value;
+
                     if !run_options.separation_impl_mode {
                         // value /= distance;
-                        // value /= distance;
-                        // res += value * Self::sep_scale(distance, run_options)
-                        res += value.normalize() / distance;
+                        res += value.normalize();
                     } else {
-                        res += value.normalize() * Self::scale_sigmoid(distance, run_options);
+                        res += (self.position - other.position)
+                            * Self::sep_scale(distance, run_options)
                     }
 
                     // if !run_options.separation_impl_mode {
@@ -362,23 +356,17 @@ impl Boid {
             //     res /= count as f32;
             // }
 
-            // res *= run_options.separation_coefficient;
+            res *= run_options.separation_coefficient;
         }
 
         if count > 0 {
-            res /= count as f32;
-            res = res.normalize();
-            // res.normalize() * run_options.separation_coefficient;
-            res *= run_options.max_speed;
-            res -= self.velocity;
-            res.clamp_length_max(run_options.max_steering);
-            res * run_options.separation_coefficient
+            res.clamp_length_max(run_options.max_steering)
         } else {
             Vec2::ZERO
         }
     }
 
-    fn scale_fall_off(distance: f32, run_options: &RunOptions) -> f32 {
+    fn sep_scale(distance: f32, run_options: &RunOptions) -> f32 {
         let dist_ration = distance / run_options.separation_treshold_distance;
 
         // 0 < beta <= 1
@@ -387,18 +375,10 @@ impl Boid {
 
         // i.e. soft transition from y = 1 with a sharp turn as we approach x = 1
 
-        const ALPHA: f32 = 4.;
-        const BETA: f32 = 1.;
+        const ALPHA: f32 = 8.;
+        const BETA: f32 = 0.9;
 
         1. - BETA * E.powf(ALPHA * dist_ration - ALPHA)
-    }
-
-    fn scale_sigmoid(distance: f32, run_options: &RunOptions) -> f32 {
-        let dist_ration = distance / run_options.separation_treshold_distance;
-        const ALPHA: f32 = 15.;
-        const BETA: f32 = 0.6;
-
-        1. - (1. / ( 1. + E.powf(-ALPHA * (dist_ration - BETA))))
     }
 
     pub fn cohesion(&self, others: &Vec<&Boid>, run_options: &RunOptions) -> Vec2 {
@@ -451,42 +431,33 @@ impl Boid {
         if desired.length() == 0. {
             Vec2::new(0., 0.)
         } else {
-            desired = desired.normalize();
-            if !run_options.cohesion_impl_mode { 
-                // this is used on cohesion, Reynolds does not do this (but has other mechanics in place later in his pipeline)
+            if run_options.cohesion_impl_mode {
+                desired = desired.normalize();
                 desired *= run_options.max_speed;
-                desired -= self.velocity;
-                desired = desired.clamp_length_max(run_options.max_steering);
             }
+            desired = desired.clamp_length_max(run_options.max_steering);
             desired
         }
     }
 
-    pub fn allignment(&self, others: &Vec<&Boid>, run_options: &RunOptions) -> Vec2 {
-        let mut avg_vel = Vec2::ZERO;
+    pub fn alignment(&self, others: &Vec<&Boid>, run_options: &RunOptions) -> Vec2 {
+        let mut avg = Vec2::ZERO;
         let mut count = 0.;
 
         for other in others {
             let distance = distance_dyn_boid(self, other, &run_options);
             if distance < run_options.allignment_treshold_distance {
-                avg_vel += other.velocity;
+                avg += other.velocity;
                 count += 1.;
             }
         }
 
         if count > 0. {
-            avg_vel /= count;
-            // if !run_options.allignment_impl_mode {
-            //     avg_vel = avg_vel.normalize();
-            //     avg_vel *= run_options.max_speed;
-
-            // }
-            // //  else {
-            // // }
-            // avg_vel = (avg_vel - self.velocity).normalize_or_zero();
-            // avg_vel.clamp_length_max(run_options.max_steering);
-            // avg_vel * run_options.allignment_coefficient
-            avg_vel
+            avg /= count;
+            avg = avg.normalize();
+            avg *= run_options.max_speed;
+            avg = (avg - self.velocity) * run_options.allignment_coefficient;
+            avg.clamp_length_max(run_options.max_steering)
         } else {
             Vec2::new(0.0, 0.0)
         }
@@ -520,7 +491,11 @@ impl Boid {
         }
     }
 
-    pub fn wander(&self, metadata: &Vec<BoidMetadata>, run_options: &RunOptions) -> Vec2 {
+    pub fn wander(
+        &self,
+        metadata: &Vec<BoidMetadata>,
+        run_options: &RunOptions,
+    ) -> Vec2 {
         match run_options.noise_model {
             crate::options::NoiseModel::Reynolds => {
                 // the current velocity vector normalized
@@ -606,12 +581,6 @@ impl Boid {
         self.acceleration += force;
     }
 
-    fn check_for_unruly_rule(v: Vec2, rule_name: &str) {
-        if v.x.is_infinite() || v.x.is_nan() || v.x.is_infinite() || v.x.is_nan() {
-            panic!("the faulty rule is: {}, the faulty bits are: x fin: {}, x nan: {}, y fin: {}, y nan; {}", rule_name, v.x.is_infinite(), v.x.is_nan(), v.x.is_infinite(), v.x.is_nan())
-        }
-    }
-
     fn boundaries(&mut self, run_options: &RunOptions) {
         match run_options.boundary {
             Boundary::Toroidal => {
@@ -678,7 +647,6 @@ impl Boid {
                     self.acceleration.y += force;
                 }
             }
-            Boundary::RepulsiveCircle { radius: _ } => todo!(),
         };
     }
 }

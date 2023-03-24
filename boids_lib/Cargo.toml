@@ -39,7 +39,6 @@ itertools = "0.10.5"
 voronoice = "0.2.0"
 thiserror = "1.0.39"
 
-
 [dev-dependencies]
 criterion ={ version = "0.3", features = ["html_reports"]}
 rstest = "0.16.0"

@@ -1,4 +1,4 @@
-use std::{collections::{HashSet, HashMap}, f32::consts::PI, iter};
+use std::{collections::{HashSet, HashMap}, f32::consts::PI, iter, any::Any};
 
 use glam::Vec2;
 use itertools::Itertools;
@@ -6,7 +6,7 @@ use rand::Rng;
 
 use crate::{options::{RunOptions, Distance}, boid::{BoidMetadata, Boid}, math_helpers::distance_dyn_boid};
 
-use super::{Tracker, MY_RNG, get_flock_ids_optics, get_flock_ids, naive_tracker::NaiveTracker, tracker::{self, TrackerSignal}};
+use super::{Tracker, MY_RNG, get_flock_ids, naive_tracker::NaiveTracker, tracker::TrackerSignal};
 
 /// Uses a spatial hashing space division method, where all cells of the underlying
 /// table are stored in a 1D array, with the individual cell's being allocated
@@ -39,23 +39,27 @@ pub struct SpatHash1D {
     // for each cell, there is a pivot with ranges into table
     // index of pivots corresponds to cell representation
     pivots: Vec<SpatHashPiv>,
-    // 1D representation of cells
-    // indexes have no special meaning
+    /// 1D representation of cells.
+    /// Indexes have no special meaning, as a matter of fact they will be dependent
+    /// on spatial information and are not stable.
     table: Vec<Boid>,
-    // everything that a Boid does not nescesarily need for its own functioning
-    // indexes are effectively boid ids
+    /// This works in conjunction with table, provides references for boids in table.
+    /// Indexes are agennt IDs.
+    view: Vec<usize>,
+    /// Everything that a Boid does not nescesarily need for its own functioning.
+    /// Indexes are agent IDs.
     metadata: Vec<BoidMetadata>,
-    // for each boid, records which cell it's at
-    // indexes are effectively boid ids
+    /// For each boid, records its cell index.
+    /// Indexes are agent IDs.
     index: Vec<usize>,
-    // contains information about the table, used for updating and reconstruction
+    /// Contains information about the table, used for updating and reconstruction of spatial
+    /// index.
     pub(crate)settings: SpatialHashingTableSettings,
-
-    // querying metadata for neighbourhood
+    /// Querying metadata for neighbourhood, gives lookup vectors depending on the current
+    /// environment and table dimensions
     query_metadata: Option<[[[i32; 2]; 9]; 16]>,
 
     distance: Distance,
-
     // clicked_neighbours: Option<Vec::<usize>>
 }
 
@@ -92,7 +96,7 @@ impl Tracker for SpatHash1D {
             settings,
             query_metadata: None,
             distance: run_options.distance,
-            // clicked_neighbours: None::<Vec<usize>>
+            view: entities.iter().map(|b| b.id).collect_vec(),
         }
     }
 
@@ -139,10 +143,7 @@ impl Tracker for SpatHash1D {
 
             let mut clust_res_map: HashMap<usize, usize> = HashMap::new();
 
-            let flock_ids: Vec<usize> = match run_options.clustering_impl {
-                true => get_flock_ids_optics(&self.table, run_options),
-                false => get_flock_ids(self, &data, run_options),
-            };
+            let flock_ids: Vec<usize> =get_flock_ids(self, &data, run_options);
 
             for (b, c) in data.iter().zip(flock_ids.iter()) {
                 clust_res_map.insert(b.id, *c);
@@ -163,12 +164,16 @@ impl Tracker for SpatHash1D {
 
     fn restart(&mut self, entities: &[Boid]) {
         self.table = entities.to_vec();
+        self.view = entities.iter().map(|e| e.id).collect_vec();
     }
 
     fn delete_last(&mut self) -> Option<Boid> {
         let last_id = self.index.len() - 1;
         match self.table.iter().position(|e| e.id == last_id) {
-            Some(table_index) => Some(self.table.swap_remove(table_index)),
+            Some(table_index) => {
+                self.view.swap_remove(last_id);
+                Some(self.table.swap_remove(table_index))
+            },
             None => None,
         }
     }
@@ -197,14 +202,9 @@ impl Tracker for SpatHash1D {
         self.update_table(run_options);
     }
 
-    fn view<'a>(&self) -> (&Vec<Boid>, &Vec<BoidMetadata>) {
-        (&self.table, &self.metadata)
-    }
-
     // https://stackoverflow.com/questions/31904842/return-a-map-iterator-which-is-using-a-closure-in-rust
-    fn view2<'a>(&'a self) -> Box<dyn Iterator<Item = (&'a Boid, &'a BoidMetadata)> + 'a> {
-        // self.table.iter().map
-        Box::new(self.table.iter().map(|e| (e, &self.metadata[e.id])))
+    fn view<'a>(&'a self) -> Box<dyn Iterator<Item = (&'a Boid, &'a BoidMetadata)> + 'a> {
+        Box::new(self.metadata.iter().map(|m| (&self.table[self.view[m.id]], m)))
     }
 
     fn get_neighbours<'a>(&'a self, boid: &Boid, run_options: &RunOptions) -> Vec<&'a Boid> {
@@ -229,6 +229,14 @@ impl Tracker for SpatHash1D {
     fn signal(&mut self, _: TrackerSignal) {
         () // noop
     }
+
+    fn get_no_entities(&self) -> usize {
+       self.table.len() 
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+      }
 }
 
 impl SpatHash1D {
@@ -398,6 +406,7 @@ impl SpatHash1D {
         // expand table and index vectors
         self.index.push(index);
         self.metadata.push(BoidMetadata::new(&entity));
+        self.view.push(self.table.len());
         self.table.push(entity);
     }
 
@@ -430,16 +439,16 @@ impl SpatHash1D {
             // but then there goes borrow checker and boids having
             // to mutate their own state for which the current pipeline
             // simply is not built for, so here is a workaround
+            // the gist is: "Reynolds" noise is stateful and needs to write metadata 
             if run_options.wander_on {
                 let wander_next = MY_RNG
                     .lock()
                     .unwrap()
-                    .gen_range(-(run_options.wander_rate/2.)..(run_options.wander_rate/2.));
+                    .gen_range(-(run_options.wander_rate)..(run_options.wander_rate)) * PI;
                 metadata[self.table[e].id].wander_direction = match run_options.noise_model {
-                    crate::options::NoiseModel::Vicsek => wander_next * 2. * PI,
+                    crate::options::NoiseModel::Vicsek => wander_next,
                     crate::options::NoiseModel::Reynolds => (self.metadata[self.table[e].id].wander_direction + wander_next) % (2. * PI),
                 }
-                    
             }
 
             metadata[self.table[e].id].n_neighbours = neighbours.len();
@@ -451,11 +460,7 @@ impl SpatHash1D {
                 }
             }
 
-            // todo: this blows up, because the vector is allocated with appropriate capacity, but is empty
-            // accellerations[e] = self.table[e].run_rules3(&neighbours, run_options);
-            // I will attempt to patch it with push to get rid of the overhead in pre-creating the Vec2s
-            // and rely on implicit order, which might cause issues, but should not as the for loop goes
-            // sequentually through the entities
+            // todo: this is 
             let accelleration = self.table[e].run_rules(&neighbours, &self.metadata, run_options);
             metadata[self.table[e].id].accelleration_update = accelleration;
             accellerations[e] = accelleration;
@@ -533,6 +538,8 @@ impl SpatHash1D {
 
         // Now we finally sort through the existing agents using newly created pivots and indeces
         while e < self.table.len() {
+
+            // it has already been taken care of, skip
             if sorted[e] {
                 e += 1;
                 continue;
@@ -561,13 +568,26 @@ impl SpatHash1D {
             // if boid is not already sorted
             if e != destination
             {
+                // swap the agent into place
                 self.table.swap(e, destination);
+                // // make a record of where he is
+                // self.view[self.table[destination].id] = destination;
+                // mark as done
                 sorted[destination] = true;
             } else {
+                // check if this index has not been put in place
+                // todo: this might not be required
+                // if !sorted[e] {
+                //     self.view[self.table[e].id] = e;
+                // }
                 e += 1;
             }
             
             pivots[self.index[id]].fin = Some(destination);
+        }
+
+        for e in 0..self.table.len() {
+            self.view[self.table[e].id] = e;
         }
 
     }
@@ -727,9 +747,9 @@ impl SpatHash1D {
         };
 
         // #[cfg(debug)]
-        if boid.id == run_options.clicked_boid_id {
-            println !("lookup vectors: {:?}", m);
-        }
+        // if boid.id == run_options.clicked_boid_id {
+        //     println !("lookup vectors: {:?}", m);
+        // }
 
         for cell in m
             // depending on the match, iterate the vectors
@@ -752,10 +772,10 @@ impl SpatHash1D {
             }
             for index in self.pivots[cell].init.unwrap()..self.pivots[cell].fin.unwrap() {
                 // #[cfg(debug)]
-                if run_options.clicked_boid_id == boid.id && self.table[index].id != boid.id {
-                    let a = distance_dyn_boid(boid, &self.table[index], run_options);
-                    println!("from:{:?}, to:{:?}, distance:{:?}", boid.id, self.table[index].id, a);
-                }
+                // if run_options.clicked_boid_id == boid.id && self.table[index].id != boid.id {
+                //     let a = distance_dyn_boid(boid, &self.table[index], run_options);
+                //     println!("from:{:?}, to:{:?}, distance:{:?}", boid.id, self.table[index].id, a);
+                // }
                 if self.table[index].id != boid.id
                     && distance_dyn_boid(boid, &self.table[index], run_options)
                         <= run_options.max_sensory_distance
@@ -771,8 +791,8 @@ impl SpatHash1D {
         }
 
         // #[cfg(debug)]
-        if run_options.clicked_boid_id == boid.id {
-            println!("neighbours: {:?}", neighbours);
-        }
+        // if run_options.clicked_boid_id == boid.id {
+        //     println!("neighbours: {:?}", neighbours);
+        // }
     }
 }
