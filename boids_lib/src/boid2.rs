@@ -124,7 +124,7 @@ impl Boid {
             }
     
             if run_options.alignment_on {
-                sum += self.alignment(&self.filter_sight3(&nearest_boids, run_options, run_options.allignment_fov_half_cos), run_options);
+                sum += self.alignment(&self.filter_sight3(&nearest_boids, run_options, run_options.alignment_fov_half_cos), run_options);
             }
         }
 
@@ -446,7 +446,7 @@ impl Boid {
 
         for other in others {
             let distance = distance_dyn_boid(self, other, &run_options);
-            if distance < run_options.allignment_treshold_distance {
+            if distance < run_options.alignment_treshold_distance {
                 avg += other.velocity;
                 count += 1.;
             }
@@ -456,7 +456,7 @@ impl Boid {
             avg /= count;
             avg = avg.normalize();
             avg *= run_options.max_speed;
-            avg = (avg - self.velocity) * run_options.allignment_coefficient;
+            avg = (avg - self.velocity) * run_options.alignment_coefficient;
             avg.clamp_length_max(run_options.max_steering)
         } else {
             Vec2::new(0.0, 0.0)

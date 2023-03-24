@@ -711,7 +711,7 @@ config <- get_config(
     sample_rate = 32,
     boundary_config = "{\"type\": \"Toroidal\"}",
     distance_config = "{\"type\": \"EucToroidal\"}",
-    allignment_coef = 0.6,
+    alignment_coef = 0.6,
     cohesion_coef = 0.2,
     separation_coef = 1.0,
     wander_on = FALSE
@@ -736,7 +736,7 @@ config <- get_config(
     sample_rate = 32,
     boundary_config = "{\"type\": \"Reflective\"}",
     distance_config = "{\"type\": \"EucEnclosed\"}",
-    allignment_coef = 0.6,
+    alignment_coef = 0.6,
     cohesion_coef = 0.2,
     separation_coef = 1.0,
     wander_on = FALSE

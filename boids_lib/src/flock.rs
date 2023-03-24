@@ -632,7 +632,7 @@ mod tests {
         // the only set at the thime of occurence
         run_options.sensory_distance = 100.;
         run_options.update_sensory_distances();
-        run_options.allignment_treshold_coefficient = 1.14999998;
+        run_options.alignment_treshold_coefficient = 1.14999998;
         run_options.cohesion_treshold_coefficient = 0.949999988;
         run_options.separation_treshold_coefficient = 0.349999994;
         run_options.window = options::get_window_size(1400, 900);
@@ -661,7 +661,7 @@ mod tests {
         // the only set at the time of occurence
         run_options.sensory_distance = 100.;
         run_options.update_sensory_distances();
-        run_options.allignment_treshold_coefficient = 1.14999998;
+        run_options.alignment_treshold_coefficient = 1.14999998;
         run_options.cohesion_treshold_coefficient = 0.949999988;
         run_options.separation_treshold_coefficient = 0.349999994;
         run_options.window = options::get_window_size(1400, 900);
@@ -782,7 +782,7 @@ mod tests {
         // 5 from set up, no_neighbours for each set up boid
         run_options.init_boids = 5 + 5 * no_neighbours;
         run_options.sensory_distance = sensory_distance;
-        run_options.allignment_treshold_coefficient = 1.14999998;
+        run_options.alignment_treshold_coefficient = 1.14999998;
         run_options.cohesion_treshold_coefficient = 0.949999988;
         run_options.separation_treshold_coefficient = 0.349999994;
         run_options.update_sensory_distances();
@@ -862,7 +862,7 @@ mod tests {
 
         run_options.sensory_distance = sensory_distance;
         run_options.update_sensory_distances();
-        run_options.allignment_treshold_coefficient = 1.14999998;
+        run_options.alignment_treshold_coefficient = 1.14999998;
         run_options.cohesion_treshold_coefficient = 0.949999988;
         run_options.separation_treshold_coefficient = 0.349999994;
         run_options.window = options::get_window_size(1400, 900);
@@ -931,7 +931,7 @@ mod tests {
     //     run_options.init_boids = 5 + 5 * no_neighbours;
     //     run_options.sensory_distance = sensory_distance;
     //     run_options.update_sensory_distances();
-    //     run_options.allignment_treshold_coefficient = 1.14999998;
+    //     run_options.alignment_treshold_coefficient = 1.14999998;
     //     run_options.cohesion_treshold_coefficient = 0.949999988;
     //     run_options.separation_treshold_coefficient = 0.349999994;
     //     run_options.window = options::get_window_size(1400., 900.);

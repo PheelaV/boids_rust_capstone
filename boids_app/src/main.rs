@@ -91,10 +91,10 @@ fn model<'a>(app: &App) -> Model<'a> {
     run_options.window = options::get_window_size(config.init_width, config.init_height);
 
     run_options.sensory_distance = config.sensory_distance;
-    run_options.allignment_coefficient = config.allignment_coefficient;
+    run_options.alignment_coefficient = config.alignment_coefficient;
     run_options.cohesion_coefficient = config.cohesion_coefficient;
     run_options.separation_coefficient = config.separation_coefficient;
-    run_options.allignment_treshold_coefficient = config.allignment_treshold_coefficient;
+    run_options.alignment_treshold_coefficient = config.alignment_treshold_coefficient;
     run_options.cohesion_treshold_coefficient = config.cohesion_treshold_coefficient;
     run_options.separation_treshold_coefficient = config.separation_treshold_coefficient;
     run_options.min_speed = config.min_speed;
@@ -406,7 +406,7 @@ fn update(app: &App, model: &mut Model, update: Update) {
             ui.horizontal(|ui| {
                 ui.add(egui::Checkbox::new(
                     &mut run_options.alignment_on,
-                    "allignment",
+                    "alignment",
                 ));
                 ui.add(egui::Checkbox::new(
                     &mut run_options.cohesion_on,
@@ -463,14 +463,14 @@ fn update(app: &App, model: &mut Model, update: Update) {
             });
 
             ui.horizontal(|ui| {
-                ui.label("allignment c");
+                ui.label("alignment c");
                 ui.add(egui::Slider::new(
-                    &mut run_options.allignment_coefficient,
+                    &mut run_options.alignment_coefficient,
                     0.0..=10.0,
                 ));
-                ui.label("allignment tc");
+                ui.label("alignment tc");
                 ui.add(egui::Slider::new(
-                    &mut run_options.allignment_treshold_coefficient,
+                    &mut run_options.alignment_treshold_coefficient,
                     0.0..=2.0,
                 ));
             });
@@ -761,8 +761,8 @@ fn key_pressed(app: &App, model: &mut Model, key: Key) -> () {
 
         model.flock.insert_multiple(run_options);
     } else if key == Key::F1 {
-        // alternative implementation of allignment
-        run_options.allignment_impl_mode = !run_options.allignment_impl_mode;
+        // alternative implementation of alignment
+        run_options.alignment_impl_mode = !run_options.alignment_impl_mode;
     } else if key == Key::F2 {
         // alternative implementation of cohesion
         run_options.cohesion_impl_mode = !run_options.cohesion_impl_mode;
@@ -1487,7 +1487,7 @@ impl DrawableBoid for Boid {
                 show_radius(
                     &draw,
                     *position,
-                    run_options.sensory_distance * run_options.allignment_treshold_coefficient,
+                    run_options.sensory_distance * run_options.alignment_treshold_coefficient,
                     RED,
                 );
             }

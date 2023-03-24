@@ -56,7 +56,7 @@ get_voronoi_area <- function(data, config) {
   sensory_distance = max(
     max(config$cohesion_trs_coef * config$sensory_distance,
         config$separation_trs_coef * config$sensory_distance)
-    ,config$allignment_trs_coef * config$sensory_distance)
+    ,config$alignment_trs_coef * config$sensory_distance)
 
   treshold <- pi * sensory_distance^2
 

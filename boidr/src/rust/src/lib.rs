@@ -63,10 +63,10 @@ fn flock_detailed(
     init_width: u32,
     init_height: u32,
     sensory_distance: f32,
-    allignment_coef: f32,
+    alignment_coef: f32,
     cohesion_coef: f32,
     separation_coef: f32,
-    allignment_trs_coef: f32,
+    alignment_trs_coef: f32,
     cohesion_trs_coef: f32,
     separation_trs_coef: f32,
     min_speed: f32,
@@ -93,10 +93,10 @@ fn flock_detailed(
     run_options.window = options::get_window_size(init_width, init_height);
 
     run_options.sensory_distance = sensory_distance;
-    run_options.allignment_coefficient = allignment_coef;
+    run_options.alignment_coefficient = alignment_coef;
     run_options.cohesion_coefficient = cohesion_coef;
     run_options.separation_coefficient = separation_coef;
-    run_options.allignment_treshold_coefficient = allignment_trs_coef;
+    run_options.alignment_treshold_coefficient = alignment_trs_coef;
     run_options.cohesion_treshold_coefficient = cohesion_trs_coef;
     run_options.separation_treshold_coefficient = separation_trs_coef;
     run_options.min_speed = min_speed;

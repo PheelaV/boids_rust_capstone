@@ -124,13 +124,13 @@ impl Boid {
         }
 
         if run_options.alignment_on {
-            let align = self.allignment(&filtered, run_options);
+            let align = self.alignment(&filtered, run_options);
             if self.id == run_options.clicked_boid_id {
                 println!("align: {:?}, len: {:?}", align, align.length());
             }
             sum += align;
-            // sum += self.allignment(&filtered, run_options);
-            Boid::check_for_unruly_rule(sum, "allignment");
+            // sum += self.alignment(&filtered, run_options);
+            Boid::check_for_unruly_rule(sum, "alignment");
         }
 
         if run_options.wander_on {
@@ -160,7 +160,7 @@ impl Boid {
         // }
 
         // if run_options.alignment_on {
-        //     sum += self.alignment(&self.filter_sight3(&nearest_boids, run_options, run_options.allignment_fov_half_cos), run_options);
+        //     sum += self.alignment(&self.filter_sight3(&nearest_boids, run_options, run_options.alignment_fov_half_cos), run_options);
         // }
         // let filtered = if !run_options.field_of_vision_on {
         //     nearest_boids.to_owned()
@@ -462,13 +462,13 @@ impl Boid {
         }
     }
 
-    pub fn allignment(&self, others: &Vec<&Boid>, run_options: &RunOptions) -> Vec2 {
+    pub fn alignment(&self, others: &Vec<&Boid>, run_options: &RunOptions) -> Vec2 {
         let mut avg_vel = Vec2::ZERO;
         let mut count = 0.;
 
         for other in others {
             let distance = distance_dyn_boid(self, other, &run_options);
-            if distance < run_options.allignment_treshold_distance {
+            if distance < run_options.alignment_treshold_distance {
                 avg_vel += other.velocity;
                 count += 1.;
             }
@@ -476,7 +476,7 @@ impl Boid {
 
         if count > 0. {
             avg_vel /= count;
-            // if !run_options.allignment_impl_mode {
+            // if !run_options.alignment_impl_mode {
             //     avg_vel = avg_vel.normalize();
             //     avg_vel *= run_options.max_speed;
 
@@ -485,7 +485,7 @@ impl Boid {
             // // }
             // avg_vel = (avg_vel - self.velocity).normalize_or_zero();
             // avg_vel.clamp_length_max(run_options.max_steering);
-            // avg_vel * run_options.allignment_coefficient
+            // avg_vel * run_options.alignment_coefficient
             avg_vel
         } else {
             Vec2::new(0.0, 0.0)

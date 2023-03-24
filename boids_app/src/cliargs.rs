@@ -67,7 +67,7 @@ pub struct Config{
     // #[default(0.02)]
     #[default(0.7)]
     #[arg(long = "ali_coef")]
-    pub allignment_coefficient: f32,
+    pub alignment_coefficient: f32,
     // #[default(0.002)]
     #[default(0.3)]
     #[arg(long = "coh_coef")]
@@ -79,7 +79,7 @@ pub struct Config{
 
     #[default(1.15)]
     #[arg(long = "ali_trs_coef")]
-    pub allignment_treshold_coefficient: f32,
+    pub alignment_treshold_coefficient: f32,
     #[default(0.95)]
     #[arg(long = "coh_trs_coef")]
     pub cohesion_treshold_coefficient: f32,

@@ -112,8 +112,8 @@ get_config <- function(config_name, overwrite = list()) {
   converted_config$init_width = config$init_width
   converted_config$init_height = config$init_height
   converted_config$sensory_distance = config$sensory_distance
-  converted_config$allignment_coef = config$allignment_coefficient
-  converted_config$allignment_trs_coef = config$allignment_treshold_coefficient
+  converted_config$alignment_coef = config$alignment_coefficient
+  converted_config$alignment_trs_coef = config$alignment_treshold_coefficient
   converted_config$cohesion_coef = config$cohesion_coefficient
   converted_config$cohesion_trs_coef = config$cohesion_treshold_coefficient
   converted_config$separation_coef = config$separation_coefficient
@@ -217,7 +217,7 @@ get_directional_boid_data1 <- function(data, remove_boundary = F) {
   res %>%
     slice(-tail(
       remove_boundary_data(data,
-                           sensory_distance = config$sensory_distance * max(config$allignment_trs_coef, config$cohesion_trs_coef, config$separation_trs_coef),
+                           sensory_distance = config$sensory_distance * max(config$alignment_trs_coef, config$cohesion_trs_coef, config$separation_trs_coef),
                            init_width = config$init_width,
                            init_height = config$init_height,
                            time_dependency = 2),
@@ -258,7 +258,7 @@ get_directional_boid_data2 <- function(data, remove_boundary = F) {
   res %>%
     slice(-tail(
       remove_boundary_data(data,
-                           sensory_distance = config$sensory_distance * max(config$allignment_trs_coef, config$cohesion_trs_coef, config$separation_trs_coef),
+                           sensory_distance = config$sensory_distance * max(config$alignment_trs_coef, config$cohesion_trs_coef, config$separation_trs_coef),
                            init_width = config$init_width,
                            init_height = config$init_height,
                            time_dependency = 2),
@@ -299,7 +299,7 @@ get_directional_boid_data3 <- function(data, remove_boundary = F) {
   res %>%
     slice(-tail(
       remove_boundary_data(data,
-                           sensory_distance = config$sensory_distance * max(config$allignment_trs_coef, config$cohesion_trs_coef, config$separation_trs_coef),
+                           sensory_distance = config$sensory_distance * max(config$alignment_trs_coef, config$cohesion_trs_coef, config$separation_trs_coef),
                            init_width = config$init_width,
                            init_height = config$init_height,
                            time_dependency = 2),

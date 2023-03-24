@@ -73,10 +73,10 @@ fn from_elem(c: &mut Criterion) {
                     };
 
                     ro.sensory_distance = 13.;
-                    ro.allignment_coefficient = 0.2;
+                    ro.alignment_coefficient = 0.2;
                     ro.cohesion_coefficient = 0.3;
                     ro.separation_coefficient = 4.1;
-                    ro.allignment_treshold_coefficient = 1.15;
+                    ro.alignment_treshold_coefficient = 1.15;
                     ro.cohesion_treshold_coefficient = 0.95;
                     ro.separation_treshold_coefficient = 0.2;
                     // ro.update_sensory_distances();

@@ -14,18 +14,18 @@ pub struct RunOptions {
     pub max_speed: f32,
     pub max_steering: f32,
 
-    pub allignment_coefficient: f32,
+    pub alignment_coefficient: f32,
     pub cohesion_coefficient: f32,
     pub separation_coefficient: f32,
 
     pub sensory_distance: f32,
     pub max_sensory_distance: f32,
 
-    pub allignment_treshold_distance: f32,
+    pub alignment_treshold_distance: f32,
     pub cohesion_treshold_distance: f32,
     pub separation_treshold_distance: f32,
 
-    pub allignment_treshold_coefficient: f32,
+    pub alignment_treshold_coefficient: f32,
     pub cohesion_treshold_coefficient: f32,
     pub separation_treshold_coefficient: f32,
 
@@ -51,7 +51,7 @@ pub struct RunOptions {
     pub clicked_boid_id: usize,
 
     // for testing
-    pub allignment_impl_mode: bool,
+    pub alignment_impl_mode: bool,
     pub cohesion_impl_mode: bool,
     pub separation_impl_mode: bool,
     pub col_by_neighbour: bool,
@@ -65,11 +65,11 @@ pub struct RunOptions {
     /// field of vision in cos [-1, 1]
     pub field_of_vision_cos: f32,
 
-    pub allignment_fov_deg: f32,
+    pub alignment_fov_deg: f32,
     pub cohesion_fov_deg: f32,
     pub separation_fov_deg: f32,
 
-    pub allignment_fov_half_cos: f32,
+    pub alignment_fov_half_cos: f32,
     pub cohesion_fov_half_cos: f32,
     pub separation_fov_half_cos: f32,
 
@@ -84,14 +84,14 @@ pub struct RunOptions {
 impl RunOptions {
     /// updates all treshold distances given sensory_distance and all treshold coefficients
     pub fn update_sensory_distances(&mut self) {
-        self.allignment_treshold_distance =
-            self.sensory_distance * self.allignment_treshold_coefficient;
+        self.alignment_treshold_distance =
+            self.sensory_distance * self.alignment_treshold_coefficient;
         self.cohesion_treshold_distance =
             self.sensory_distance * self.cohesion_treshold_coefficient;
         self.separation_treshold_distance =
             self.sensory_distance * self.separation_treshold_coefficient;
 
-        self.max_sensory_distance = self.allignment_treshold_distance.max(
+        self.max_sensory_distance = self.alignment_treshold_distance.max(
             self.cohesion_treshold_distance
                 .max(self.separation_treshold_distance),
         );
@@ -103,7 +103,7 @@ impl RunOptions {
         self.field_of_vision_half_rad = deg_to_half_rad(self.field_of_vision_deg);
         self.field_of_vision_cos = deg_to_half_rad(self.field_of_vision_deg).cos();
 
-        self.allignment_fov_half_cos = deg_to_half_rad(self.allignment_fov_deg).cos();
+        self.alignment_fov_half_cos = deg_to_half_rad(self.alignment_fov_deg).cos();
         self.cohesion_fov_half_cos = deg_to_half_rad(self.cohesion_fov_deg).cos();
         self.separation_fov_half_cos = deg_to_half_rad(self.separation_fov_deg).cos();
     }
@@ -121,18 +121,18 @@ impl Default for RunOptions {
         let max_speed = 4.1;
         let max_steering = 0.7;
 
-        let allignment_coefficient = 0.02;
+        let alignment_coefficient = 0.02;
         let cohesion_coefficient = 0.002;
         let separation_coefficient = 4.1;
 
         let sensory_distance = 60.;
         let max_sensory_distance = 60.;
 
-        let allignment_treshold_distance = 200.;
+        let alignment_treshold_distance = 200.;
         let cohesion_treshold_distance = 200.;
         let separation_treshold_distance = 200.;
 
-        let allignment_treshold_coefficient = 1.15;
+        let alignment_treshold_coefficient = 1.15;
         let cohesion_treshold_coefficient = 0.95;
         let separation_treshold_coefficient = 0.35;
 
@@ -154,15 +154,15 @@ impl Default for RunOptions {
             min_speed,
             max_speed,
             max_steering,
-            allignment_coefficient,
+            alignment_coefficient,
             cohesion_coefficient,
             separation_coefficient,
             sensory_distance,
             max_sensory_distance,
-            allignment_treshold_distance,
+            alignment_treshold_distance,
             cohesion_treshold_distance,
             separation_treshold_distance,
-            allignment_treshold_coefficient,
+            alignment_treshold_coefficient,
             cohesion_treshold_coefficient,
             separation_treshold_coefficient,
             alignment_on,
@@ -193,7 +193,7 @@ impl Default for RunOptions {
             // tracker_type: TrackerType::Replay("/Users/filipvlcek/Source/Repos/boids_rust/boidranalysis/Data/0324_experiment2_k_11/prepro_boids-data_1679672635630.csv".to_owned(), 0),
             // tracker_type: TrackerType::Replay("/Users/filipvlcek/Source/Repos/boids_rust/boidranalysis/Data/0324_experiment2_k_01/prepro_boids-data_1679666885599.csv".to_owned(), 0),
             clicked_boid_id: std::usize::MAX,
-            allignment_impl_mode: false,
+            alignment_impl_mode: false,
             cohesion_impl_mode: false,
             separation_impl_mode: false,
             col_by_neighbour: false,
@@ -212,10 +212,10 @@ impl Default for RunOptions {
             wander_distance: 21.5,
             seek_target_on: false,
             seek_location: None,
-            allignment_fov_deg: 45.,
+            alignment_fov_deg: 45.,
             cohesion_fov_deg: 100.,
             separation_fov_deg: 135.,
-            allignment_fov_half_cos: 0.,
+            alignment_fov_half_cos: 0.,
             cohesion_fov_half_cos: 0.,
             separation_fov_half_cos: 0.,
             rules_impl: false,
