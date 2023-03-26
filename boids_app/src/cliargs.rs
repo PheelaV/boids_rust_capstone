@@ -96,6 +96,9 @@ pub struct Config{
     #[default(0.65)]
     #[arg(long = "max_steering")]
     pub max_steering: f32,
+    #[default(true)]
+    #[arg(long = "steer")]
+    pub agent_steering: bool,
     #[default(220.)]
     #[arg(long = "fov")]
     pub field_of_vision: f32,
@@ -105,6 +108,9 @@ pub struct Config{
     #[default(true)]
     #[arg(long = "wander")]
     pub wander_on: bool, 
+    #[default(true)]
+    #[arg(long = "wander_random")]
+    pub wander_random: bool, 
     #[default(0.2)]
     #[arg(long = "wrate")]
     pub wander_rate: f32, 

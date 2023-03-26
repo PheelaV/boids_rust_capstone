@@ -13,7 +13,7 @@ lazy_static! {
     static ref MY_RNG: Mutex<Xoshiro128Plus> = Mutex::new(Xoshiro128Plus::from_entropy());
 }
 
-use crate::boid::Boid;
+use crate::{boid::Boid, math_helpers::MyVec2Ext};
 use crate::boid::BoidMetadata;
 use crate::flock::replay_tracker::ReplayTracker;
 use crate::math_helpers::distance_dyn_boid;
@@ -69,6 +69,13 @@ impl<'a> Flock<'a> {
     pub fn update(&mut self, run_options: &mut RunOptions) {
         run_options.update_sensory_distances();
         run_options.update_fov();
+        run_options.max_steering_sq = run_options.max_steering.powf(2.);
+        run_options.min_speed_sq = run_options.min_speed.powf(2.);
+        run_options.max_speed_sq = run_options.max_speed.powf(2.);
+
+        run_options.alignment_on = run_options.alignment_coefficient != 0.;
+        run_options.cohesion_on = run_options.cohesion_coefficient != 0.;
+        run_options.separation_on = run_options.separation_coefficient != 0.;;
 
         self.tracker.update(run_options);
     }
@@ -129,7 +136,7 @@ fn get_boid(run_options: &RunOptions, id: usize) -> Boid {
             let y = r * deg.sin();
 
             let mut init_vec = Vec2::new(-x, -y);
-            init_vec = init_vec.clamp_length_max(0.5 * init_vel);
+            init_vec = init_vec.limit_length(0.5 * init_vel);
 
             Boid::new(x * init_pos, y * init_pos, init_vec, id)
         }
@@ -148,7 +155,7 @@ fn get_boid(run_options: &RunOptions, id: usize) -> Boid {
 
             let mut init_vec = Vec2::new(x_vel, y_vel);
 
-            init_vec = init_vec.clamp_length(run_options.min_speed, run_options.max_speed);
+            init_vec = init_vec.ensure_length(run_options.min_speed, run_options.max_speed);
 
             Boid::new(x, y, init_vec, id)
         }

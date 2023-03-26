@@ -61,7 +61,8 @@ tic()
 config <- get_config(
   # "string_ball_hybrid.toml", 
   # "large_string.toml", 
-  "string_s.toml", 
+  # "string_s.toml", 
+  "vicsek.toml", 
     overwrite = list(
       init_boids = 2^10,
       no_iter = 2^13,
@@ -150,7 +151,7 @@ summary(direction_data_by_boid %>% select(-id))
 
 ```{r}
 ggplot(headings_binned, aes(x = heading, y = log(count))) +
-  coord_polar(theta = "x", start = pi) +
+  coord_polar(theta = "x", start = 0) +
   geom_bar(stat = "identity", fill = "orange", width = .9) +
   labs(x = "Heading w.r.t N") +
   theme_bw()

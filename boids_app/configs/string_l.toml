@@ -23,3 +23,4 @@ wander_distance = 0.5
 wander_coefficient = 0.21
 size = 1.5
 rules_impl = true
+agent_steering = true

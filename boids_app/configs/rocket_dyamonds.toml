@@ -22,3 +22,4 @@ wander_radius = 11.5
 wander_distance = 0.5
 wander_coefficient = 0.21
 size = 3.0
+agent_steering = true

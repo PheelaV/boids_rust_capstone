@@ -11,8 +11,11 @@ pub struct RunOptions {
 
     pub baseline_speed: f32,
     pub min_speed: f32,
+    pub min_speed_sq: f32,
     pub max_speed: f32,
+    pub max_speed_sq: f32,
     pub max_steering: f32,
+    pub max_steering_sq: f32,
 
     pub alignment_coefficient: f32,
     pub cohesion_coefficient: f32,
@@ -79,6 +82,7 @@ pub struct RunOptions {
     pub stop_movement: bool,
     pub seek_target_on: bool,
     pub seek_location: Option<Vec2>,
+    pub agent_steering: bool,
 }
 
 impl RunOptions {
@@ -102,10 +106,11 @@ impl RunOptions {
         self.field_of_vision_half_rad = self.field_of_vision_deg * PI / 360.;
         self.field_of_vision_half_rad = deg_to_half_rad(self.field_of_vision_deg);
         self.field_of_vision_cos = deg_to_half_rad(self.field_of_vision_deg).cos();
-
+        
         self.alignment_fov_half_cos = deg_to_half_rad(self.alignment_fov_deg).cos();
         self.cohesion_fov_half_cos = deg_to_half_rad(self.cohesion_fov_deg).cos();
         self.separation_fov_half_cos = deg_to_half_rad(self.separation_fov_deg).cos();
+        self.field_of_vision_on = self.field_of_vision_deg != 360.;
     }
 }
 
@@ -152,8 +157,11 @@ impl Default for RunOptions {
             initiation_strat: InitiationStrategy::RandomRandom,
             baseline_speed,
             min_speed,
+            min_speed_sq: min_speed.powf(2.),
             max_speed,
+            max_speed_sq: max_speed.powf(2.),
             max_steering,
+            max_steering_sq: max_steering.powf(2.),
             alignment_coefficient,
             cohesion_coefficient,
             separation_coefficient,
@@ -185,7 +193,7 @@ impl Default for RunOptions {
             // tracker_type: TrackerType::Naive,
             tracker_type: TrackerType::SpatHash,
             // tracker_type: TrackerType::Replay("boids-data.csv".to_owned(), 0), // demo
-            // tracker_type: TrackerType::Replay("/Users/filipvlcek/Source/Repos/boids_rust/boidranalysis/Data/0318_experiment2_a2/prepro_boids-data_1679117619532.csv".to_owned(), 0),
+            // tracker_type: TrackerType::Replay("/Users/filipvlcek/Source/Repos/boids_rust/boidranalysis/Data/0326_experiment3_w/prepro_boids-data_1679828486948.csv".to_owned(), 0),
             // tracker_type: TrackerType::Replay("boids-data_1679316314043.csv".to_owned(), 0), // demo
             // tracker_type: TrackerType::Replay("boids-data_1.csv".to_owned(), 0), // demo
             // tracker_type: TrackerType::Replay("boids-data_2.csv".to_owned(), 0), // demo
@@ -219,6 +227,7 @@ impl Default for RunOptions {
             cohesion_fov_half_cos: 0.,
             separation_fov_half_cos: 0.,
             rules_impl: false,
+            agent_steering: true,
         };
 
         res.update_sensory_distances();

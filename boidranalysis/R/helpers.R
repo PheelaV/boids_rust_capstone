@@ -132,6 +132,8 @@ get_config <- function(config_name, overwrite = list()) {
   converted_config$wander_coef = config$wander_coefficient
   converted_config$wander_distance = config$wander_distance
   converted_config$baseline_speed = config$baseline_speed
+  converted_config$agent_steering = config$agent_steering
+  converted_config$wander_random = config$wander_random
 
   if (length(overwrite) == 0) {
     return(converted_config)

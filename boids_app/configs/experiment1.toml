@@ -16,3 +16,4 @@ min_speed = 0.5
 max_speed = 2.0
 max_steering = 0.65
 field_of_vision = 200.0
+agent_steering = true

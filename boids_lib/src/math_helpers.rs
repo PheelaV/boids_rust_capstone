@@ -2,8 +2,6 @@ use std::f32::consts::PI;
 
 use glam::Vec2;
 
-
-
 use crate::{
     boid::Boid,
     options::{Distance, RunOptions, WindowSize},
@@ -12,7 +10,7 @@ use crate::{
 pub fn distance_dyn_boid(b1: &Boid, b2: &Boid, run_options: &RunOptions) -> f32 {
     match run_options.distance {
         Distance::EucEnclosed => simple_distance_boid(b1, b2, &run_options.window),
-        Distance::EucToroidal => thoroidal_distance_boid(b1, b2, &run_options.window),
+        Distance::EucToroidal => toroidal_distance_boid(b1, b2, &run_options.window),
     }
 }
 
@@ -48,7 +46,7 @@ pub fn simple_distance_sq(x1: f32, x2: f32, y1: f32, y2: f32, _window_size: &Win
     (x1 - x2).powi(2) + (y1 - y2).powi(2)
 }
 
-pub fn thoroidal_distance_boid(b1: &Boid, b2: &Boid, window_size: &WindowSize) -> f32 {
+pub fn toroidal_distance_boid(b1: &Boid, b2: &Boid, window_size: &WindowSize) -> f32 {
     toroidal_distance_sq_boid(b1, b2, window_size).sqrt()
 }
 
@@ -67,7 +65,7 @@ pub fn toroidal_distance(x1: f32, x2: f32, y1: f32, y2: f32, window_size: &Windo
     toroidal_distance_sq(x1, x2, y1, y2, window_size).sqrt()
 }
 
-/// Get distance in between points in a thoroidal space "continuous", that "wraps around"
+/// Get distance in between points in a toroidal space "continuous", that "wraps around"
 // pub fn toroidal_distance_sq(x1: f32, x2: f32, y1: f32, y2: f32, window_size: &WindowSize) -> f32 {
 //     let mut dx = (x1 - x2).abs();
 //     let mut dy = (y1 - y2).abs();
@@ -105,7 +103,12 @@ pub fn tor_vec_p(x1: f32, x2: f32, y1: f32, y2: f32, window_size: &WindowSize) -
     // we went the wrong direction and should consider the other side to get the minimal distance
     // this additionally preserves the sign of the shortest path
 
-    let dx_p2 = tor_vec_pc(x1, x2, window_size.win_w as f32, window_size.win_right as f32);
+    let dx_p2 = tor_vec_pc(
+        x1,
+        x2,
+        window_size.win_w as f32,
+        window_size.win_right as f32,
+    );
     let dy_p2 = tor_vec_pc(y1, y2, window_size.win_h as f32, window_size.win_top as f32);
 
     (dx_p2, dy_p2)
@@ -192,17 +195,56 @@ pub fn deg_to_half_rad(deg: f32) -> f32 {
 // because of nannou I have to keep glam version at .17
 // as glam is not stable yet, there are breaking changes
 // in between decimal versions, somewhere between .17 and .23
-pub(crate) trait MyRotate {
+pub trait MyVec2Ext {
     fn rotate(&self, rhs: Vec2) -> Self;
+    fn limit_length(&self, max_len: f32) -> Self;
+    fn limit_length_sq(&self, max_len: f32, max_len: f32) -> Self;
+    fn ensure_length(&self, min_len: f32, max_len: f32) -> Self ;
 }
 
-impl MyRotate for Vec2 {
+impl MyVec2Ext for Vec2 {
+    /// https://docs.rs/glam/latest/src/glam/f32/vec2.rs.html#645-650
+    /// Returns `rhs` rotated by the angle of `self`. If `self` is normalized,
+    /// then this just rotation. This is what you usually want. Otherwise,
+    /// it will be like a rotation with a multiplication by `self`'s length.
     #[inline]
     fn rotate(&self, rhs: Vec2) -> Self {
+        // this does complex number multiplication in cartesian coordinates,
+        // in polar the equivalent would be z = re^(iθ); w = re^(iφ);
+        // zw = |z||w|^(i(θ + φ)), where θ and φ are the vector angles
         Vec2::new(
             self.x * rhs.x - self.y * rhs.y,
             self.y * rhs.x + self.x * rhs.y,
         )
+    }
+
+    #[inline]
+    fn limit_length_sq(&self, max_len_sq: f32, max_len: f32) -> Vec2 {
+        if self.length_squared() > max_len_sq {
+            self.normalize() * max_len
+        } else {
+            *self
+        }
+    }
+
+    #[inline]
+    fn limit_length(&self, max_len: f32) -> Vec2 {
+        if self.length() > max_len {
+            self.normalize() * max_len
+        } else {
+            *self
+        }
+    }
+
+    fn ensure_length(&self,min_len: f32, max_len: f32) -> Vec2 {
+        let len = self.length();
+        if len > max_len {
+            self.normalize() * max_len
+        } else if len < min_len {
+            self.normalize() * min_len
+        } else {
+            *self
+        }
     }
 }
 
@@ -272,28 +314,28 @@ mod tests {
     }
 
     #[test]
-    fn thoroidal_distance_a_b() {
+    fn toroidal_distance_a_b() {
         let data = ToroidialTestData::new();
         let result = _toroidal_distance(data.a, data.b);
         assert_eqf32!(result, 3.606);
     }
 
     #[test]
-    fn thoroidal_distance_a_c() {
+    fn toroidal_distance_a_c() {
         let data = ToroidialTestData::new();
         let result = _toroidal_distance(data.a, data.c);
         assert_eqf32!(result, 2.236);
     }
 
     #[test]
-    fn thoroidal_distance_a_d() {
+    fn toroidal_distance_a_d() {
         let data = ToroidialTestData::new();
         let result = _toroidal_distance(data.a, data.d);
         assert_eqf32!(result, 3.202);
     }
 
     #[test]
-    fn thoroidal_distance_c_d() {
+    fn toroidal_distance_c_d() {
         let data = ToroidialTestData::new();
         let result = _toroidal_distance(data.c, data.d);
         assert_eqf32!(result, 1.5);

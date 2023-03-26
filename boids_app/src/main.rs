@@ -25,6 +25,7 @@ fn main() {
     nannou::app(model)
         // https://github.com/nannou-org/nannou/issues/708 this won't work at the moment and a custom sollution had to be used instead
         // .loop_mode(LoopMode::NTimes { number_of_updates: 60 })
+        // .fullscreen()
         .update(update)
         .run();
 }
@@ -59,7 +60,7 @@ pub struct Model<'a> {
     ghost_buffer: Option<CircularQueue<(Boid, BoidMetadata)>>,
     ghost_buffer_ready: bool,
     ghost_number: usize,
-    ghost_mode_on: bool,
+    ghost_mode_on: bool
 }
 
 fn model<'a>(app: &App) -> Model<'a> {
@@ -100,6 +101,7 @@ fn model<'a>(app: &App) -> Model<'a> {
     run_options.min_speed = config.min_speed;
     run_options.max_speed = config.max_speed;
     run_options.max_steering = config.max_steering;
+    run_options.agent_steering = config.agent_steering;
     run_options.field_of_vision_deg = config.field_of_vision;
 
     run_options.save_options = save_options;
@@ -110,6 +112,10 @@ fn model<'a>(app: &App) -> Model<'a> {
     run_options.wander_distance = config.wander_distance;
     run_options.wander_radius = config.wander_radius;
     run_options.wander_rate = config.wander_rate;
+    run_options.noise_model = match config.wander_random {
+        true => NoiseModel::Vicsek,
+        false => NoiseModel::Reynolds,
+    };
     run_options.size = config.size;
     run_options.rules_impl = config.rules_impl;
 
@@ -547,6 +553,10 @@ fn update(app: &App, model: &mut Model, update: Update) {
                     &mut run_options.rules_impl,
                     "rules impl",
                 ));
+                ui.add(egui::Checkbox::new(
+                    &mut run_options.agent_steering,
+                    "steering",
+                ));
             });
 
             ui.horizontal(|ui| {
@@ -723,6 +733,9 @@ fn key_pressed(app: &App, model: &mut Model, key: Key) -> () {
     } else if key == Key::C {
         // toggle controls
         model.control_state.controls_open = !model.control_state.controls_open
+    } else if key == Key::A {
+        // toggle controls
+        run_options.agent_steering = !run_options.agent_steering
     } else if key == Key::F {
         // toggle flock clustering
         model.run_options.dbscan_flock_clustering_on = !model.run_options.dbscan_flock_clustering_on
@@ -918,6 +931,7 @@ fn draw_spline_path(draw: &Draw, spline: Vec<Vec2>) {
         .stroke()
         .weight(2.)     
         .color(BLACK)
+        .z(-10.)
         .points(spline_points);
 }
 
@@ -1218,6 +1232,7 @@ impl<'a> Drawable for Flock<'a> {
                                 .collect_vec();
                             
                                 draw_ghosts(e, m, ghosts, draw, &rt.run_options); 
+                                e.draw(draw, color, run_options, m, model);
                         });
                 };
             },
@@ -1362,11 +1377,18 @@ trait MyRotate {
 }
 
 impl MyRotate for Vec2 {
+    /// https://docs.rs/glam/latest/src/glam/f32/vec2.rs.html#645-650
+    /// Returns `rhs` rotated by the angle of `self`. If `self` is normalized,
+    /// then this just rotation. This is what you usually want. Otherwise,
+    /// it will be like a rotation with a multiplication by `self`'s length.
     #[inline]
     fn myrotate(&self, rhs: Vec2) -> Self {
+        // this does complex number multiplication in cartesian coordinates,
+        // for polar it would be z = re^(iθ); w = re^(iφ); zw = |z||w|^(i(θ + φ))
+        // where θ and φ are the vector angles 
         Vec2::new(
             self.x * rhs.x - self.y * rhs.y,
-            self.y * rhs.x + self.x * rhs.y,
+            self.y * rhs.x + self.x * rhs.y
         )
     }
 }
@@ -1427,30 +1449,39 @@ impl DrawableBoid for Boid {
                 // the current velocity vector normalized
                 let heading = self.velocity.normalize();
                 // gives the center of the circle driving the locomotion
-                let loco_center =
-                    self.position + heading * (run_options.wander_distance * (2_f32).sqrt());
+                let loco_center = match run_options.noise_model {
+                    NoiseModel::Vicsek => self.position,
+                    NoiseModel::Reynolds => self.position + heading * (run_options.wander_distance * (2_f32).sqrt()),
+                };
 
                 // vector pointing at the point on circumference
-                let wander_point = heading.myrotate(Vec2::new(
-                    run_options.wander_radius * metadata.wander_direction.cos(),
-                    run_options.wander_radius * metadata.wander_direction.sin(),
-                ));
+                let wander_point = match run_options.noise_model {
+                    NoiseModel::Vicsek =>  heading.myrotate(Vec2::new(
+                        run_options.size * 1.5 * metadata.wander_direction.cos(),
+                        run_options.size * 1.5 * metadata.wander_direction.sin(),
+                    )),
+                    NoiseModel::Reynolds => heading.myrotate(Vec2::new(
+                            run_options.wander_radius * metadata.wander_direction.cos(),
+                            run_options.wander_radius * metadata.wander_direction.sin(),
+                    ))
+                } * 0.9;
 
                 draw.ellipse()
-                    .radius(run_options.wander_radius)
+                    .radius(
+                        match run_options.noise_model {
+                            NoiseModel::Vicsek => run_options.size * 1.5,
+                            NoiseModel::Reynolds => run_options.wander_radius,
+                        }
+                    )
                     .color(rgba(0.1, 0.1, 0.1, 0.5))
                     .xy(loco_center)
-                    .z(30.);
+                    .z(-2.);
 
                 draw.ellipse()
                     .radius(run_options.wander_radius * 0.2)
                     .color(WHITE)
-                    .xy(loco_center
-                        + wander_point.clamp_length(
-                            run_options.wander_radius * 0.9,
-                            run_options.wander_radius * 0.9,
-                        ))
-                    .z(31.);
+                    .xy(loco_center + wander_point)
+                    .z(-1.9);
             }
 
             // Highlight the boid
@@ -1459,7 +1490,7 @@ impl DrawableBoid for Boid {
             if run_options.field_of_vision_on {
                 // drawing a semi-sircle to demonstrate FOV
                 // https://stackoverflow.com/a/72701981/9316685
-                let radius = run_options.separation_treshold_distance * 2.;
+                let radius = run_options.size * 5.;
                 let section = Ellipse::new(Rect::from_x_y_w_h(0., 0., radius, radius), 120.)
                     .section(
                         theta - run_options.field_of_vision_half_rad,
@@ -1477,9 +1508,8 @@ impl DrawableBoid for Boid {
                 draw.mesh()
                     .tris(tris.into_iter())
                     .xy(self.position)
-                    .color(RED)
-                    .rgba(255., 0., 0., 40.)
-                    .z(-1.);
+                    .color(ORCHID)
+                    .z(-3.);
             }
 
             // show alignment radius
@@ -1576,7 +1606,8 @@ where
         .radius(r)
         .no_fill()
         .stroke(color)
-        .stroke_weight(2.);
+        .stroke_weight(2.)
+        .z(3.);
 }
 
 fn view(app: &App, model: &Model, frame: Frame) {
