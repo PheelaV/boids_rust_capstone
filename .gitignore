@@ -1,7 +1,8 @@
 
-/boidranalysis/Data/
-/boidranalysis/Data/
-boids-data.csv
+/boidranalysis/Data/*
+/boidranalysis/Data/*
+prepro*
+
 CACHEDIR.TAG
 .rustc_info.json
 
