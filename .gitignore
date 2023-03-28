@@ -1,6 +1,7 @@
 
 /boidranalysis/Data/*
-/boidranalysis/Data/*
+/boidranalysis/Plots/*
+
 prepro*
 
 CACHEDIR.TAG
