@@ -1,11 +1,19 @@
 [workspace]
 members = [
     "boids_lib",
-    "boids_app",
-    "boidr/src/rust"
+    "boids_app"
+    # "boidr/src/rust"
 ]
+
 exclude = [
     # "boids_lib",
-    "rustwrapper/src/rust" 
+    "rustwrapper/src/rust",
+    "boidr/src/rust"
 ]
+
+default-members = [
+    "boids_lib",
+    "boids_app"
+]
+
 resolver = "2"
