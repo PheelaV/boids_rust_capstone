@@ -9,7 +9,7 @@ crate-type = [ 'staticlib' ]
 
 [dependencies]
 extendr-api = '*'
-boids_lib = { path = "/Users/filipvlcek/Source/Repos/boids_rust/boids_lib"}
+boids_lib = { path = "../../../boids_lib"}
 geo-types = "0.7.8"
 geo = "0.23.1"
 serde = {version = "1", features = ["derive"]}
