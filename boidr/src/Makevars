@@ -1,5 +1,5 @@
-# LIBDIR = ./rust/target/release
-LIBDIR = ../../target/release 
+LIBDIR = ./rust/target/release
+# LIBDIR = ../../target/release 
 STATLIB = $(LIBDIR)/libboidr.a
 PKG_LIBS = -L$(LIBDIR) -lboidr
 
