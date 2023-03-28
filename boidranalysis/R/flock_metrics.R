@@ -50,6 +50,18 @@ get_average_norm_vel <- function(data, filter_noise = TRUE) {
       select(time, avg_norm_vel)
 }
 
+get_average_norm_vel2 <- function(data, filter_noise = TRUE) {
+  { if (filter_noise) { data |> filter (cluster_id != 0) } else { data } } |>
+    select(dx, dy, time) |>
+    group_by(time) |>
+    mutate(v_abs = sqrt(dx^2 + dy^2)) |>
+    summarise(
+      avg_norm_vel = sqrt(sum(dx)^2 + sum(dy)^2) / sum(v_abs),
+      count = n()
+    ) |>
+    select(time, avg_norm_vel)
+}
+
 # relies on boid data to retrieve the number of voronoi areas that are bellow a treshold
 # evaluated by the runtime configuration
 get_voronoi_area <- function(data, config) {

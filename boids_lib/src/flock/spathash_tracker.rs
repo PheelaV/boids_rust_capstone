@@ -443,7 +443,7 @@ impl SpatHash1D {
             if run_options.wander_on {
                 let wander_next = MY_RNG
                     .lock()
-                    .unwrap()
+                    .expect("Randomly generated wander direction failed.")
                     .gen_range(-(run_options.wander_rate)..(run_options.wander_rate)) * PI;
                 metadata[self.table[e].id].wander_direction = match run_options.noise_model {
                     crate::options::NoiseModel::Vicsek => wander_next,

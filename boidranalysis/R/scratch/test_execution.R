@@ -166,8 +166,8 @@ library(tictoc)
 
 {
   test_config <- get_config(
-    # "22normal_s.toml",
-    "3noisy_c.toml",
+    "2normal_s.toml",
+    # "3noisy_c.toml",
     overwrite = list(
       no_iter = 2^13,
       init_width = 1000,
@@ -182,4 +182,82 @@ library(tictoc)
   rlang::exec(flock_detailed_no_return, !!!test_config)
   toc()
 }
+
+{
+  test_config <- get_config(
+    # "22normal_s.toml",
+    "3noisy_r_s.toml",
+    overwrite = list(
+      no_iter = 2^13,
+      init_width = 1000,
+      init_height = 1000,
+      sample_rate = 32,
+      boundary_config = "{\"type\": \"Toroidal\"}",
+      distance_config = "{\"type\": \"EucToroidal\"}"
+    )
+  )
+  test_config$dbscan_clustering = FALSE;
+  tic("test execution, experiment_m timing:") # 41.954 sec elapsed
+  rlang::exec(flock_detailed_no_return, !!!test_config)
+  toc()
+}
+
+{
+  test_config <- get_config(
+    # "22normal_s.toml",
+    "3noisy_v_s.toml",
+    overwrite = list(
+      no_iter = 2^13,
+      init_width = 1000,
+      init_height = 1000,
+      sample_rate = 32,
+      boundary_config = "{\"type\": \"Toroidal\"}",
+      distance_config = "{\"type\": \"EucToroidal\"}"
+    )
+  )
+  test_config$dbscan_clustering = FALSE;
+  tic("test execution, experiment_m timing:") # 41.954 sec elapsed
+  rlang::exec(flock_detailed_no_return, !!!test_config)
+  toc()
+}
+
+{
+  test_config <- get_config(
+    # "22normal_s.toml",
+    "1normal.toml",
+    overwrite = list(
+      no_iter = 2^13,
+      init_width = 1000,
+      init_height = 1000,
+      sample_rate = 32,
+      boundary_config = "{\"type\": \"Toroidal\"}",
+      distance_config = "{\"type\": \"EucToroidal\"}"
+    )
+  )
+  test_config$dbscan_clustering = FALSE;
+  tic("test execution, experiment_m timing:") # 41.954 sec elapsed
+  rlang::exec(flock_detailed_no_return, !!!test_config)
+  toc()
+}
+
+
+{
+  test_config <- get_config(
+    # "22normal_s.toml",
+    "4noise_v.toml",
+    overwrite = list(
+      no_iter = 2^13,
+      init_width = 1000,
+      init_height = 1000,
+      sample_rate = 32,
+      boundary_config = "{\"type\": \"Toroidal\"}",
+      distance_config = "{\"type\": \"EucToroidal\"}"
+    )
+  )
+  test_config$dbscan_clustering = FALSE;
+  tic("test execution, experiment_m timing:") # 41.954 sec elapsed
+  rlang::exec(flock_detailed_no_return, !!!test_config)
+  toc()
+}
+
 

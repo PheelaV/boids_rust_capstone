@@ -441,6 +441,7 @@ fn preprocess_file(file_path: &str, init_width: u32, init_height: u32, no_boids:
 fn force_recompile() -> &'static str {
     return r#"hello world"#; // hey there
 }
+
 #[extendr]
 fn test_execution() -> usize {
 

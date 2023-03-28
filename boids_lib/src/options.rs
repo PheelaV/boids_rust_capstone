@@ -110,8 +110,7 @@ impl RunOptions {
         self.alignment_fov_half_cos = deg_to_half_rad(self.alignment_fov_deg).cos();
         self.cohesion_fov_half_cos = deg_to_half_rad(self.cohesion_fov_deg).cos();
         self.separation_fov_half_cos = deg_to_half_rad(self.separation_fov_deg).cos();
-        self.field_of_vision_on = self.field_of_vision_deg != 360.;
-    }
+     }
 }
 
 impl Default for RunOptions {

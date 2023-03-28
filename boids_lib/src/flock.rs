@@ -69,15 +69,23 @@ impl<'a> Flock<'a> {
     pub fn update(&mut self, run_options: &mut RunOptions) {
         run_options.update_sensory_distances();
         run_options.update_fov();
-        run_options.max_steering_sq = run_options.max_steering.powf(2.);
-        run_options.min_speed_sq = run_options.min_speed.powf(2.);
-        run_options.max_speed_sq = run_options.max_speed.powf(2.);
 
-        run_options.alignment_on = run_options.alignment_coefficient != 0.;
-        run_options.cohesion_on = run_options.cohesion_coefficient != 0.;
-        run_options.separation_on = run_options.separation_coefficient != 0.;;
+        // some features can be turned off depending on current settings
+        // takes a copy of current settings as not to affect the caller's settings
+        // modifies those and passes them on
+        let mut ro = run_options.to_owned();
+        ro.max_steering_sq = run_options.max_steering.powf(2.);
+        ro.min_speed_sq = run_options.min_speed.powf(2.);
+        ro.max_speed_sq = run_options.max_speed.powf(2.);
 
-        self.tracker.update(run_options);
+        ro.alignment_on = run_options.alignment_coefficient != 0. && run_options.alignment_on;
+        ro.cohesion_on = run_options.cohesion_coefficient != 0. && run_options.cohesion_on;
+        ro.separation_on = run_options.separation_coefficient != 0. && run_options.separation_on;
+        ro.wander_on = run_options.wander_on && run_options.wander_coefficient != 0. && run_options.wander_rate != 0.;
+        ro.field_of_vision_on = run_options.field_of_vision_deg != 360. && run_options.field_of_vision_on;
+
+
+        self.tracker.update(&ro);
     }
 
     pub fn insert_single(&mut self, run_options: &RunOptions) {

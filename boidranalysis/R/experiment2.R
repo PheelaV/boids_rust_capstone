@@ -32,7 +32,9 @@ options(dplyr.summarise.inform = FALSE)
 # if(FALSE) {
 
 run_experiment <- function(config, experiment_no_simulations, experiment_name = "experiment1",
-                          no_cores = 1, regen_graphs = FALSE, plot_splits = FALSE, gen_graphs = TRUE, stats_regen = TRUE, filter_noise = FALSE) {
+                          no_cores = 1, regen_graphs = TRUE, plot_splits = FALSE, gen_graphs = TRUE, stats_regen = TRUE, filter_noise = FALSE) {
+  print(paste0("starting ", experiment_name))
+
   # set up the experiment
   experiment_data_folder <- paste0("Data/", experiment_name, "/")
   config$save_locations_path = experiment_data_folder
@@ -47,18 +49,23 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
 
   # collect data
   run_simulation <- function(i){
-    rlang::exec(flock_detailed, !!!config)
+    rlang::exec(flock_detailed_no_return, !!!config)
     return(i)
   }
 
-  # preserve config
-  write_config <- config
-  write_config$experiment_name = experiment_name
-  jsonlite::write_json(write_config, paste0(experiment_data_folder, "config.json"))
-
   runs <- experiment_no_simulations - existing_simulations
+  stats_file_path <- paste0(experiment_data_folder, "results_stats.csv")
+
   tic("data generation")
-  if(runs > 0 && regen_graphs) {
+  # if stats file does not exist, regenerate
+  # otherwise look if there is more work to be don or if we have specifically said
+  # not to regenerate stats
+  if(!file.exists(stats_file_path) || (runs > 0 && stats_regen)) {
+    # preserve config
+    write_config <- config
+    write_config$experiment_name = experiment_name
+    jsonlite::write_json(write_config, paste0(experiment_data_folder, "config.json"))
+
     mclapply(1:runs,
              run_simulation,
              mc.cores = no_cores)
@@ -95,7 +102,7 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
       }
     }
 
-    return(read_csv(prep_file))
+    return(read_csv(prep_file, col_types = cols()))
   }
 
 
@@ -124,43 +131,19 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
     }
   }
 
-  stats_file_path <- paste0(experiment_data_folder, "results_stats.csv")
 
   if (stats_regen || !file.exists(stats_file_path))
     {
     tic("results average norm vel")
-    results_average_norm_vel <- mclapply(
+    results_average_norm_vel2 <- mclapply(
       1:experiment_no_simulations,
       function(file_no){
-        collect_results(file_no, metric = get_average_norm_vel, process = process)
+        collect_results(file_no, metric = function(x){get_average_norm_vel2(x, FALSE)}, process = process)
       },
       mc.cores = no_cores
     ) |>
       map_dfr(bind_rows)
     toc()
-
-    tic("results convex hull")
-    results_convex_hull <- mclapply(
-      1:experiment_no_simulations,
-      function(file_no){
-        collect_results(file_no, get_convex_hull_data, process =  process)
-      },
-      mc.cores = no_cores
-    ) |>
-      map_dfr(bind_rows)
-    toc()
-
-    tic("results no flocks")
-    results_no_flocks <- mclapply(
-      1:experiment_no_simulations,
-      function(file_no){
-        collect_results(file_no, get_no_flocks, process = process)
-      },
-      mc.cores = no_cores
-    ) |>
-      map_dfr(bind_rows)
-    toc()
-
     tic("results average norm vel")
     results_average_norm_vel <- mclapply(
       1:experiment_no_simulations,
@@ -183,18 +166,49 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
       map_dfr(bind_rows)
     toc()
 
+    if (config$dbscan_clustering) {
+      tic("results convex hull")
+      results_convex_hull <- mclapply(
+        1:experiment_no_simulations,
+        function(file_no){
+          collect_results(file_no, get_convex_hull_data, process =  process)
+        },
+        mc.cores = no_cores
+      ) |>
+        map_dfr(bind_rows)
+      toc()
+
+      tic("results no flocks")
+      results_no_flocks <- mclapply(
+        1:experiment_no_simulations,
+        function(file_no){
+          collect_results(file_no, get_no_flocks, process = process)
+        },
+        mc.cores = no_cores
+      ) |>
+        map_dfr(bind_rows)
+      toc()
+    }
+
     tic("visualisation")
     results_stats <- tibble(
       t = 1:ncol(results_average_norm_vel) * sample_rate,
-      mean_no_flocks = apply(results_no_flocks, 2, mean),
-      var_no_flocks = apply(results_no_flocks, 2, var),
-      mean_convex_hull = apply(results_convex_hull, 2, mean),
-      var_convex_hull = apply(results_convex_hull, 2, var),
       mean_average_norm_vel = apply(results_average_norm_vel, 2, mean),
+      mean_average_norm_vel2 = apply(results_average_norm_vel2, 2, mean),
       var_average_norm_vel = apply(results_average_norm_vel, 2, var),
+      var_average_norm_vel2 = apply(results_average_norm_vel2, 2, var),
       var_voronoi_counts = apply(results_voronoi_counts, 2, var),
       mean_voronoi_counts = apply(results_voronoi_counts, 2, mean),
     )
+
+    if (config$dbscan_clustering) {
+      results_stats <- results_stats |> bind_cols(
+        mean_no_flocks = apply(results_no_flocks, 2, mean),
+        var_no_flocks = apply(results_no_flocks, 2, var),
+        mean_convex_hull = apply(results_convex_hull, 2, mean),
+        var_convex_hull = apply(results_convex_hull, 2, var)
+      )
+    }
 
     write_csv(results_stats, stats_file_path)
   }
@@ -220,23 +234,26 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
   init_chang_pts <- c()
   if(plot_splits) {
     res <- 200
-    png(filename = paste0(plots_splits_folder, "mean_no_flocks.png"), width = 6 * res, height = 4 * res, res = res)
-    change_points <- cpt.mean(results_stats$mean_no_flocks, method = "AMOC")
-    plot(change_points)
-    dev.off()
-    init_chang_pts <- c(init_chang_pts, cpts(change_points)[1])
 
-    png(filename = paste0(plots_splits_folder, "var_no_flocks.png"), width = 6 * res, height = 4 * res, res = res)
-    change_points <- cpt.mean(results_stats$var_no_flocks, method = "AMOC")
-    plot(change_points)
-    dev.off()
-    init_chang_pts <- c(init_chang_pts, cpts(change_points)[1])
+    if (config$dbscan_clustering) {
+      png(filename = paste0(plots_splits_folder, "mean_no_flocks.png"), width = 6 * res, height = 4 * res, res = res)
+      change_points <- cpt.mean(results_stats$mean_no_flocks, method = "AMOC")
+      plot(change_points)
+      dev.off()
+      init_chang_pts <- c(init_chang_pts, cpts(change_points)[1])
 
-    png(filename = paste0(plots_splits_folder, "mean_convex_hull.png"), width = 6 * res, height = 4 * res, res = res)
-    change_points <- cpt.mean(results_stats$mean_convex_hull, method = "AMOC")
-    plot(change_points)
-    dev.off()
-    init_chang_pts <- c(init_chang_pts, cpts(change_points)[1])
+      png(filename = paste0(plots_splits_folder, "var_no_flocks.png"), width = 6 * res, height = 4 * res, res = res)
+      change_points <- cpt.mean(results_stats$var_no_flocks, method = "AMOC")
+      plot(change_points)
+      dev.off()
+      init_chang_pts <- c(init_chang_pts, cpts(change_points)[1])
+
+      png(filename = paste0(plots_splits_folder, "mean_convex_hull.png"), width = 6 * res, height = 4 * res, res = res)
+      change_points <- cpt.mean(results_stats$mean_convex_hull, method = "AMOC")
+      plot(change_points)
+      dev.off()
+      init_chang_pts <- c(init_chang_pts, cpts(change_points)[1])
+    }
 
     png(filename = paste0(plots_splits_folder, "mean_average_norm_vel.png"), width = 6 * res, height = 4 * res, res = res)
     change_points <- cpt.var(results_stats$mean_average_norm_vel, method = "AMOC")
@@ -267,14 +284,18 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
   # plot(change_points)
   # change_points <- cpt.meanvar(results_stats$mean_no_flocks)
   # plot(change_points)
+
   max_change_point <- {
-  if(plot_splits) {
+  if(plot_splits && sum(!is.na(init_chang_pts)) != 0) {
     m <- max(init_chang_pts[!is.na(init_chang_pts)])
-    if (m < 10000 / sample_rate) { m } else { 10000 / sample_rate }
+    if (is.na(m) || m > 10000 / sample_rate) { 10000 / sample_rate } else { m }
   }
   else {
     0
   }}
+
+  max_change_point <-  as.integer(max_change_point)
+
   print(paste0("max change points:", max_change_point))
 
   figure_postfix <- paste0("_", experiment_name, ".jpg")
@@ -306,6 +327,7 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
     plt(my_data, "_none", 0)
   }
 
+if (config$dbscan_clustering) {
   plot_with_splits(results_stats, max_change_point, function(res_data, split_label, time_start) {
     ggplot(
       data = res_data |> mutate(t = t + time_start),
@@ -338,7 +360,7 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
            caption = paste0("split: ", str_replace(split_label, "_", ""))) +
       scale_x_continuous(limits = c(time_start, NA))
 
-      ggsave(paste0("var_no_flocks", split_label, figure_postfix), path = experiment_plot_folder, width = figure_width, height = figure_height, units = figure_units, dpi = figure_dpi)
+    ggsave(paste0("var_no_flocks", split_label, figure_postfix), path = experiment_plot_folder, width = figure_width, height = figure_height, units = figure_units, dpi = figure_dpi)
   })
 
   plot_with_splits(results_stats, max_change_point, function(res_data, split_label, time_start) {
@@ -372,10 +394,11 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
            title = "var flock area",
            subtitle = figure_subtitle_config,
            caption = paste0("split: ", str_replace(split_label, "_", ""))) +
-       scale_x_continuous(limits = c(time_start, NA))
+      scale_x_continuous(limits = c(time_start, NA))
 
     ggsave(paste0("var_area_flock", figure_postfix), path = experiment_plot_folder, width = figure_width, height = figure_height, units = figure_units, dpi = figure_dpi)
   })
+}
 
   plot_with_splits(results_stats, max_change_point, function(res_data, split_label, time_start) {
     ggplot(
@@ -397,6 +420,22 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
     ggplot(
       data = results_stats,
       aes(x = t,
+          y = mean_average_norm_vel2)
+    ) +
+      geom_line() +
+      theme_bw() +
+      labs(x = "time t", y = "mean average norm vel",
+           title = "average norm vel",
+           subtitle = figure_subtitle_config,
+           caption = paste0("split: ", str_replace(split_label, "_", ""))) +
+      scale_x_continuous(limits = c(time_start, NA))
+    ggsave(paste0("mean_avg_norm_vel2", figure_postfix), path = experiment_plot_folder, width = figure_width, height = figure_height, units = figure_units, dpi = figure_dpi)
+  })
+
+  plot_with_splits(results_stats, max_change_point, function(res_data, split_label, time_start) {
+    ggplot(
+      data = results_stats,
+      aes(x = t,
           y = var_average_norm_vel)
     ) +
       geom_line() +
@@ -407,6 +446,22 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
            caption = paste0("split: ", str_replace(split_label, "_", ""))) +
       scale_x_continuous(limits = c(time_start, NA))
     ggsave(paste0("var_avg_norm_vel", figure_postfix), path = experiment_plot_folder, width = figure_width, height = figure_height, units = figure_units, dpi = figure_dpi)
+  })
+
+  plot_with_splits(results_stats, max_change_point, function(res_data, split_label, time_start) {
+    ggplot(
+      data = results_stats,
+      aes(x = t,
+          y = var_average_norm_vel2)
+    ) +
+      geom_line() +
+      theme_bw() +
+      labs(x = "time t", y = "var average norm vel",
+           title = "var average norm vel",
+           subtitle = figure_subtitle_config,
+           caption = paste0("split: ", str_replace(split_label, "_", ""))) +
+      scale_x_continuous(limits = c(time_start, NA))
+    ggsave(paste0("var_avg_norm_vel2", figure_postfix), path = experiment_plot_folder, width = figure_width, height = figure_height, units = figure_units, dpi = figure_dpi)
   })
 
   plot_with_splits(results_stats, max_change_point, function(res_data, split_label, time_start) {
@@ -449,6 +504,15 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
     select(time, vals, label) |>
     pivot_wider(values_from = vals, names_from = label)
 
+  first_n_average_norm_vel2 <- results_average_norm_vel2 |>
+    slice_head(n = 4) |>
+    mutate(sim_no = row_number()) |>
+    pivot_longer(cols = starts_with("t_"), values_to = "vals", names_pattern = "t_(.+)", names_transform = as.integer) |>
+    select(sim_no, time = name, vals) |>
+    mutate(label = sprintf("s_%d", sim_no), time = time * sample_rate) |>
+    select(time, vals, label) |>
+    pivot_wider(values_from = vals, names_from = label)
+
   # http://www.sthda.com/english/articles/24-ggpubr-publication-ready-plots/81-ggplot2-easy-way-to-mix-multiple-graphs-on-the-same-page/
 
   plot_with_splits(results_average_norm_vel, max_change_point, function(res_data, split_label, time_start){
@@ -470,6 +534,27 @@ run_experiment <- function(config, experiment_no_simulations, experiment_name = 
            caption = paste0("split: ", str_replace(split_label, "_", ""))
     )
     ggsave(paste0("first_n_avg_norm_vel", split_label, figure_postfix), path = experiment_plot_folder, width = figure_width, height = figure_height, units = figure_units, dpi = figure_dpi)
+  }, byrow = F)
+
+  plot_with_splits(results_average_norm_vel2, max_change_point, function(res_data, split_label, time_start){
+    print(time_start)
+    res_data |>
+      slice_head(n = 5) |>
+      mutate(sim_no = row_number()) |>
+      pivot_longer(cols = starts_with("t_"), values_to = "vals", names_pattern = "t_(.+)", names_transform = as.integer) |>
+      select(sim_no, time = name, vals) |>
+      mutate(label = sprintf("s_%d", sim_no), time = time * sample_rate) |>
+      ggplot(aes(x = time, y = vals)) +
+      geom_line() +
+      scale_x_continuous(limits = c(time_start, NA)) +
+      facet_grid(rows = vars(label)) +
+      theme_bw() +
+      labs(x = "time t", y = "mean average norm vel",
+           title = "average norm vel of first n simulations",
+           subtitle = figure_subtitle_config,
+           caption = paste0("split: ", str_replace(split_label, "_", ""))
+      )
+    ggsave(paste0("first_n_avg_norm_vel2", split_label, figure_postfix), path = experiment_plot_folder, width = figure_width, height = figure_height, units = figure_units, dpi = figure_dpi)
   }, byrow = F)
   toc()
 
@@ -571,7 +656,7 @@ no_bins <- 360
   ggsave(paste0("heading_top_k_overview", figure_postfix), path = experiment_plot_folder, width = figure_width, height = figure_height, units = figure_units, dpi = figure_dpi)
 
   ggplot(direction_counts_df, aes(x = bin, y = log(heading_count))) +
-    coord_polar(theta = "x", start = pi) +
+    coord_polar(theta = "x", start = 0) +
     geom_bar(stat = "identity", fill = "orange", width = .9) +
     labs(title = "Heading Angles",
          x =  paste0("k-th iterration section"),
@@ -1421,31 +1506,11 @@ tryCatch(
     }
 }
 
-tic("0325_experiment2_m start")
-config <- get_config(
-  "1normal.toml",
-  overwrite = list(
-    no_iter = 2^15,
-    init_width = 1000,
-    init_height = 1000,
-    sample_rate = 32,
-    boundary_config = "{\"type\": \"Toroidal\"}",
-    distance_config = "{\"type\": \"EucToroidal\"}"
-  )
-)
-
-no_cores <- 6
-experiment_no_simulations <- 60
-tryCatch(
-  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0325_experiment2_m",
-                        plot_splits = TRUE, stats_regen = TRUE,  gen_graphs = TRUE, regen_graphs = TRUE)
-)
-} # HERE STOP HERE
-
-{ # HERE START HERE
+# } # HERE STOP HERE
 tic("0326_experiment3_y start")
+# if (FALSE) { # HERE START HERE
 config <- get_config(
-  "2normal_s.toml",
+  "2normal_s.toml", # todo: rerun
   overwrite = list(
     no_iter = 2^15,
     init_width = 1000,
@@ -1456,39 +1521,41 @@ config <- get_config(
   )
 )
 
-no_cores <- 6
+no_cores <- 8
 experiment_no_simulations <- 32
 tryCatch(
   expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0326_experiment3_y",
                         plot_splits = TRUE, stats_regen = TRUE,  gen_graphs = TRUE, regen_graphs = TRUE)
 )
 toc()
-#
-# tic("0326_experiment3_x start")
-# config <- get_config(
-#   "3noisy_v_s.toml",
-#   overwrite = list(
-#     no_iter = 2^15,
-#     init_width = 1000,
-#     init_height = 1000,
-#     sample_rate = 32,
-#     boundary_config = "{\"type\": \"Toroidal\"}",
-#     distance_config = "{\"type\": \"EucToroidal\"}"
-#   )
-# )
-#
-# no_cores <- 8
-# experiment_no_simulations <- 32
-# tryCatch(
-#   expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0326_experiment3_x",
-#                         plot_splits = TRUE, stats_regen = TRUE,  gen_graphs = TRUE, regen_graphs = TRUE)
-# )
-# toc()
+
+tic("0326_experiment3_x start")
+config <- get_config(
+  "3noisy_v_s.toml",
+  overwrite = list(
+    no_iter = 2^15,
+    init_width = 1000,
+    init_height = 1000,
+    sample_rate = 32,
+    boundary_config = "{\"type\": \"Toroidal\"}",
+    distance_config = "{\"type\": \"EucToroidal\"}"
+  )
+)
+
+no_cores <- 8
+experiment_no_simulations <- 32
+tryCatch(
+  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0326_experiment3_x",
+                        plot_splits = TRUE, stats_regen = TRUE,  gen_graphs = TRUE, regen_graphs = TRUE)
+)
+toc()
+
+
 
 # this we will have to re-run as it has been configured with vicsek noise
 tic("0326_experiment3_w start")
 config <- get_config(
-  "3noisy_c.toml", # this used to have coh = 0.9
+  "3noisy_r_s.toml", # this used to have coh = 0.9
   overwrite = list(
     no_iter = 2^15,
     init_width = 1000,
@@ -1507,26 +1574,6 @@ tryCatch(
 )
 toc()
 
-tic("0326_experiment3_v start")
-config <- get_config(
-  "4noise_c.toml",
-  overwrite = list(
-    no_iter = 2^15,
-    init_width = 1000,
-    init_height = 1000,
-    sample_rate = 32,
-    boundary_config = "{\"type\": \"Toroidal\"}",
-    distance_config = "{\"type\": \"EucToroidal\"}"
-  )
-)
-
-no_cores <- 6
-experiment_no_simulations <- 32
-tryCatch(
-  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0326_experiment3_v",
-                        plot_splits = TRUE, stats_regen = TRUE,  gen_graphs = TRUE, regen_graphs = TRUE)
-)
-toc()
 
 tic("0326_experiment3_u start")
 config <- get_config(
@@ -1536,6 +1583,7 @@ config <- get_config(
     init_width = 1000,
     init_height = 1000,
     sample_rate = 32,
+    dbscan_clustering = F,
     boundary_config = "{\"type\": \"Toroidal\"}",
     distance_config = "{\"type\": \"EucToroidal\"}"
   )
@@ -1549,4 +1597,259 @@ tryCatch(
 )
 toc()
 
+
+
+{
+  range <- 1:29
+  sensory_distances = c(
+    c(31.6227766, 44.72135955,54.77225575,63.2455532, 70.71067812, # p 1 to 10 by 1
+      77.45966692, 83.66600265, 89.4427191, 94.86832981, 100),
+    c(34.64101615, 37.41657387, 40, 42.42640687,
+      46.9041576, 48.98979486, 50.99019514, 52.91502622,
+      56.56854249, 58.30951895, 60, 61.64414003), # 1.2 to 1.8 by .2 for 1. 2. 3. (12 values)
+    c(14.14213562, 20, 24.49489743, 28.28427125), # 0.2 to 0.8 by 0.2
+    c(5, 7.071067812, 10) # sub .2
+  )
+  densities = c(
+    c(1:10),  # p 1 to 10
+    c(1.2, 1.4, 1.6, 1.8, 2.2, 2.4, 2.6, 2.8, 3.2, 3.4, 3.6, 3.8),
+    c(0.2, 0.4, 0.6, 0.8),
+    c(0.025, 0.05, 0.1)
+  )
+
+  for (d in range) {
+    name <- paste0("0327_experiment3_t_", sprintf("%02d", d))
+    tic(name)
+
+    print(name)
+    config <- get_config(
+      "1normal.toml",
+      overwrite = list(
+        init_boids = 2^10,
+        no_iter = 2^15,
+        init_width = 1000,
+        init_height = 1000,
+        sample_rate = 32,
+        boundary_config = "{\"type\": \"Toroidal\"}",
+        distance_config = "{\"type\": \"EucToroidal\"}",
+        sensory_distance = sensory_distances[d]
+        # field_of_vision = 360.0,
+        # wander_random = TRUE
+        # dbscan_clustering = FALSE,
+      )
+    )
+    no_cores <- 8
+    experiment_no_simulations <- 8
+    tryCatch(
+      expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores,
+                            experiment_name = name, plot_splits = T, stats_regen = T,  gen_graphs = F, regen_graphs = F)
+    )
+
+    toc()
+  }
+
+  noise_results_stats = tibble()
+  for (d in range) {
+    name <- paste0("Data/0327_experiment3_t_", sprintf("%02d", d))
+
+    noise_results_stats <- noise_results_stats |> bind_rows(
+      read_csv(paste0(name, "/results_stats.csv"), col_types = cols()) |>
+        mutate(density = densities[d], sensory_distance = sensory_distances[d])
+    )
+  }
+
+  noise_results_stats |>
+    group_by(density) |>
+    reframe(mean_average_norm_vel = mean(mean_average_norm_vel)) |>
+    select(density, mean_average_norm_vel) |>
+    ggplot(aes(x = density, y = mean_average_norm_vel)) +
+    geom_text(aes(x = density + 0.2, y = mean_average_norm_vel - 0.003, label = density), size = 3) +
+    labs(title = "Density (p) vs mean average norm vel") +
+    geom_point(size = 1.5) +
+    geom_line()
+
+ggsave(paste0(name, "/plots/", "density_p_vs_mean_gone_right_k.jpg"), units = "cm", dpi = "retina", width = 25, height = 6)
+
+tic("0326_experiment3_v start")
+config <- get_config(
+  "4noise_r.toml",
+  overwrite = list(
+    no_iter = 2^15,
+    init_width = 1000,
+    init_height = 1000,
+    sample_rate = 32,
+    dbscan_clustering = F,
+    boundary_config = "{\"type\": \"Toroidal\"}",
+    distance_config = "{\"type\": \"EucToroidal\"}"
+  )
+)
+
+no_cores <- 8
+experiment_no_simulations <- 32
+tryCatch(
+  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0326_experiment3_v",
+                        plot_splits = TRUE, stats_regen = TRUE,  gen_graphs = TRUE, regen_graphs = TRUE)
+)
+toc()
+
+
+
+# this used to be called 0325_experiment2_m
+tic("0328_experiment2_z start")
+config <- get_config(
+  "1normal.toml",
+  overwrite = list(
+    no_iter = 2^15,
+    init_width = 1000,
+    init_height = 1000,
+    sample_rate = 32,
+    boundary_config = "{\"type\": \"Toroidal\"}",
+    distance_config = "{\"type\": \"EucToroidal\"}"
+  )
+)
+
+no_cores <- 6
+experiment_no_simulations <- 60
+tryCatch(
+  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0328_experiment2_z",
+                        plot_splits = TRUE, stats_regen = TRUE,  gen_graphs = TRUE, regen_graphs = TRUE)
+)
+} # stop here
+} # start here
+tic("0328_experiment2_z2 start")
+config <- get_config(
+  "1normal.toml",
+  overwrite = list(
+    no_iter = 2^15,
+    init_width = 1000,
+    init_height = 1000,
+    sample_rate = 32,
+    boundary_config = "{\"type\": \"Toroidal\"}",
+    distance_config = "{\"type\": \"EucEnclosed\"}"
+  )
+)
+
+no_cores <- 6
+experiment_no_simulations <- 60
+tryCatch(
+  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0328_experiment2_z2",
+                        plot_splits = TRUE, stats_regen = TRUE,  gen_graphs = TRUE, regen_graphs = TRUE)
+)
+tic("0328_experiment2_z3 start")
+config <- get_config(
+  "1normal.toml",
+  overwrite = list(
+    no_iter = 2^15,
+    init_width = 1000,
+    init_height = 1000,
+    sample_rate = 32,
+    boundary_config = "{\"type\": \"Repulsive\", \"distance\": 100, \"force\": 0.05}",
+    distance_config = "{\"type\": \"EucEnclosed\"}"
+  )
+)
+
+no_cores <- 6
+experiment_no_simulations <- 60
+tryCatch(
+  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0328_experiment2_z3",
+                        plot_splits = TRUE, stats_regen = TRUE,  gen_graphs = TRUE, regen_graphs = TRUE)
+)
+tic("0328_experiment2_z4 start")
+config <- get_config(
+  "1normal.toml",
+  overwrite = list(
+    no_iter = 2^15,
+    init_width = 1000,
+    init_height = 1000,
+    sample_rate = 32,
+    boundary_config = "{\"type\": \"Absorbing\"}",
+    distance_config = "{\"type\": \"EucEnclosed\"}"
+  )
+)
+
+no_cores <- 6
+experiment_no_simulations <- 60
+tryCatch(
+  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0328_experiment2_z4",
+                        plot_splits = TRUE, stats_regen = TRUE,  gen_graphs = TRUE, regen_graphs = TRUE)
+)
+
+
+
+if (FALSE) {
+  # N <- c(512, 1024, 2048)
+  # sensory_distances <- c(88.38834765, 62.5, 44.19417382)
+  N <- c(512, 1024, 2048, 4096, 8192)
+  sensory_distances <- c(88.38834765, 62.5, 44.19417382, 31.25, 22.09708691)
+  noises = c(seq(from = 0, to = 0.25 - 0.01, by = 0.25 / 2),
+             seq(from = 0.25, to = 0.375 - 0.01, by = 0.5 / 17),
+             seq(from = 0.375, to = 0.625 - 0.01, by = 0.25 / 15),
+             seq(from = 0.625, to = 0.75 - 0.01, by = 0.5 / 17),
+             seq(from = 0.75, to = 1, by = 0.25 / 2))
+  range <- 1:length(noises)
+  # noises1 <- seq(from = 0, to = 0.8* 2 * pi, by = 0.5) / (2 * pi)
+  # noises <- c(0, 0.079577472, 0.159154943, 0.238732415, 0.318309886, 0.397887358,
+  #             0.477464829, 0.557042301, 0.636619772, 0.716197244, 0.795774715, 0.875352187,
+  #             0.954929659, 1)
+
+  for(n in 1:length(N)){
+    for (x in range) {
+      name <- paste0("0327_experiment2_s2_noags", sprintf("%02d", n),"_noise", sprintf("%02d", x))
+      tic(name)
+
+      print(name)
+      print(paste0("init boids ", N[n]))
+      print(paste0("sensory distance ", sensory_distances[n]))
+      print(paste0("wander rate ", noises[x]))
+      config <- get_config(
+        "0vicsek.toml",
+        overwrite = list(
+          init_boids = N[n],
+          no_iter = 2^15,
+          init_width = 1000,
+          init_height = 1000,
+          sample_rate = 128,
+          boundary_config = "{\"type\": \"Toroidal\"}",
+          distance_config = "{\"type\": \"EucToroidal\"}",
+          rules_impl = F,
+          sensory_distance = sensory_distances[n],
+          field_of_vision = 360.0,
+          wander_random = T,
+          wander_rate = noises[x],
+          dbscan_clustering = F
+        )
+      )
+      no_cores <-
+      experiment_no_simulations <- 6
+      tryCatch(
+        expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = name,
+                              plot_splits = F, stats_regen = F,  gen_graphs = F, regen_graphs = F)
+      )
+      toc()
+    }
+  }
+
+  noise_results_stats = tibble()
+  for(n in 1:length(N)){
+    for (x in range) {
+      name <- paste0("Data/0327_experiment2_s2_noags", sprintf("%02d", n),"_noise", sprintf("%02d", x))
+      noise_results_stats <- noise_results_stats |> bind_rows(
+        read_csv(paste0(name, "/results_stats.csv"), col_types = cols()) |>
+          mutate(noise = noises[x], no_agents = N[n])
+      )
+    }
+  }
+  noise_results_stats |>
+    group_by(noise, no_agents) |>
+    reframe(mean_average_norm_vel = mean(mean_average_norm_vel2)) |>
+    select(noise, mean_average_norm_vel, no_agents) |>
+    ggplot(aes(x = noise, y = mean_average_norm_vel)) +
+    # geom_text(aes(x = noise, y = mean_average_norm_vel - 0.05, label = noise), size = 3) +
+    labs(title = "noise vs average normalized velocity", ) +
+    geom_point(size = 1.5, aes(colour = factor(no_agents), shape = factor(no_agents))) +
+    labs(shape = "#agents", colour = "#agents", group = "#agents") +
+    ylab("v_a") +
+    geom_line(aes(group = factor(no_agents)))
+
+  ggsave(paste0(name, "/plots/", "noise_vs_avg_norm_vel_s.jpg"), units = "cm", dpi = "retina", width = 25, height = 12)
 }
