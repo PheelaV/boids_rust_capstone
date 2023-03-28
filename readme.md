@@ -4,6 +4,8 @@
 
 Implementatioin of boids algorithms, with integrated modified version of the original Vicsek Model, utilisinng spatial hashing, with integration into R.
 
+![cover](/docs/mellow_wandering.png)
+
 
 Boid algorithms: Crag Reynolds 1987, [see](https://dl.acm.org/doi/10.1145/37402.37406) [see](http://www.red3d.com/cwr/0)
 Vicsek model: Tamás Vicsek 1995, [see](https://journals.aps.org/prl/abstract/10.1103/PhysRevLett.75.1226)
