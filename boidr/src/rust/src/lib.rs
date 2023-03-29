@@ -437,7 +437,7 @@ fn preprocess_file(file_path: &str, init_width: u32, init_height: u32, no_boids:
 
 #[extendr]
 fn force_recompile() -> &'static str {
-    return r#"hello world"#; // hey there
+    return r#"hello world"#; 
 }
 
 #[extendr]
@@ -494,9 +494,7 @@ fn test_execution() -> usize {
     })
     .collect::<Vec<TestData>>();
 
-    println!("hey there");
-    converted.len()
-    
+     converted.len()
 }
 // Macro to generate exports.
 // This ensures exported functions are registered with R.

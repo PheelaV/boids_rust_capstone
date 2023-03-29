@@ -98,43 +98,19 @@ impl Boid {
         };
 
         if run_options.separation_on {
-            // let sep = self.separation(&filtered, run_options);
-            // if self.id == run_options.clicked_boid_id {
-            //     println!("separation: {:?}, len: {:?}", sep, sep.length());
-            // }
-            // sum += sep
             sum += self.separation(&filtered, run_options);
-            // Boid::check_for_unruly_rule(sum, "separation");
         }
 
         if run_options.cohesion_on && (!run_options.rules_impl || sum == Vec2::ZERO) {
-            // let cohes = self.cohesion(&filtered, run_options);
-            // if self.id == run_options.clicked_boid_id {
-            //     println!("cohesion: {:?}, len: {:?}", cohes, cohes.length());
-            // }
-            // sum += cohes;
             sum += self.cohesion(&filtered, run_options);
-            // Boid::check_for_unruly_rule(sum, "cohesion");
         }
 
         if run_options.alignment_on {
-            // let align = self.alignment(&filtered, run_options);
-            // if self.id == run_options.clicked_boid_id {
-            // println!("align: {:?}, len: {:?}", align, align.length());
-            // }
-            // sum += align;
             sum += self.alignment(&filtered, run_options);
-            // Boid::check_for_unruly_rule(sum, "alignment");
         }
 
         if run_options.wander_on {
-            // let wander = self.wander(metadata, run_options);
-            // if self.id == run_options.clicked_boid_id {
-            //     println!("wander: {:?}, len: {:?}", wander, wander.length());
-            // }
-            // sum += wander;
             sum += self.wander(metadata, run_options);
-            // Boid::check_for_unruly_rule(sum, "wander");
         }
 
         // this is mostly for manual manipulation when testing, is not used in experiments atm
@@ -145,9 +121,6 @@ impl Boid {
             }
         }
 
-        // if self.id == run_options.clicked_boid_id {
-        //     println!("sum: {:?}, len: {:?}", sum, sum.length());
-        // }
         sum
     }
 
@@ -343,11 +316,6 @@ impl Boid {
             Distance::EucToroidal => tor_vec(self.position, target, &run_options.window),
             Distance::EucEnclosed => target - self.position,
         };
-
-        // if self.id == run_options.clicked_boid_id {
-        //     println!("desired: {}, len:{}", desired, desired.length());
-        // }
-
         self.steer(desired, run_options)
     }
 

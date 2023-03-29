@@ -335,16 +335,6 @@ get_curvature_order_data <- function(data, config, tau){
   return(wedges)
 }
 
-# no_bins <- 180
-#
-#
-# direction_counts_df <- direction_df %>%
-#   group_by(timeline_facet, result_no) %>%
-#   mutate(heading_bin = cut(headings, breaks = seq(0, 2*pi, length.out = no_bins + 1), labels = F)) %>%
-#   mutate(bearing_bin = cut(bearings, breaks = seq(-pi, pi, length.out = no_bins + 1), labels = F)) %>%
-#   reframe(bin = 1:no_bins, heading_count = c(count_em_up(heading_bin, c(1, no_bins))), bearing_count = c(count_em_up(bearing_bin, c(1, no_bins))))
-#
-
 get_directional_counts <- function (data, no_bins) {
   .count_em_up <- function(vec, range) {
     # define all possible values
@@ -366,3 +356,44 @@ get_directional_counts <- function (data, no_bins) {
     reframe(bin = 1:no_bins, heading_count = c(.count_em_up(heading_bin, c(1, no_bins))), bearing_count = c(.count_em_up(bearing_bin, c(1, no_bins)))) %>%
     return()
 }
+#
+# get_directional_counts2 <- function (data) {
+#   test_get_headings <- function(data) {
+#     data |>
+#       mutate(
+#         headings = floor(rad2deg(headings))
+#       ) %>%
+#       group_by(headings) %>%
+#       summarise(
+#         count = length(id)
+#       ) %>%
+#       select(heading = headings, count = count)
+#   }
+#   test_get_bearings <- function(data) {
+#     data |>
+#       mutate(
+#         bearings = floor(rad2deg(bearings))
+#       ) %>%
+#       group_by(bearings) %>%
+#       summarise(
+#         count = length(id)
+#       ) %>%
+#       select(bearing = bearings, count = count)
+#   }
+#
+#   tibble(bearing = 0:359, count = 0) %>%
+#     left_join(data %>%
+#                 test_get_bearings, by = "bearing") %>%
+#     mutate(count = if_else(is.na(count.y), count.x, count.y)) %>%
+#     select(bin = bearing, bearing_count = count) %>%
+#     full_join(
+#       tibble(heading = 0:359, count = 0) %>%
+#         left_join(data %>%
+#                     test_get_headings(), by = "heading") %>%
+#         mutate(count = if_else(is.na(count.y), count.x, count.y)) %>%
+#         select(bin = heading, heading_count = count),
+#       by = "bin"
+#     ) %>%
+#     return()
+# }
+

@@ -202,7 +202,6 @@ impl ReplayTracker {
         }
     }
     fn load_buffer(&mut self) -> Result<bool, ReplayTrackerError> {
-        // println!("playhead: {:?}", self.buff_playhead);
 
         let RunOptions {
             init_boids, window, ..
@@ -243,9 +242,6 @@ impl ReplayTracker {
             },
         };
 
-        // println!("#######################");
-        // let mut timeset = HashSet::<u64>::new();
-
         for (data, index) in self
             .locations
             .iter()
@@ -260,10 +256,6 @@ impl ReplayTracker {
                 (0..init_boids).into_iter().cycle().take(self.buffer_size),
             )
         {
-            // println!("--------------");
-            // println!("id: {:?}", data.id);
-            // println!("time: {:?}", data.time);
-            // timeset.insert(data.time);
             if index != data.id {
                 return Err(ReplayTrackerError::DataBlockError(
                     "id missalignment".to_owned(),
@@ -271,12 +263,6 @@ impl ReplayTracker {
             }
 
             let time_diff_abs = ((data.time as i128 - time as i128) as i32).abs();
-
-            // println!("time_diff_abs: {:?}", time_diff_abs);
-
-            // if time_diff_abs < 1 {
-            //     println!("hereee");
-            // }
 
             let check_time = match self.replay_direction {
                 ReplayDirection::Forward => time,
@@ -308,7 +294,6 @@ impl ReplayTracker {
                     false => 0,
                 };
 
-            // println!("buff_index: {:?}", buff_index);
 
             let boid = self.buff_boid.get_mut(buff_index).unwrap();
             let meta = self.buff_meta.get_mut(buff_index).unwrap();

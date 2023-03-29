@@ -568,7 +568,8 @@ if (config$dbscan_clustering) {
       # somehow there is a few (units) records missing here
      df <- fetch_file(paste0(experiment_data_folder, simulation_files[[file_no]])) |>
        process() |>
-       mutate(result_no = file_no)
+       mutate(result_no = file_no) |>
+       arrange(desc(time), desc(id))
 
      n <- nrow(df)
      section_size <- n %/% batch_factor
@@ -582,21 +583,6 @@ if (config$dbscan_clustering) {
     mc.cores = no_cores
   ) |>
     purrr::map_dfr(dplyr::bind_rows)
-
-  # no_bins <- 180
-  # count_em_up <- function(vec, range) {
-  #   # define all possible values
-  #   all_values <- min(range):max(range)
-  #   # get value counts
-  #   value_counts <- table(vec)
-  #
-  #   # add missing values with a count of 0
-  #   value_counts <- value_counts[match(all_values, names(value_counts))]
-  #   value_counts[is.na(value_counts)] <- 0
-  #   names(value_counts) <- all_values
-  #
-  #   return(value_counts)
-  # }
 
   create_radial_density_plot <- function(data, angle_col, time_col, title = "Radial Density Plot", sub_sampling, bin_size, no_bins) {
     data |>
@@ -631,6 +617,12 @@ no_bins <- 360
   direction_counts_df <- direction_df |>
   group_by(timeline_facet, result_no) |>
   get_directional_counts(no_bins = no_bins)
+
+  # test$dd
+  #
+  # direction_counts_df <- direction_df |>
+  # group_by(timeline_facet, result_no) |>
+  # reframe(dd = get_directional_counts2(tibble(id, headings, bearings))) %>% unnest_wider(dd)
   # mutate(heading_bin = cut(headings, breaks = seq(0, 2*pi, length.out = no_bins + 1), labels = F)) |>
   # mutate(bearing_bin = cut(bearings, breaks = seq(-pi, pi, length.out = no_bins + 1), labels = F)) |>
   # reframe(bin = 1:no_bins, heading_count = c(count_em_up(heading_bin, c(1, no_bins))), bearing_count = c(count_em_up(bearing_bin, c(1, no_bins))))
@@ -1363,7 +1355,7 @@ tryCatch(
 )
 
 
-{
+{ # THIS IS THE ONE USED IN FIGURES
   range <- 1:29
   sensory_distances = c(
     c(31.6227766, 44.72135955,54.77225575,63.2455532, 70.71067812, # p 1 to 10 by 1
@@ -1387,7 +1379,7 @@ tryCatch(
 
     print(name)
     config <- get_config(
-      "vicsek.toml",
+      "0vicsek.toml",
       overwrite = list(
         init_boids = 2^10,
         no_iter = 2^15,
@@ -1399,7 +1391,7 @@ tryCatch(
         rules_impl = TRUE,
         sensory_distance = sensory_distances[d],
         field_of_vision = 360.0,
-        wander_random = FALSE
+        wander_random = TRUE
         # dbscan_clustering = FALSE
       )
     )
@@ -1425,15 +1417,16 @@ tryCatch(
     reframe(mean_average_norm_vel = mean(mean_average_norm_vel)) |>
     select(density, mean_average_norm_vel) |>
     ggplot(aes(x = density, y = mean_average_norm_vel)) +
-    geom_text(aes(x = density, y = mean_average_norm_vel - 0.05, label = density), size = 3) +
-    labs(title = "Density (p) vs mean average norm vel") +
+    # geom_text(aes(x = density, y = mean_average_norm_vel - 0.05, label = density), size = 3) +
+    labs(title = "density vs average normalized velocity") +
+    ylab("v_a") +
     geom_point(size = 1.5) +
     geom_line()
 
-  ggsave("vicsek_density_p_vs_mean_j.jpg", units = "cm", dpi = "retina", width = 25, height = 6)
+  ggsave("vicsek_density_p_vs_mean_j.jpg", units = "cm", dpi = "retina", width = 25, height = 12)
 }
 
-{ # HERE START HERE
+{
     {
       range <- 1:29
       sensory_distances = c(
@@ -1498,15 +1491,115 @@ tryCatch(
         select(density, mean_average_norm_vel) |>
         ggplot(aes(x = density, y = mean_average_norm_vel)) +
         geom_text(aes(x = density, y = mean_average_norm_vel - 0.05, label = density), size = 3) +
-        labs(title = "Density (p) vs mean average norm vel") +
+        labs(title = "density vs mean average norm vel") +
         geom_point(size = 1.5) +
+        ylab("v_a") +
         geom_line()
 
-      ggsave("vicsek_density_p_vs_mean_gone_right_k.jpg", units = "cm", dpi = "retina", width = 25, height = 6)
+      ggsave("vicsek_density_p_vs_mean_gone_right_k.jpg", units = "cm", dpi = "retina", width = 25, height = 12)
     }
 }
+toc()
+} # stop here
 
-# } # HERE STOP HERE
+
+{
+  range <- 1:29
+  sensory_distances = c(
+    c(31.6227766, 44.72135955,54.77225575,63.2455532, 70.71067812, # p 1 to 10 by 1
+      77.45966692, 83.66600265, 89.4427191, 94.86832981, 100),
+    c(34.64101615, 37.41657387, 40, 42.42640687,
+      46.9041576, 48.98979486, 50.99019514, 52.91502622,
+      56.56854249, 58.30951895, 60, 61.64414003), # 1.2 to 1.8 by .2 for 1. 2. 3. (12 values)
+    c(14.14213562, 20, 24.49489743, 28.28427125), # 0.2 to 0.8 by 0.2
+    c(5, 7.071067812, 10) # sub .2
+  )
+  densities = c(
+    c(1:10),  # p 1 to 10
+    c(1.2, 1.4, 1.6, 1.8, 2.2, 2.4, 2.6, 2.8, 3.2, 3.4, 3.6, 3.8),
+    c(0.2, 0.4, 0.6, 0.8),
+    c(0.025, 0.05, 0.1)
+  )
+
+  for (d in range) {
+    name <- paste0("0327_experiment3_t2_", sprintf("%02d", d))
+    tic(name)
+
+    print(name)
+    config <- get_config(
+      "1normal.toml",
+      overwrite = list(
+        init_boids = 2^10,
+        no_iter = 2^15,
+        init_width = 1000,
+        init_height = 1000,
+        sample_rate = 32,
+        boundary_config = "{\"type\": \"Toroidal\"}",
+        distance_config = "{\"type\": \"EucToroidal\"}",
+        sensory_distance = sensory_distances[d]
+        # field_of_vision = 360.0,
+        # wander_random = TRUE
+        # dbscan_clustering = FALSE,
+      )
+    )
+    no_cores <- 6
+    experiment_no_simulations <- 6
+    tryCatch(
+      expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores,
+                            experiment_name = name, plot_splits = T, stats_regen = T,  gen_graphs = F, regen_graphs = F)
+    )
+
+    toc()
+  }
+
+  noise_results_stats = tibble()
+  for (d in range) {
+    name <- paste0("Data/0327_experiment3_t2_", sprintf("%02d", d))
+
+    noise_results_stats <- noise_results_stats |> bind_rows(
+      read_csv(paste0(name, "/results_stats.csv"), col_types = cols()) |>
+        mutate(density = densities[d], sensory_distance = sensory_distances[d])
+    )
+  }
+
+  noise_results_stats |>
+    group_by(density) |>
+    reframe(mean_average_norm_vel = mean(mean_average_norm_vel)) |>
+    select(density, mean_average_norm_vel) |>
+    ggplot(aes(x = density, y = mean_average_norm_vel)) +
+    geom_text(aes(x = density + 0.2, y = mean_average_norm_vel - 0.003, label = density), size = 3) +
+    labs(title = "Density (p) vs mean average norm vel") +
+    geom_point(size = 1.5) +
+    geom_line()
+
+  ggsave(paste0(name, "/plots/", "density_p_vs_mean_1_1normal.jpg"), units = "cm", dpi = "retina", width = 25, height = 6)
+}
+
+
+
+
+if (FALSE) {
+# this used to be called 0325_experiment2_m
+tic("0328_experiment2_z start")
+config <- get_config(
+  "1normal.toml",
+  overwrite = list(
+    no_iter = 2^15,
+    init_width = 1000,
+    init_height = 1000,
+    sample_rate = 32,
+    boundary_config = "{\"type\": \"Toroidal\"}",
+    distance_config = "{\"type\": \"EucToroidal\"}"
+  )
+)
+
+no_cores <- 6
+experiment_no_simulations <- 60
+tryCatch(
+  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0328_experiment2_z",
+                        plot_splits = TRUE, stats_regen = T,  gen_graphs = TRUE, regen_graphs = TRUE)
+)
+
 tic("0326_experiment3_y start")
 # if (FALSE) { # HERE START HERE
 config <- get_config(
@@ -1521,7 +1614,7 @@ config <- get_config(
   )
 )
 
-no_cores <- 8
+no_cores <- 6
 experiment_no_simulations <- 32
 tryCatch(
   expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0326_experiment3_y",
@@ -1542,7 +1635,7 @@ config <- get_config(
   )
 )
 
-no_cores <- 8
+no_cores <- 6
 experiment_no_simulations <- 32
 tryCatch(
   expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0326_experiment3_x",
@@ -1597,79 +1690,6 @@ tryCatch(
 )
 toc()
 
-
-
-{
-  range <- 1:29
-  sensory_distances = c(
-    c(31.6227766, 44.72135955,54.77225575,63.2455532, 70.71067812, # p 1 to 10 by 1
-      77.45966692, 83.66600265, 89.4427191, 94.86832981, 100),
-    c(34.64101615, 37.41657387, 40, 42.42640687,
-      46.9041576, 48.98979486, 50.99019514, 52.91502622,
-      56.56854249, 58.30951895, 60, 61.64414003), # 1.2 to 1.8 by .2 for 1. 2. 3. (12 values)
-    c(14.14213562, 20, 24.49489743, 28.28427125), # 0.2 to 0.8 by 0.2
-    c(5, 7.071067812, 10) # sub .2
-  )
-  densities = c(
-    c(1:10),  # p 1 to 10
-    c(1.2, 1.4, 1.6, 1.8, 2.2, 2.4, 2.6, 2.8, 3.2, 3.4, 3.6, 3.8),
-    c(0.2, 0.4, 0.6, 0.8),
-    c(0.025, 0.05, 0.1)
-  )
-
-  for (d in range) {
-    name <- paste0("0327_experiment3_t_", sprintf("%02d", d))
-    tic(name)
-
-    print(name)
-    config <- get_config(
-      "1normal.toml",
-      overwrite = list(
-        init_boids = 2^10,
-        no_iter = 2^15,
-        init_width = 1000,
-        init_height = 1000,
-        sample_rate = 32,
-        boundary_config = "{\"type\": \"Toroidal\"}",
-        distance_config = "{\"type\": \"EucToroidal\"}",
-        sensory_distance = sensory_distances[d]
-        # field_of_vision = 360.0,
-        # wander_random = TRUE
-        # dbscan_clustering = FALSE,
-      )
-    )
-    no_cores <- 8
-    experiment_no_simulations <- 8
-    tryCatch(
-      expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores,
-                            experiment_name = name, plot_splits = T, stats_regen = T,  gen_graphs = F, regen_graphs = F)
-    )
-
-    toc()
-  }
-
-  noise_results_stats = tibble()
-  for (d in range) {
-    name <- paste0("Data/0327_experiment3_t_", sprintf("%02d", d))
-
-    noise_results_stats <- noise_results_stats |> bind_rows(
-      read_csv(paste0(name, "/results_stats.csv"), col_types = cols()) |>
-        mutate(density = densities[d], sensory_distance = sensory_distances[d])
-    )
-  }
-
-  noise_results_stats |>
-    group_by(density) |>
-    reframe(mean_average_norm_vel = mean(mean_average_norm_vel)) |>
-    select(density, mean_average_norm_vel) |>
-    ggplot(aes(x = density, y = mean_average_norm_vel)) +
-    geom_text(aes(x = density + 0.2, y = mean_average_norm_vel - 0.003, label = density), size = 3) +
-    labs(title = "Density (p) vs mean average norm vel") +
-    geom_point(size = 1.5) +
-    geom_line()
-
-ggsave(paste0(name, "/plots/", "density_p_vs_mean_gone_right_k.jpg"), units = "cm", dpi = "retina", width = 25, height = 6)
-
 tic("0326_experiment3_v start")
 config <- get_config(
   "4noise_r.toml",
@@ -1684,38 +1704,13 @@ config <- get_config(
   )
 )
 
-no_cores <- 8
+no_cores <- 6
 experiment_no_simulations <- 32
 tryCatch(
   expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0326_experiment3_v",
-                        plot_splits = TRUE, stats_regen = TRUE,  gen_graphs = TRUE, regen_graphs = TRUE)
-)
-toc()
-
-
-
-# this used to be called 0325_experiment2_m
-tic("0328_experiment2_z start")
-config <- get_config(
-  "1normal.toml",
-  overwrite = list(
-    no_iter = 2^15,
-    init_width = 1000,
-    init_height = 1000,
-    sample_rate = 32,
-    boundary_config = "{\"type\": \"Toroidal\"}",
-    distance_config = "{\"type\": \"EucToroidal\"}"
-  )
+                        plot_splits = TRUE, stats_regen = T,  gen_graphs = TRUE, regen_graphs = TRUE)
 )
 
-no_cores <- 6
-experiment_no_simulations <- 60
-tryCatch(
-  expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0328_experiment2_z",
-                        plot_splits = TRUE, stats_regen = TRUE,  gen_graphs = TRUE, regen_graphs = TRUE)
-)
-} # stop here
-} # start here
 tic("0328_experiment2_z2 start")
 config <- get_config(
   "1normal.toml",
@@ -1733,7 +1728,7 @@ no_cores <- 6
 experiment_no_simulations <- 60
 tryCatch(
   expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0328_experiment2_z2",
-                        plot_splits = TRUE, stats_regen = TRUE,  gen_graphs = TRUE, regen_graphs = TRUE)
+                        plot_splits = TRUE, stats_regen = T,  gen_graphs = TRUE, regen_graphs = TRUE)
 )
 tic("0328_experiment2_z3 start")
 config <- get_config(
@@ -1752,7 +1747,7 @@ no_cores <- 6
 experiment_no_simulations <- 60
 tryCatch(
   expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0328_experiment2_z3",
-                        plot_splits = TRUE, stats_regen = TRUE,  gen_graphs = TRUE, regen_graphs = TRUE)
+                        plot_splits = TRUE, stats_regen = T,  gen_graphs = TRUE, regen_graphs = TRUE)
 )
 tic("0328_experiment2_z4 start")
 config <- get_config(
@@ -1771,12 +1766,13 @@ no_cores <- 6
 experiment_no_simulations <- 60
 tryCatch(
   expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = "0328_experiment2_z4",
-                        plot_splits = TRUE, stats_regen = TRUE,  gen_graphs = TRUE, regen_graphs = TRUE)
+                        plot_splits = TRUE, stats_regen = T,  gen_graphs = TRUE, regen_graphs = TRUE)
 )
 
 
 
-if (FALSE) {
+
+
   # N <- c(512, 1024, 2048)
   # sensory_distances <- c(88.38834765, 62.5, 44.19417382)
   N <- c(512, 1024, 2048, 4096, 8192)
@@ -1833,6 +1829,81 @@ if (FALSE) {
   for(n in 1:length(N)){
     for (x in range) {
       name <- paste0("Data/0327_experiment2_s2_noags", sprintf("%02d", n),"_noise", sprintf("%02d", x))
+      noise_results_stats <- noise_results_stats |> bind_rows(
+        read_csv(paste0(name, "/results_stats.csv"), col_types = cols()) |>
+          mutate(noise = noises[x], no_agents = N[n])
+      )
+    }
+  }
+  noise_results_stats |>
+    group_by(noise, no_agents) |>
+    reframe(mean_average_norm_vel = mean(mean_average_norm_vel2)) |>
+    select(noise, mean_average_norm_vel, no_agents) |>
+    ggplot(aes(x = noise, y = mean_average_norm_vel)) +
+    # geom_text(aes(x = noise, y = mean_average_norm_vel - 0.05, label = noise), size = 3) +
+    labs(title = "noise vs average normalized velocity", ) +
+    geom_point(size = 1.5, aes(colour = factor(no_agents), shape = factor(no_agents))) +
+    labs(shape = "#agents", colour = "#agents", group = "#agents") +
+    ylab("v_a") +
+    geom_line(aes(group = factor(no_agents)))
+
+  ggsave(paste0(name, "/plots/", "noise_vs_avg_norm_vel_s.jpg"), units = "cm", dpi = "retina", width = 25, height = 12)
+
+  N <- c(512, 1024, 2048)
+  sensory_distances <- c(88.38834765, 62.5, 44.19417382)
+  # N <- c(512, 1024, 2048, 4096, 8192)
+  # sensory_distances <- c(88.38834765, 62.5, 44.19417382, 31.25, 22.09708691)
+  noises = c(seq(from = 0, to = 0.25 - 0.01, by = 0.25 / 2),
+             seq(from = 0.25, to = 0.375 - 0.01, by = 0.5 / 17),
+             seq(from = 0.375, to = 0.625 - 0.01, by = 0.25 / 15),
+             seq(from = 0.625, to = 0.75 - 0.01, by = 0.5 / 17),
+             seq(from = 0.75, to = 1, by = 0.25 / 2))
+  range <- 1:length(noises)
+  # noises1 <- seq(from = 0, to = 0.8* 2 * pi, by = 0.5) / (2 * pi)
+  # noises <- c(0, 0.079577472, 0.159154943, 0.238732415, 0.318309886, 0.397887358,
+  #             0.477464829, 0.557042301, 0.636619772, 0.716197244, 0.795774715, 0.875352187,
+  #             0.954929659, 1)
+  for(n in 1:length(N)){
+    for (x in range) {
+      name <- paste0("0327_experiment2_s3_noags", sprintf("%02d", n),"_noise", sprintf("%02d", x))
+      tic(name)
+
+      print(name)
+      print(paste0("init boids ", N[n]))
+      print(paste0("sensory distance ", sensory_distances[n]))
+      print(paste0("wander rate ", noises[x]))
+      config <- get_config(
+        "1normal.toml",
+        overwrite = list(
+          init_boids = N[n],
+          no_iter = 2^15,
+          init_width = 1000,
+          init_height = 1000,
+          sample_rate = 128,
+          boundary_config = "{\"type\": \"Toroidal\"}",
+          distance_config = "{\"type\": \"EucToroidal\"}",
+          rules_impl = F,
+          sensory_distance = sensory_distances[n],
+          field_of_vision = 360.0,
+          wander_random = T,
+          wander_rate = noises[x],
+          dbscan_clustering = F
+        )
+      )
+      no_cores <-
+        experiment_no_simulations <- 6
+      tryCatch(
+        expr = run_experiment(config, experiment_no_simulations, no_cores = no_cores, experiment_name = name,
+                              plot_splits = F, stats_regen = F,  gen_graphs = F, regen_graphs = F)
+      )
+      toc()
+    }
+  }
+
+  noise_results_stats = tibble()
+  for(n in 1:length(N)){
+    for (x in range) {
+      name <- paste0("Data/0327_experiment2_s3_noags", sprintf("%02d", n),"_noise", sprintf("%02d", x))
       noise_results_stats <- noise_results_stats |> bind_rows(
         read_csv(paste0(name, "/results_stats.csv"), col_types = cols()) |>
           mutate(noise = noises[x], no_agents = N[n])
