@@ -127,66 +127,6 @@ pub fn tor_vec_pc(x1: f32, x2: f32, size: f32, max: f32) -> f32 {
     }
 }
 
-// this does not work as I would need to provide a custom implementation of the nn datastructure (could be flock.rs, but
-// it would neet a large separation of conerns, i.e. it is just doing way too much atm)
-// use linfa_nn::distance::Distance as lDistance;
-// #[derive(Debug, Clone, PartialEq, Eq)]
-// pub struct TorL2Dist{
-//     pub window: WindowSize
-// }
-// impl TorL2Dist {
-//     pub fn new(window_size: WindowSize) -> Self {
-//         TorL2Dist { window: window_size }
-//     }
-// }
-// impl<F: Float> lDistance<F> for TorL2Dist {
-//     fn distance<D: ndarray::Dimension>(&self, a: ndarray::ArrayView<F, D>, b: ndarray::ArrayView<F, D>) -> F {
-//         let mut result = F::zero();
-
-//         // additional checks in debug
-//         if cfg!(debug_assertions){
-//             let a_shape = a.shape();
-//             let b_shape = b.shape();
-
-//             if a_shape != b_shape {
-//                 panic!("shapes must equal")
-//             }
-
-//             if a_shape[0] != 2 {
-//                 panic!("only two dimensions are supported")
-//             }
-//         }
-//         // const first_axis: Axis = Axis(0);
-
-//         // for (aa, bb) in a.axis_iter(first_axis).zip(b.axis_iter(first_axis)) {
-
-//         // }
-//         // let s = *a.get::<NdIndex<Ix1>>(0.into()).unwrap();
-
-//         // let t =  tor_vec_p(
-//         //     *(a.get),
-//         //     *b.get(0.into()).unwrap(),
-//         //     *a.get(1.into()).unwrap(),
-//         //     *b.get(1.into()).unwrap(),
-//         //      &self.window);
-
-//         let mut odd = false;
-//         Zip::from(a).and(b).for_each(|ai,  bi| {
-//             let dist: F;
-//             if !odd {
-//                 dist = F::from(tor_vec_pc(ai.clone().to_f32().unwrap(), bi.clone().to_f32().unwrap(), self.window.win_w as f32, self.window.win_right as f32)).unwrap();
-//             } else {
-//                 dist = F::from(tor_vec_pc(ai.clone().to_f32().unwrap(), bi.clone().to_f32().unwrap(), self.window.win_h as f32, self.window.win_top as f32)).unwrap();
-//             }
-//             odd = !odd;
-//             result += dist * dist;
-//         });
-//         // Zip::from(a).and(b).apply(function)
-
-//         result.sqrt()
-//     }
-// }
-
 #[inline]
 pub fn deg_to_half_rad(deg: f32) -> f32 {
     deg * PI / 360.

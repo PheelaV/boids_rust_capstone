@@ -428,11 +428,9 @@ fn preprocess_file(file_path: &str, init_width: u32, init_height: u32, no_boids:
     let mut wtr2 = Writer::from_path(location.join(file_name)).unwrap();
     // let mut wtr = Writer::from_writer(vec![]);
     results.iter().for_each(|d| {
-        // wtr1.serialize(*d).expect("boid data prep failed");
         wtr2.serialize(*d).expect("boid data prep failed");
     });
 
-    // let data = String::from_utf8(wtr.into_inner().unwrap()).unwrap();
     results.len().to_string()
     // data
 }

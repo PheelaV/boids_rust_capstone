@@ -192,13 +192,6 @@ impl Default for RunOptions {
             // tracker_type: TrackerType::Naive,
             tracker_type: TrackerType::SpatHash,
             // tracker_type: TrackerType::Replay("boids-data.csv".to_owned(), 0), // demo
-            // tracker_type: TrackerType::Replay("/Users/filipvlcek/Source/Repos/boids_rust/boidranalysis/Data/0326_experiment3_w/prepro_boids-data_1679828486948.csv".to_owned(), 0),
-            // tracker_type: TrackerType::Replay("boids-data_1679316314043.csv".to_owned(), 0), // demo
-            // tracker_type: TrackerType::Replay("boids-data_1.csv".to_owned(), 0), // demo
-            // tracker_type: TrackerType::Replay("boids-data_2.csv".to_owned(), 0), // demo
-            // tracker_type: TrackerType::Replay("boids-data_3.csv".to_owned(), 0), // demok
-            // tracker_type: TrackerType::Replay("/Users/filipvlcek/Source/Repos/boids_rust/boidranalysis/Data/0324_experiment2_k_11/prepro_boids-data_1679672635630.csv".to_owned(), 0),
-            // tracker_type: TrackerType::Replay("/Users/filipvlcek/Source/Repos/boids_rust/boidranalysis/Data/0324_experiment2_k_01/prepro_boids-data_1679666885599.csv".to_owned(), 0),
             clicked_boid_id: std::usize::MAX,
             alignment_impl_mode: false,
             cohesion_impl_mode: false,

@@ -32,7 +32,6 @@ pub struct SpatialHashingTableSettings {
     // run_options: &'a RunOptions
 }
 
-// todo: maybe there is more performance if we stop can discriminate entities that are already in the correct cell
 /// Implementation follows [paper](https://www.researchgate.net/publication/277870601_A_Hash_Table_Construction_Algorithm_for_Spatial_Hashing_Based_on_Linear_Memory)
 /// It has been modified into a form of an unstable insertion sort
 pub struct SpatHash1D {
@@ -60,7 +59,6 @@ pub struct SpatHash1D {
     query_metadata: Option<[[[i32; 2]; 9]; 16]>,
 
     distance: Distance,
-    // clicked_neighbours: Option<Vec::<usize>>
 }
 
 #[derive(Clone, Debug)]
@@ -84,7 +82,6 @@ impl Tracker for SpatHash1D {
     fn new(entities: &[Boid], run_options: &RunOptions) -> Self {
         let settings = SpatHash1D::get_tracker_settings(run_options);
         let metadata: Vec<BoidMetadata> = entities.iter().map(|e| BoidMetadata::new(e)).collect();
-        // metadata[0].boid_type = BoidType::Disruptor;
 
         SpatHash1D {
             // initialize vector with both capacity and values prefilled to simplify code in the update_table
@@ -346,12 +343,6 @@ impl SpatHash1D {
         [self.gt_r(0)[0], self.gt_b(0)[1]]
     }
 
-    // https://stackoverflow.com/questions/31904842/return-a-map-iterator-which-is-using-a-closure-in-rust
-    // fn view2<'a>(&'a self) -> Box<dyn Iterator<Item= (&'a Boid, &'a BoidMetadata)> + 'a> {
-    //     // self.table.iter().map
-    //     Box::new(self.table.iter().map(|e| (e, &self.metadata[e.id])))
-    // }
-
     #[rustfmt::skip]
     fn get_query_metadata(&self) -> [[[i32; 2]; 9]; 16] {
         [
@@ -570,7 +561,7 @@ impl SpatHash1D {
             {
                 // swap the agent into place
                 self.table.swap(e, destination);
-                // // make a record of where he is
+                //  make a record of where he is
                 // self.view[self.table[destination].id] = destination;
                 // mark as done
                 sorted[destination] = true;
@@ -626,38 +617,10 @@ impl SpatHash1D {
         (((p_x.clamp(min_x, max_x) - min_x) / cs_x).floor()
             + (((p_y.clamp(min_y, max_y) - min_y) / cs_y).floor() * table_width)) as usize
     }
-    // pub fn get_table_index2(
-    //     p_x: f32,
-    //     p_y: f32,
-    //     min_x: f32,
-    //     max_x: f32,
-    //     min_y: f32,
-    //     max_y: f32,
-    //     cs_x: f32,
-    //     cs_y: f32,
-    //     table_width: f32,
-    // ) -> usize {
-    //     (((p_x.clamp(min_x, max_x) - min_x) / cs_x).ceil()
-    //         + (((p_y.clamp(min_y, max_y) - min_y) / cs_y).ceil() * table_width)) as usize
-    // }
-
-    // pub fn lattice_query_to_grid_cell(
-    //     lattice_cell: i32,
-    //     min_x: f32,
-    //     max_x: f32,
-    //     min_y: f32,
-    //     max_y: f32
-    // ) -> usize {
-    //     let lc = lattice_cell as f32;
-
-    //     todo!();
-    // }
 
     pub fn get_tracker_settings(run_options: &RunOptions) -> SpatialHashingTableSettings {
         let x_range = (run_options.window.win_right - run_options.window.win_left) as usize;
         let y_range = (run_options.window.win_top - run_options.window.win_bottom) as usize;
-
-        // let x_cell_count = (x_range as f32 / (100.)).ceil();
 
         // here we multiply the sensory distance by two, because it is a radius and the method
         // for fetching neighbours is implemented with the assumption that the sensory radius
@@ -682,10 +645,6 @@ impl SpatHash1D {
                 x_range as usize / (run_options.max_sensory_distance.ceil() as usize);
             y_cell_count =
                 y_range as usize / (run_options.max_sensory_distance.ceil() as usize);
-            // x_cell_count =
-            //     x_range as usize / (run_options.max_sensory_distance.ceil() as usize * 2);
-            // y_cell_count =
-            //     y_range as usize / (run_options.max_sensory_distance.ceil() as usize * 2);
         }
 
         if y_cell_count < 2 || x_cell_count < 2 {
@@ -746,11 +705,6 @@ impl SpatHash1D {
             }
         };
 
-        // #[cfg(debug)]
-        // if boid.id == run_options.clicked_boid_id {
-        //     println !("lookup vectors: {:?}", m);
-        // }
-
         for cell in m
             // depending on the match, iterate the vectors
             .iter()
@@ -761,21 +715,10 @@ impl SpatHash1D {
             // convert vectors to the table's 1D indexes pointing to cells
             .map(|l| (cell_index as i32 + l[0] + l[1] * self.settings.x_cell_count as i32) as usize)
         {
-            // if run_options.clicked_boid_id == boid.id {
-            //     println!("{:?}", cell);
-            // }
-            // if cell > 60 {
-            //     panic!();
-            // }
             if self.pivots[cell].usg == 0 {
                 continue;
             }
             for index in self.pivots[cell].init.unwrap()..self.pivots[cell].fin.unwrap() {
-                // #[cfg(debug)]
-                // if run_options.clicked_boid_id == boid.id && self.table[index].id != boid.id {
-                //     let a = distance_dyn_boid(boid, &self.table[index], run_options);
-                //     println!("from:{:?}, to:{:?}, distance:{:?}", boid.id, self.table[index].id, a);
-                // }
                 if self.table[index].id != boid.id
                     && distance_dyn_boid(boid, &self.table[index], run_options)
                         <= run_options.max_sensory_distance
@@ -789,10 +732,5 @@ impl SpatHash1D {
                 }
             }
         }
-
-        // #[cfg(debug)]
-        // if run_options.clicked_boid_id == boid.id {
-        //     println!("neighbours: {:?}", neighbours);
-        // }
     }
 }

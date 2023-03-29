@@ -170,61 +170,6 @@ fn get_boid(run_options: &RunOptions, id: usize) -> Boid {
     }
 }
 
-// fn get_flock_ids_optics(entities: &[Boid], run_options: &RunOptions) -> Vec<usize> {
-//     let test_data: Array2<f32> = entities
-//         .iter()
-//         .map(|row| [row.position.x, row.position.y])
-//         .collect::<Vec<_>>()
-//         .into();
-
-//     // let test_dataset: DatasetBase<_, _> = test_data.into();
-
-//     let (clusters, noise) =
-//         pOptics::new(run_options.sensory_distance, 3, Euclidean::default()).fit(&test_data);
-
-//     // for map in clusters.iter() {
-//     //     println!("-----------------");
-//     //     println!("label: {:?}, len: {:?}", map.0, map.1.len());
-//     //     for point in map.1 {
-//     //         println!("    point: {:?}", point)
-//     //     }
-//     // }
-
-//     // println!("-----------------");
-//     // println!("label: {:?}, len: {:?}", -1, noise.len());
-//     // for noise_point in noise.iter() {
-//     //     println!("    point: {:?}", noise_point)
-//     // }
-
-//     // let res_map: HashMap<usize, usize> = HashMap::new();
-
-//     let mut output = vec![0 as usize; entities.len()];
-
-//     for (label, points) in clusters {
-//         for p in points {
-//             output[p] = label + 1;
-//         }
-//     }
-
-//     for noise_point in noise {
-//         output[noise_point] = 0;
-//     }
-
-//     return output;
-
-//     // let res = Optics::params(3)
-//     //     .tolerance(run_options.sensory_distance)
-//     //     .transform(test_data.view())
-//     //     .unwrap();
-
-//     // println!();
-//     // println!("OPTICS Result: ");
-//     // for sample in res.iter() {
-//     //     println!("{:?}", sample.index());
-//     // }
-//     // println!();
-// }
-
 fn get_flock_ids(tracker: &dyn Tracker, entities: &[Boid], run_options: &RunOptions) -> Vec<usize> {
     // if run_options.dbscan_flock_clustering_on {
     let test_data: Array2<f32> = entities
