@@ -1567,12 +1567,13 @@ toc()
     reframe(mean_average_norm_vel = mean(mean_average_norm_vel)) |>
     select(density, mean_average_norm_vel) |>
     ggplot(aes(x = density, y = mean_average_norm_vel)) +
-    geom_text(aes(x = density + 0.2, y = mean_average_norm_vel - 0.003, label = density), size = 3) +
-    labs(title = "Density (p) vs mean average norm vel") +
+    # geom_text(aes(x = density, y = mean_average_norm_vel - 0.05, label = density), size = 3) +
+    labs(title = "density vs mean average norm vel") +
     geom_point(size = 1.5) +
+    ylab("v_a") +
     geom_line()
 
-  ggsave(paste0(name, "/plots/", "density_p_vs_mean_1_1normal.jpg"), units = "cm", dpi = "retina", width = 25, height = 6)
+  ggsave(paste0(name, "/plots/", "density_p_vs_mean_1_1normal.jpg"), units = "cm", dpi = "retina", width = 25, height = 12)
 }
 
 

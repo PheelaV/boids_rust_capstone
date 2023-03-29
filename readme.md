@@ -25,6 +25,14 @@ Implementation inspired by:
 1. if you do not have Rust installed, go to [rustup](https://rustup.rs/) and follow instructions for your platform
 2. run `cargo run --release` in the root directory or `cargo run --releae -p boids_app`
 
+## Run configurations
+There are several run configurations that make starting in a set state easy. You can execute any one of these by running the following commnd in the root:
+```cargo run --release -- -c boids_app/configs/3noisy_v_s.toml```
+
+for `3noisy_v_s.toml`
+
+## CLI
+`boids_app` has a CLI for startup, you can query its parameters by running it with the `-h` or `--help` switch
 ### Boidranalysis
 1. Ensure you have R installed, [ref](https://www.r-project.org/)
 2. `boidr` is a package that wraps ```boids_lib``` and provides an interface into R for simulation execution and data retrieval. As of now it is unreleased and needs to be loaded for every new R session, an example is in the [experiment2](./boidranalysis/R/experiment2.R) at the very top bellow library imports.

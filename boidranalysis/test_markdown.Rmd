@@ -83,6 +83,7 @@ boid_data <- rlang::exec(flock_detailed, !!!config) %>%
 toc()
 ```
 
+
 ```{r}
 tic("get_directional_boid_data_2 on 400MB data")
 direction_data_by_boid <-  read_csv("Data/0314_experiment2_h1/boids-data_1678856512443.csv") |>
@@ -103,18 +104,18 @@ tic()
 preprocess_file("./Data/0301_experiment2_c2/boids-data_1677727700033.csv", init_width = 8000, init_height = 8000, no_boids = 8192)
 
 file.remove("./Data/0301_experiment2_c2/boids-data_1677727700033.csv")
-direction_data_by_boid <- read_csv("./Data/0301_experiment2_c2/prepro_boids-data_1677727700033.csv") |>
+direction_data_by_boid <- read_csv(paste0(experiment_data_folder, simulation_files[[1]])) |>
   get_directional_boid_data3()
 toc()
 ```
 
 visualize
 ```{r}
-# sub_sub_sample_rate <- 124
-# # direction_data_by_boid <- boid_data %>%
+sub_sub_sample_rate <- 124
 # direction_data_by_boid <- boid_data %>%
-#   # sub_sample_data(every_nth = sub_sub_sample_rate) %>%
-#   get_directional_boid_data2(remove_boundary = FALSE)
+direction_data_by_boid <- boid_data %>%
+  # sub_sample_data(every_nth = sub_sub_sample_rate) %>%
+  get_directional_boid_data3(remove_boundary = FALSE)
 # 
 # print("range of bearings:")
 # range(direction_data_by_boid$bearings)
@@ -122,10 +123,13 @@ visualize
 # print("range of headings:")
 # range(direction_data_by_boid$headings)
 
-test_time <- 5
-
+k <- 3
+section_unit <- max(direction_data_by_boid$time) / 6
+test_time_max <- k * section_unit
+test_time_min <- (k - 1) * section_unit
+# direction_data_by_boid <- boid_data
 headings_binned <- direction_data_by_boid %>%
-  filter(time <= test_time) %>%
+  filter(time <= test_time_max, time >= test_time_min) %>%
   mutate(
     headings = floor(rad2deg(headings))
   ) %>%
@@ -136,7 +140,7 @@ headings_binned <- direction_data_by_boid %>%
   select(heading = headings, count = count)
 
 bearings_binned <- direction_data_by_boid %>%
-  filter(time <= test_time) %>%
+  filter(time <= test_time_max, time >= test_time_min) %>%
   mutate(
     bearings = floor(rad2deg(bearings))
   ) %>%
@@ -156,7 +160,7 @@ ggplot(headings_binned, aes(x = heading, y = log(count))) +
   labs(x = "Heading w.r.t N") +
   theme_bw()
 ggplot(headings_binned, aes(x = heading, y = count)) +
-  coord_polar(theta = "x", start = pi) +
+  coord_polar(theta = "x", start = 0) +
   geom_bar(stat = "identity", fill = "orange", width = .9) +
   labs(x = "Heading w.r.t N") +
   theme_bw()
