@@ -30,48 +30,48 @@ Implementation inspired by:
 2. `boidr` is a package that wraps ```boids_lib``` and provides an interface into R for simulation execution and data retrieval. As of now it is unreleased and needs to be loaded for every new R session, an example is in the [experiment2](./boidranalysis/R/experiment2.R) at the very top bellow library imports.
 
 ## Keyboard controls
-C - controls toggle
-R - restart simulation
-I - double the number of agents
-D - delete half the agents
-X - deselect agent
-G - toggle tails (can't update number of agents whilist active)
-F - clustering toggle
-X - deselect clicked agent
-F12 - density based colouring
-[mouse click] - select an agent
-Spacebar - pause simulation
-Escape - close
-Num1 - alignment toggle
-Num2 - cohesion toggle
-Num3 - separation toggle
-Num4 - wander toggle
-A - steering toggle
-M - freeze movement, not updates
-Return - switch replay direction
-Right key - step forward
-Left key - step backward
-F5 - separation bias toggle (if anyone is within separation distance, will ignore cohesion)
-F8 - diagnostics
-F9 - agent labels
-F10 - debug distance
-F11 - debug grid
+  - C - controls toggle
+  - R - restart simulation
+  - I - double the number of agents
+  - D - delete half the agents
+  - X - deselect agent
+  - G - toggle tails (can't update number of agents whilist active)
+  - F - clustering toggle
+  - X - deselect clicked agent
+  - F12 - density based colouring
+  - [mouse click] - select an agent
+  - Spacebar - pause simulation
+  - Escape - close
+  - Num1 - alignment toggle
+  - Num2 - cohesion toggle
+  - Num3 - separation toggle
+  - Num4 - wander toggle
+  - A - steering toggle
+  - M - freeze movement, not updates
+  - Return - switch replay direction
+  - Right key - step forward
+  - Left key - step backward
+  - F5 - separation bias toggle (if anyone is within separation distance, will ignore cohesion)
+  - F8 - diagnostics
+  - F9 - agent labels
+  - F10 - debug distance
+  - F11 - debug grid
 
 ## Replay tracker (limited set)
 
-C - controls toggle
-Spacebar - pause replay
-M - pause (separate from space)
-X - deselect clicked agent
-Escape - close
-Return - switch replay direction
-Right key - step forward
-Left key - step backward
-F - clustering toggle
-F8 - diagnostics
-F9 - agent labels
-F10 - debug distance
-F11 - debug grid
-F12 - density based colours
+  - C - controls toggle
+  - Spacebar - pause replay
+  - M - pause (separate from space)
+  - X - deselect clicked agent
+  - Escape - close
+  - Return - switch replay direction
+  - Right key - step forward
+  - Left key - step backward
+  - F - clustering toggle
+  - F8 - diagnostics
+  - F9 - agent labels
+  - F10 - debug distance
+  - F11 - debug grid
+  - F12 - density based colours
 
 ![cover](/docs/arch.jpg)
