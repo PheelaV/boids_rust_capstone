@@ -33,101 +33,100 @@ pub struct Config{
     /// number of boids
     pub baseline_speed: f32,
 
-    #[default(128)]
+    #[default(1024)]
     #[arg(short = 'n', long)]
     /// number of boids
     pub no_boids: usize,
 
-    #[default(32)]
+    #[default(64)]
     #[arg(short = 'r', long)]
     /// ratio of renders/sample_rate, e,g, 4 = sample every 4th render
     pub sample_rate: u16,
 
-    #[default(true)]
+    #[default(false)]
     #[arg(short = 's', long)]
     pub save: bool,
     
-    #[default(true)]
+    #[default(false)]
     #[arg(short = 't', long)]
     pub save_timestamp: bool,
    
     // #[default(1350)]
-    #[default(700)]
+    #[default(800)]
     #[arg(short = 'x', long)]
     pub init_width: u32,
     
-    #[default(700)]
+    #[default(800)]
     #[arg(short = 'y', long)]
     pub init_height: u32,
 
-    #[default(60.)]
+    #[default(35.)]
     #[arg(long = "sens_dist")]
     pub sensory_distance: f32,
 
-    // #[default(0.02)]
-    #[default(0.7)]
+    #[default(0.2)]
     #[arg(long = "ali_coef")]
     pub alignment_coefficient: f32,
     // #[default(0.002)]
-    #[default(0.3)]
+    #[default(0.06)]
     #[arg(long = "coh_coef")]
     pub cohesion_coefficient: f32,
     // #[default(4.1)]
-    #[default(4.)]
+    #[default(0.3)]
     #[arg(long = "sep_coef")]
     pub separation_coefficient: f32,
 
-    #[default(1.15)]
+    #[default(1.)]
     #[arg(long = "ali_trs_coef")]
     pub alignment_treshold_coefficient: f32,
-    #[default(0.95)]
+    #[default(0.8)]
     #[arg(long = "coh_trs_coef")]
     pub cohesion_treshold_coefficient: f32,
-    #[default(0.35)]
+    #[default(0.3)]
     #[arg(long = "sep_trs_coef")]
     pub separation_treshold_coefficient: f32,
 
-    #[default(1.)]
+    #[default(2.1)]
     #[arg(long = "min_speed")]
     pub min_speed: f32,
-    #[default(1.)]
+    #[default(2.1)]
     #[arg(long = "max_speed")]
     pub max_speed: f32,
     #[default(0.65)]
     #[arg(long = "max_steering")]
     pub max_steering: f32,
-    #[default(true)]
+    #[default(false)]
     #[arg(long = "steer")]
     pub agent_steering: bool,
-    #[default(220.)]
+    #[default(280.)]
     #[arg(long = "fov")]
     pub field_of_vision: f32,
     #[default(true)]
     #[arg(long = "dbscan")]
     pub dbscan_flock_clustering_on: bool,
-    #[default(true)]
+    #[default(false)]
     #[arg(long = "wander")]
     pub wander_on: bool, 
-    #[default(true)]
+    #[default(false)]
     #[arg(long = "wander_random")]
     pub wander_random: bool, 
-    #[default(0.2)]
+    #[default(0.4)]
     #[arg(long = "wrate")]
     pub wander_rate: f32, 
-    #[default(5.2)]
+    #[default(11.5)]
     #[arg(long = "wradius")]
     pub wander_radius: f32, 
-    #[default(21.5)]
+    #[default(13.)]
     #[arg(long = "wdistance")]
     pub wander_distance: f32, 
-    #[default(0.4)]
+    #[default(1.0)]
     #[arg(long = "wcoeff")]
     pub wander_coefficient: f32,
-    #[default(8.)]
+    #[default(5.)]
     #[arg(long = "size")]
     /// number of boids
     pub size: f32, 
-    #[default(true)]
+    #[default(false)]
     #[arg(long = "rules_impl")]
     pub rules_impl: bool,
 }
