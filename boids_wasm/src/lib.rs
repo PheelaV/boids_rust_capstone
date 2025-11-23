@@ -210,7 +210,7 @@ impl WasmSimulation {
 
         RunOptions {
             init_boids: config.init_boids,
-            initiation_strat: InitiationStrategy::RandomIn,
+            initiation_strat: InitiationStrategy::RandomRandom,
             baseline_speed: 2.0,
             min_speed: config.min_speed,
             min_speed_sq: config.min_speed * config.min_speed,
