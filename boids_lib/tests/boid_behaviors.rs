@@ -171,13 +171,12 @@ fn test_rules_toggle() {
 }
 
 /// Test that coefficients affect behavior strength
-/// TODO: Flaky due to random initial conditions; needs seeded RNG
 #[test]
-#[ignore]
 fn test_coefficient_effects() {
     let mut options = RunOptions::default();
     options.init_boids = 20;
     options.window = get_window_size(800, 600);
+    options.rng_seed = Some(12345); // Use fixed seed for reproducibility
 
     // Weak separation
     options.separation_coefficient = 0.1;

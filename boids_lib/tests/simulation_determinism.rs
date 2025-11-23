@@ -8,17 +8,16 @@ use boids_lib::{flock_base, options::*, boid::Boid, flock::Flock};
 use glam::Vec2;
 
 /// Test that simulation with same seed produces identical results
-/// TODO: Requires seeded RNG feature - currently simulation uses from_entropy()
 #[test]
-#[ignore]
 fn test_deterministic_simulation() {
     let mut options1 = RunOptions::default();
     options1.init_boids = 50;
     options1.window = get_window_size(800, 600);
+    options1.rng_seed = Some(42); // Use fixed seed for determinism
 
     let mut options2 = options1.clone();
 
-    // Run simulation twice with same settings
+    // Run simulation twice with same settings and seed
     let result1 = flock_base(100, options1);
     let result2 = flock_base(100, options2);
 

@@ -16,6 +16,11 @@ use std::{
 static MY_RNG: Lazy<Mutex<Xoshiro128Plus>> =
     Lazy::new(|| Mutex::new(Xoshiro128Plus::from_entropy()));
 
+/// Seed the global RNG for deterministic simulations
+pub fn seed_rng(seed: u64) {
+    *MY_RNG.lock().unwrap() = Xoshiro128Plus::seed_from_u64(seed);
+}
+
 use crate::boid::BoidMetadata;
 use crate::flock::replay_tracker::ReplayTracker;
 use crate::math_helpers::distance_dyn_boid;
@@ -41,6 +46,11 @@ impl<'a> Flock<'a> {
     // const GREY_SCALE: &str =
     //     " .\'`^\",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
     pub fn new(run_options: &RunOptions) -> Self {
+        // Seed RNG if a seed is provided for deterministic simulations
+        if let Some(seed) = run_options.rng_seed {
+            seed_rng(seed);
+        }
+
         let boids = get_boids(&run_options);
 
         let tracker: Box<dyn Tracker + 'a> = match &run_options.tracker_type {
@@ -132,7 +142,7 @@ fn get_boids_n(n: usize, start_id: usize, run_options: &RunOptions) -> Vec<Boid>
 }
 
 fn get_boid(run_options: &RunOptions, id: usize) -> Boid {
-    let mut rng = rand::thread_rng();
+    let mut rng = MY_RNG.lock().unwrap();
 
     match run_options.initiation_strat {
         InitiationStrategy::CircleCenterOut => todo!(),

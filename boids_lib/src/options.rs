@@ -83,6 +83,9 @@ pub struct RunOptions {
     pub seek_target_on: bool,
     pub seek_location: Option<Vec2>,
     pub agent_steering: bool,
+
+    /// Optional RNG seed for deterministic simulations. If None, uses random seed.
+    pub rng_seed: Option<u64>,
 }
 
 impl RunOptions {
@@ -220,6 +223,7 @@ impl Default for RunOptions {
             separation_fov_half_cos: 0.,
             rules_impl: false,
             agent_steering: true,
+            rng_seed: None,  // Default to random seed
         };
 
         res.update_sensory_distances();
