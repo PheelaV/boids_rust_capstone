@@ -734,9 +734,9 @@ impl SpatHash1D {
                 {
                     neighbours.push(&self.table[index]);
                     if run_options.neighbours_cosidered != 0
-                        && neighbours.len() == run_options.neighbours_cosidered
+                        && neighbours.len() >= run_options.neighbours_cosidered
                     {
-                        break;
+                        return;  // Return early once limit is reached
                     }
                 }
             }

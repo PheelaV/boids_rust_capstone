@@ -56,6 +56,11 @@ impl NaiveTracker {
             let distance = distance_dyn_boid(&boid, b_other, &run_options);
             if distance < run_options.max_sensory_distance {
                 neighbours.push(b_other);
+                if run_options.neighbours_cosidered != 0
+                    && neighbours.len() >= run_options.neighbours_cosidered
+                {
+                    return;  // Return early once limit is reached
+                }
             }
         }
     }
