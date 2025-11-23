@@ -329,6 +329,7 @@ impl WasmSimulation {
             seek_target_on: false,
             seek_location: None,
             agent_steering: true,
+            rng_seed: None, // Use random seed for web simulations
         }
     }
 }

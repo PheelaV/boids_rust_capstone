@@ -178,6 +178,7 @@ fn test_spathash_vs_naive_comparison() {
     options_spathash.update_sensory_distances();
     options_spathash.window = get_window_size(800, 600);
     options_spathash.tracker_type = TrackerType::SpatHash;
+    options_spathash.rng_seed = Some(54321); // Use seed for deterministic comparison
 
     let mut options_naive = options_spathash.clone();
     options_naive.tracker_type = TrackerType::Naive;

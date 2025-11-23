@@ -79,11 +79,11 @@ async fn start_test_server() -> (tokio::task::JoinHandle<()>, String) {
 async fn create_driver() -> WebDriverResult<WebDriver> {
     // Configure Chrome with headless mode
     let mut chrome_caps = DesiredCapabilities::chrome();
-    chrome_caps.add_chrome_arg("--headless=new")?;
-    chrome_caps.add_chrome_arg("--no-sandbox")?;
-    chrome_caps.add_chrome_arg("--disable-dev-shm-usage")?;
-    chrome_caps.add_chrome_arg("--disable-gpu")?;
-    chrome_caps.add_chrome_arg("--window-size=1920,1080")?;
+    chrome_caps.add_arg("--headless=new")?;
+    chrome_caps.add_arg("--no-sandbox")?;
+    chrome_caps.add_arg("--disable-dev-shm-usage")?;
+    chrome_caps.add_arg("--disable-gpu")?;
+    chrome_caps.add_arg("--window-size=1920,1080")?;
 
     // Try Chrome first
     match WebDriver::new("http://localhost:4444", chrome_caps).await {
@@ -91,9 +91,9 @@ async fn create_driver() -> WebDriverResult<WebDriver> {
         Err(_) => {
             // Fall back to Firefox with headless mode
             let mut firefox_caps = DesiredCapabilities::firefox();
-            firefox_caps.add_firefox_arg("-headless")?;
-            firefox_caps.add_firefox_arg("--width=1920")?;
-            firefox_caps.add_firefox_arg("--height=1080")?;
+            firefox_caps.add_arg("-headless")?;
+            firefox_caps.add_arg("--width=1920")?;
+            firefox_caps.add_arg("--height=1080")?;
             WebDriver::new("http://localhost:4444", firefox_caps).await
         }
     }
