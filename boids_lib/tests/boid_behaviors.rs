@@ -19,6 +19,7 @@ fn test_separation_behavior() {
     options.cohesion_on = false;
     options.alignment_on = false;
     options.wander_on = false;
+    options.field_of_vision_on = false;  // Disable FOV for direct behavior testing
 
     options.separation_coefficient = 2.0;
     options.separation_treshold_distance = 100.0;
@@ -53,6 +54,7 @@ fn test_cohesion_behavior() {
     options.cohesion_on = true;
     options.alignment_on = false;
     options.wander_on = false;
+    options.field_of_vision_on = false;  // Disable FOV for direct behavior testing
 
     options.cohesion_coefficient = 1.0;
     options.cohesion_treshold_distance = 200.0;
@@ -92,6 +94,7 @@ fn test_alignment_behavior() {
     options.cohesion_on = false;
     options.alignment_on = true;
     options.wander_on = false;
+    options.field_of_vision_on = false;  // Disable FOV for direct behavior testing
 
     options.alignment_coefficient = 1.0;
     options.alignment_treshold_distance = 150.0;

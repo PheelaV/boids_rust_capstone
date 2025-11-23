@@ -203,7 +203,7 @@ impl Boid {
         if others.len() != 0 {
             for other in others {
                 let distance = distance_dyn_boid(self, other, &run_options);
-                if distance < run_options.separation_treshold_distance {
+                if distance > 0. && distance < run_options.separation_treshold_distance {
                     count += 1;
 
                     let value = match run_options.distance {
@@ -341,7 +341,7 @@ impl Boid {
 
         for other in others {
             let distance = distance_dyn_boid(self, other, &run_options);
-            if distance < run_options.alignment_treshold_distance {
+            if distance > 0. && distance < run_options.alignment_treshold_distance {
                 avg_vel += other.velocity;
                 count += 1.;
             }
@@ -534,18 +534,20 @@ impl Boid {
                 }
             }
             Boundary::Reflective => {
-                // flip velocity if it is going beyond the edge
-                if (self.position.x < run_options.window.win_left as f32 && self.velocity.x < 0.)
-                    || (self.position.x > run_options.window.win_right as f32
-                        && self.velocity.x > 0.)
-                {
+                // flip velocity and clamp position if beyond the edge
+                if self.position.x < run_options.window.win_left as f32 {
+                    self.position.x = run_options.window.win_left as f32;
+                    self.velocity.x = -self.velocity.x;
+                } else if self.position.x > run_options.window.win_right as f32 {
+                    self.position.x = run_options.window.win_right as f32;
                     self.velocity.x = -self.velocity.x;
                 }
 
-                if (self.position.y > run_options.window.win_top as f32 && self.velocity.y > 0.)
-                    || (self.position.y < run_options.window.win_bottom as f32
-                        && self.velocity.y < 0.)
-                {
+                if self.position.y < run_options.window.win_bottom as f32 {
+                    self.position.y = run_options.window.win_bottom as f32;
+                    self.velocity.y = -self.velocity.y;
+                } else if self.position.y > run_options.window.win_top as f32 {
+                    self.position.y = run_options.window.win_top as f32;
                     self.velocity.y = -self.velocity.y;
                 }
             }
