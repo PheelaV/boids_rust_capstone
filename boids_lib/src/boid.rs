@@ -95,7 +95,7 @@ impl Boid {
         let filtered = if !run_options.field_of_vision_on {
             nearest_boids.to_owned()
         } else {
-            self.filter_sight2(&nearest_boids, run_options)
+            self.filter_sight2(nearest_boids, run_options)
         };
 
         if run_options.separation_on {
@@ -116,9 +116,8 @@ impl Boid {
 
         // this is mostly for manual manipulation when testing, is not used in experiments atm
         if run_options.seek_target_on {
-            match run_options.seek_location {
-                Some(target) => sum = self.seek(target, run_options),
-                None => (),
+            if let Some(target) = run_options.seek_location {
+                sum = self.seek(target, run_options);
             }
         }
 
@@ -155,7 +154,7 @@ impl Boid {
                 // this calculates v•u = |v||u|cos(ß), which is cos(ß) because of v and u being unit vectors
                 vel_norm.dot(vec_to_other_norm) > run_options.field_of_vision_cos
             })
-            .map(|b| *b)
+            .copied()
             .collect();
 
         res
@@ -192,7 +191,7 @@ impl Boid {
                 // this calculates v•u = |v||u|cos(ß), which is cos(ß) because of v and u being unit vectors
                 vel_norm.dot(vec_to_other_norm) > half_cos_treshold
             })
-            .map(|b| *b)
+            .copied()
             .collect();
 
         res
