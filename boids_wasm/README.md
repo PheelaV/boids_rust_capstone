@@ -152,6 +152,15 @@ Main simulation class.
 - `get_boids(): JsValue` - Get array of boid states (id, x, y, vx, vy)
 - `get_stats(): JsValue` - Get simulation statistics
 
+**Boid Management:**
+- `add_boid(x: number, y: number, vx: number, vy: number)` - Add single boid
+- `add_boids(count: number)` - Add multiple boids
+- `remove_boid(): boolean` - Remove last boid
+- `remove_boids(count: number): number` - Remove multiple boids
+- `double_boids()` - Double the boid count
+- `halve_boids()` - Halve the boid count
+- `set_boid_count(count: number)` - Set exact boid count
+
 **Parameter Control:**
 - `set_separation_coefficient(value: number)` - Set separation strength
 - `set_cohesion_coefficient(value: number)` - Set cohesion strength
