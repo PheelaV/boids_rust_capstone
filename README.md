@@ -121,7 +121,15 @@ Key dependencies and their versions:
 
 ## Testing
 
-Run the test suite:
+The project includes a comprehensive integration test suite (49 tests) covering core simulation behavior:
+
+- **`simulation_determinism.rs`** - Deterministic behavior, movement, velocity bounds, boundary containment
+- **`boid_behaviors.rs`** - Separation, cohesion, alignment, wander, field-of-vision
+- **`boundary_conditions.rs`** - Toroidal, reflective, absorbing, repulsive boundaries
+- **`spatial_hashing.rs`** - Spatial optimization correctness vs naive implementation
+- **`capture_replay.rs`** - Headless data capture and trajectory replay
+
+Run tests:
 ```bash
 cargo test
 ```
@@ -157,6 +165,7 @@ This project was created as a BSc capstone project. See source files for licensi
 - Replaced `lazy_static` with `once_cell` for better compile times
 - Fixed egui API changes (`egui::color` → `egui::ecolor`)
 - Fixed spline/glam version compatibility
+- Added comprehensive integration test suite (49 tests across 5 test files)
 - Cleaned up trailing whitespace and applied rustfmt
 - Fixed typo: `trangles()` → `triangles()`
 - Improved error handling in several modules
