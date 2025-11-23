@@ -3,6 +3,7 @@ members = [
     "boids_lib",
     "boids_app",
     "boids_wasm",
+    "boids_app_web",
     "web_tests"
     # "boidr/src/rust"
 ]

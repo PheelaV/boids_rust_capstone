@@ -1,0 +1,161 @@
+[package]
+name = "boids_app_web"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false  # Disable to avoid network dependency
+
+[dependencies]
+# Core boids library without clustering (reduces bundle size)
+boids_lib = { path = "../boids_lib", default-features = false, features = ["std", "wasm"] }
+
+# Nannou with experimental WASM support
+nannou = { version = "0.19" }
+
+# WASM bindings
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+
+# Web APIs - extensive features needed for WebGPU/WebGL
+web-sys = { version = "0.3", features = [
+    "Document",
+    "Window",
+    "Element",
+    "HtmlCanvasElement",
+    "HtmlElement",
+    "Node",
+    "Navigator",
+    "console",
+    # WebGPU features
+    "Gpu",
+    "GpuAdapter",
+    "GpuAdapterInfo",
+    "GpuBindGroup",
+    "GpuBindGroupDescriptor",
+    "GpuBindGroupEntry",
+    "GpuBindGroupLayout",
+    "GpuBindGroupLayoutDescriptor",
+    "GpuBindGroupLayoutEntry",
+    "GpuBlendComponent",
+    "GpuBlendState",
+    "GpuBuffer",
+    "GpuBufferBinding",
+    "GpuBufferBindingLayout",
+    "GpuBufferBindingType",
+    "GpuBufferDescriptor",
+    "GpuCanvasConfiguration",
+    "GpuCanvasContext",
+    "GpuColorDict",
+    "GpuColorTargetState",
+    "GpuCommandBuffer",
+    "GpuCommandBufferDescriptor",
+    "GpuCommandEncoder",
+    "GpuCommandEncoderDescriptor",
+    "GpuCompareFunction",
+    "GpuCompilationInfo",
+    "GpuCompilationMessage",
+    "GpuCompilationMessageType",
+    "GpuComputePassDescriptor",
+    "GpuComputePassEncoder",
+    "GpuComputePassTimestampWrites",
+    "GpuComputePipeline",
+    "GpuComputePipelineDescriptor",
+    "GpuCullMode",
+    "GpuDepthStencilState",
+    "GpuDevice",
+    "GpuDeviceDescriptor",
+    "GpuDeviceLostInfo",
+    "GpuDeviceLostReason",
+    "GpuError",
+    "GpuErrorFilter",
+    "GpuExtent3dDict",
+    "GpuFeatureName",
+    "GpuFilterMode",
+    "GpuFragmentState",
+    "GpuFrontFace",
+    "GpuImageCopyBuffer",
+    "GpuImageCopyTexture",
+    "GpuImageDataLayout",
+    "GpuIndexFormat",
+    "GpuLoadOp",
+    "GpuMapMode",
+    "GpuMultisampleState",
+    "GpuObjectDescriptorBase",
+    "GpuOrigin2dDict",
+    "GpuOrigin3dDict",
+    "GpuOutOfMemoryError",
+    "GpuPipelineDescriptorBase",
+    "GpuPipelineLayout",
+    "GpuPipelineLayoutDescriptor",
+    "GpuPowerPreference",
+    "GpuPrimitiveState",
+    "GpuPrimitiveTopology",
+    "GpuProgrammableStage",
+    "GpuQuerySet",
+    "GpuQuerySetDescriptor",
+    "GpuQueryType",
+    "GpuQueue",
+    "GpuRenderBundle",
+    "GpuRenderBundleDescriptor",
+    "GpuRenderBundleEncoder",
+    "GpuRenderBundleEncoderDescriptor",
+    "GpuRenderPassColorAttachment",
+    "GpuRenderPassDepthStencilAttachment",
+    "GpuRenderPassDescriptor",
+    "GpuRenderPassEncoder",
+    "GpuRenderPassTimestampWrites",
+    "GpuRenderPipeline",
+    "GpuRenderPipelineDescriptor",
+    "GpuRequestAdapterOptions",
+    "GpuSampler",
+    "GpuSamplerBindingLayout",
+    "GpuSamplerBindingType",
+    "GpuSamplerDescriptor",
+    "GpuShaderModule",
+    "GpuShaderModuleDescriptor",
+    "GpuStencilFaceState",
+    "GpuStencilOperation",
+    "GpuStorageTextureAccess",
+    "GpuStorageTextureBindingLayout",
+    "GpuStoreOp",
+    "GpuSupportedFeatures",
+    "GpuSupportedLimits",
+    "GpuTexture",
+    "GpuTextureAspect",
+    "GpuTextureBindingLayout",
+    "GpuTextureDescriptor",
+    "GpuTextureDimension",
+    "GpuTextureFormat",
+    "GpuTextureSampleType",
+    "GpuTextureView",
+    "GpuTextureViewDescriptor",
+    "GpuTextureViewDimension",
+    "GpuUncapturedErrorEvent",
+    "GpuUncapturedErrorEventInit",
+    "GpuValidationError",
+    "GpuVertexAttribute",
+    "GpuVertexBufferLayout",
+    "GpuVertexFormat",
+    "GpuVertexState",
+    "GpuVertexStepMode",
+    # WebGL features
+    "WebGl2RenderingContext",
+    "WebGlRenderingContext",
+] }
+
+# JavaScript interop
+serde = { version = "1.0", features = ["derive"] }
+serde-wasm-bindgen = "0.6"
+
+# Better panic messages in browser console
+console_error_panic_hook = { version = "0.1", optional = true }
+
+# Random number generation for WASM
+getrandom = { version = "0.2", features = ["js"] }
+
+[features]
+default = ["console_error_panic_hook"]

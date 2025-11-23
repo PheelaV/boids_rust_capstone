@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boids - Nannou WebAssembly Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: #16f4d0;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #888;
+            font-size: 1rem;
+        }
+
+        #canvas-container {
+            position: relative;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(26, 26, 46, 0.95);
+            padding: 40px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
+            z-index: 10;
+        }
+
+        .spinner {
+            border: 4px solid #333;
+            border-top: 4px solid #16f4d0;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .controls {
+            background: #16213e;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        .controls h2 {
+            color: #16f4d0;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+
+        .shortcuts {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 10px;
+        }
+
+        .shortcut {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            background: #0f1624;
+            border-radius: 4px;
+        }
+
+        kbd {
+            background: #16f4d0;
+            color: #0f1624;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-right: 10px;
+            min-width: 32px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .error {
+            background: #ff4444;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .note {
+            background: #f39c12;
+            color: #1a1a2e;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-size: 0.9rem;
+        }
+
+        .note strong {
+            display: block;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🐦 Boids Simulation</h1>
+        <div class="subtitle">Flocking behavior powered by Rust + Nannou + WebAssembly</div>
+    </header>
+
+    <div id="canvas-container">
+        <div id="loading">
+            <div class="spinner"></div>
+            <div>Loading Nannou WebAssembly...</div>
+            <div style="font-size: 0.8rem; color: #888; margin-top: 10px;">
+                Initializing graphics engine...
+            </div>
+        </div>
+        <!-- Canvas will be inserted here by nannou -->
+    </div>
+
+    <div id="error" class="error"></div>
+
+    <div class="controls">
+        <h2>Keyboard Controls</h2>
+        <div class="shortcuts">
+            <div class="shortcut">
+                <kbd>Space</kbd>
+                <span>Pause / Resume</span>
+            </div>
+            <div class="shortcut">
+                <kbd>I</kbd>
+                <span>Double boid count</span>
+            </div>
+            <div class="shortcut">
+                <kbd>D</kbd>
+                <span>Halve boid count</span>
+            </div>
+            <div class="shortcut">
+                <kbd>R</kbd>
+                <span>Reset simulation</span>
+            </div>
+            <div class="shortcut">
+                <kbd>1</kbd>
+                <span>Toggle Separation</span>
+            </div>
+            <div class="shortcut">
+                <kbd>2</kbd>
+                <span>Toggle Cohesion</span>
+            </div>
+            <div class="shortcut">
+                <kbd>3</kbd>
+                <span>Toggle Alignment</span>
+            </div>
+            <div class="shortcut">
+                <kbd>4</kbd>
+                <span>Toggle Wander</span>
+            </div>
+            <div class="shortcut">
+                <kbd>Click</kbd>
+                <span>Select a boid</span>
+            </div>
+        </div>
+
+        <div class="note">
+            <strong>Note:</strong>
+            This is an experimental WebAssembly port of the desktop boids application using nannou's WASM support.
+            Some features from the desktop version may not be available. The simulation uses WebGPU when available,
+            falling back to WebGL2 in older browsers.
+        </div>
+    </div>
+
+    <script type="module">
+        async function init() {
+            try {
+                // Import the WASM module
+                const { default: init, run } = await import('./pkg/boids_app_web.js');
+
+                // Initialize WASM
+                await init();
+
+                // Hide loading indicator
+                document.getElementById('loading').style.display = 'none';
+
+                // Run the nannou app
+                run();
+
+                console.log('Boids nannou WASM initialized successfully!');
+            } catch (error) {
+                console.error('Failed to initialize WASM:', error);
+                document.getElementById('loading').style.display = 'none';
+                const errorEl = document.getElementById('error');
+                errorEl.textContent = `Failed to load WebAssembly: ${error.message}.
+                    Make sure you're viewing this page through a web server (not file://)
+                    and that your browser supports WebAssembly.`;
+                errorEl.style.display = 'block';
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
