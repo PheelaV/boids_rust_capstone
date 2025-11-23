@@ -48,7 +48,6 @@
 use std::time::Duration;
 use thirtyfour::prelude::*;
 use tokio::time::sleep;
-use warp::Filter;
 
 /// Start a local web server serving the web demo
 /// Returns the server handle and the URL to access it
@@ -74,18 +73,28 @@ async fn start_test_server() -> (tokio::task::JoinHandle<()>, String) {
     (server, url)
 }
 
-/// Create a new WebDriver instance
+/// Create a new WebDriver instance with headless mode
 /// Tries Chrome first, falls back to Firefox
+/// Both browsers are configured to run headless for CI/server environments
 async fn create_driver() -> WebDriverResult<WebDriver> {
-    let caps = DesiredCapabilities::chrome();
+    // Configure Chrome with headless mode
+    let mut chrome_caps = DesiredCapabilities::chrome();
+    chrome_caps.add_chrome_arg("--headless=new")?;
+    chrome_caps.add_chrome_arg("--no-sandbox")?;
+    chrome_caps.add_chrome_arg("--disable-dev-shm-usage")?;
+    chrome_caps.add_chrome_arg("--disable-gpu")?;
+    chrome_caps.add_chrome_arg("--window-size=1920,1080")?;
 
     // Try Chrome first
-    match WebDriver::new("http://localhost:4444", caps).await {
+    match WebDriver::new("http://localhost:4444", chrome_caps).await {
         Ok(driver) => Ok(driver),
         Err(_) => {
-            // Fall back to Firefox
-            let caps = DesiredCapabilities::firefox();
-            WebDriver::new("http://localhost:4444", caps).await
+            // Fall back to Firefox with headless mode
+            let mut firefox_caps = DesiredCapabilities::firefox();
+            firefox_caps.add_firefox_arg("-headless")?;
+            firefox_caps.add_firefox_arg("--width=1920")?;
+            firefox_caps.add_firefox_arg("--height=1080")?;
+            WebDriver::new("http://localhost:4444", firefox_caps).await
         }
     }
 }

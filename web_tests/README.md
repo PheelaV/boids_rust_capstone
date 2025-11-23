@@ -156,29 +156,62 @@ If tests fail:
 
 5. **Increase wait times**: If tests fail on CI or slower machines, increase sleep durations in tests
 
-## Continuous Integration
+## Headless Mode & Continuous Integration
 
-For CI environments, use headless mode:
+**The tests now run in headless mode by default**, making them suitable for CI/CD pipelines and server environments without a display.
 
-```bash
-# ChromeDriver headless
-chromedriver --port=4444 --headless
+### Running Locally (Headless)
 
-# GeckoDriver headless
-geckodriver --port=4444 --headless
-```
-
-Or use a containerized approach with Selenium Grid:
+No special configuration needed - just start the WebDriver and run tests:
 
 ```bash
-docker run -d -p 4444:4444 selenium/standalone-chrome
+# Start ChromeDriver or GeckoDriver
+chromedriver --port=4444
+
+# Run tests (browsers will run headless automatically)
+cargo test -p web_tests
 ```
+
+### Docker/CI Environments
+
+Use containerized Selenium with Chrome:
+
+```bash
+# Start Selenium Grid container
+docker run -d -p 4444:4444 --shm-size=2g selenium/standalone-chrome
+
+# Run tests
+cargo test -p web_tests
+```
+
+Or with Firefox:
+
+```bash
+docker run -d -p 4444:4444 --shm-size=2g selenium/standalone-firefox
+cargo test -p web_tests
+```
+
+### Headless Configuration
+
+The tests configure browsers with these headless options:
+
+**Chrome:**
+- `--headless=new` - New headless mode
+- `--no-sandbox` - Required for Docker/CI
+- `--disable-dev-shm-usage` - Prevents memory issues
+- `--disable-gpu` - Not needed in headless
+- `--window-size=1920,1080` - Standard viewport
+
+**Firefox:**
+- `-headless` - Headless mode
+- `--width=1920` - Viewport width
+- `--height=1080` - Viewport height
 
 ## Known Issues
 
 - **Port conflicts**: If port 8765 is in use, tests will fail. Change the port in `boids_web_demo.rs`
 - **Timing sensitivity**: Tests use fixed sleep durations which may need adjustment for slower systems
-- **Browser dependencies**: Tests require Chrome or Firefox to be installed
+- **Browser dependencies**: Tests require Chrome/Chromium or Firefox binary installed (even in headless mode)
 
 ## Future Improvements
 
