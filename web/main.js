@@ -115,6 +115,34 @@ function setupControls() {
         document.getElementById('max-speed-value').textContent = value.toFixed(1);
     });
 
+    // Boid count controls
+    document.getElementById('set-boid-count').addEventListener('click', () => {
+        const target = parseInt(document.getElementById('boid-count-input').value);
+        if (target >= 1 && target <= 2000) {
+            simulation.set_boid_count(target);
+            console.log(`Set boid count to ${target}`);
+        }
+    });
+
+    document.getElementById('double-boids').addEventListener('click', () => {
+        simulation.double_boids();
+        updateBoidCountInput();
+        console.log(`Doubled boids to ${simulation.get_boid_count()}`);
+    });
+
+    document.getElementById('halve-boids').addEventListener('click', () => {
+        simulation.halve_boids();
+        updateBoidCountInput();
+        console.log(`Halved boids to ${simulation.get_boid_count()}`);
+    });
+
+    // Allow Enter key on input to set count
+    document.getElementById('boid-count-input').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            document.getElementById('set-boid-count').click();
+        }
+    });
+
     // Action buttons
     document.getElementById('reset').addEventListener('click', () => {
         simulation.reset();
@@ -128,6 +156,11 @@ function setupControls() {
             animate();
         }
     });
+}
+
+function updateBoidCountInput() {
+    const count = simulation.get_boid_count();
+    document.getElementById('boid-count-input').value = count;
 }
 
 function setupKeyboardControls() {
@@ -173,6 +206,20 @@ function setupKeyboardControls() {
                 document.getElementById('toggle-wander').click();
                 break;
 
+            case 'i': // Double boid count
+                event.preventDefault();
+                simulation.double_boids();
+                updateBoidCountInput();
+                console.log(`Doubled boids to ${simulation.get_boid_count()}`);
+                break;
+
+            case 'd': // Halve boid count
+                event.preventDefault();
+                simulation.halve_boids();
+                updateBoidCountInput();
+                console.log(`Halved boids to ${simulation.get_boid_count()}`);
+                break;
+
             case '+':
             case '=': // Increase max speed
                 event.preventDefault();
@@ -212,6 +259,8 @@ KEYBOARD SHORTCUTS:
   2        - Toggle Cohesion
   3        - Toggle Separation
   4        - Toggle Wander
+  I        - Double boid count
+  D        - Halve boid count
   +/=      - Increase max speed
   -/_      - Decrease max speed
   H/?      - Show this help
@@ -304,6 +353,14 @@ function updateStats() {
     const stats = simulation.get_stats();
     document.getElementById('boid-count').textContent = stats.boid_count;
     document.getElementById('frame').textContent = stats.frame_count;
+
+    // Update input field periodically (every 30 frames to avoid constant updates)
+    if (frameCount % 30 === 0) {
+        const currentInputValue = parseInt(document.getElementById('boid-count-input').value);
+        if (currentInputValue !== stats.boid_count) {
+            document.getElementById('boid-count-input').value = stats.boid_count;
+        }
+    }
 }
 
 // Start the application

@@ -94,7 +94,12 @@ This will:
   - Reset: Restart simulation with random positions
   - Pause/Resume: Pause and resume the simulation
 
-- **Keyboard Shortcuts**: Full keyboard control support
+- **Boid Count Control**: Dynamically adjust simulation size
+  - Number input field to set exact boid count (1-2000)
+  - Double/Halve buttons with keyboard shortcuts
+  - Real-time updates as count changes
+
+- **Keyboard Shortcuts**: Full keyboard control support (Desktop app parity)
   - `Space` - Pause/Resume simulation
   - `R` - Reset simulation
   - `C` - Toggle controls panel visibility
@@ -102,6 +107,8 @@ This will:
   - `2` - Toggle Cohesion behavior
   - `3` - Toggle Separation behavior
   - `4` - Toggle Wander behavior
+  - `I` - Double boid count (like desktop app)
+  - `D` - Halve boid count (like desktop app)
   - `+/=` - Increase max speed
   - `-/_` - Decrease max speed
   - `H` or `?` - Show keyboard shortcuts help

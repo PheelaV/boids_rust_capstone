@@ -166,6 +166,20 @@
                 <div>Frame: <span id="frame">0</span></div>
             </div>
 
+            <h2>Boid Count</h2>
+            <div class="control-group">
+                <label for="boid-count-input">Number of Boids</label>
+                <div style="display: flex; gap: 5px; margin-bottom: 5px;">
+                    <input type="number" id="boid-count-input" min="1" max="2000" value="200"
+                           style="flex: 1; padding: 5px; background: #0f3460; color: #eee; border: 1px solid #53a8b6; border-radius: 3px;">
+                    <button id="set-boid-count" style="width: auto; padding: 5px 15px;">Set</button>
+                </div>
+                <div style="display: flex; gap: 5px;">
+                    <button id="double-boids" style="width: 48%;">Double (I)</button>
+                    <button id="halve-boids" style="width: 48%;">Halve (D)</button>
+                </div>
+            </div>
+
             <h2>Behaviors</h2>
             <button class="toggle active" id="toggle-separation">Separation: ON</button>
             <button class="toggle active" id="toggle-cohesion">Cohesion: ON</button>
@@ -212,6 +226,8 @@
                     <div><kbd>R</kbd> Reset simulation</div>
                     <div><kbd>C</kbd> Toggle controls panel</div>
                     <div><kbd>1-4</kbd> Toggle behaviors</div>
+                    <div><kbd>I</kbd> Double boids</div>
+                    <div><kbd>D</kbd> Halve boids</div>
                     <div><kbd>+/-</kbd> Adjust max speed</div>
                     <div><kbd>H</kbd> Show help</div>
                 </div>

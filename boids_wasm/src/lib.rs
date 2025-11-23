@@ -173,6 +173,57 @@ impl WasmSimulation {
         self.flock.insert_single(&self.options);
     }
 
+    /// Add multiple boids (for doubling, etc.)
+    pub fn add_boids(&mut self, count: usize) {
+        for _ in 0..count {
+            self.flock.insert_single(&self.options);
+        }
+    }
+
+    /// Remove the last boid
+    pub fn remove_boid(&mut self) -> bool {
+        self.flock.delete_last().is_some()
+    }
+
+    /// Remove multiple boids
+    pub fn remove_boids(&mut self, count: usize) -> usize {
+        let mut removed = 0;
+        for _ in 0..count {
+            if self.flock.delete_last().is_some() {
+                removed += 1;
+            } else {
+                break;
+            }
+        }
+        removed
+    }
+
+    /// Double the number of boids
+    pub fn double_boids(&mut self) {
+        let current_count = self.get_boid_count();
+        self.add_boids(current_count);
+    }
+
+    /// Halve the number of boids
+    pub fn halve_boids(&mut self) {
+        let current_count = self.get_boid_count();
+        let to_remove = current_count / 2;
+        self.remove_boids(to_remove);
+    }
+
+    /// Set the number of boids to a specific count
+    pub fn set_boid_count(&mut self, target_count: usize) {
+        let current_count = self.get_boid_count();
+
+        if target_count > current_count {
+            let to_add = target_count - current_count;
+            self.add_boids(to_add);
+        } else if target_count < current_count {
+            let to_remove = current_count - target_count;
+            self.remove_boids(to_remove);
+        }
+    }
+
     /// Reset the simulation with current configuration
     pub fn reset(&mut self) {
         self.flock.restart(&self.options);
