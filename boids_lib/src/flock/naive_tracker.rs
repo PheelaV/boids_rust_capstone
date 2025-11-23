@@ -172,7 +172,7 @@ impl Tracker for NaiveTracker {
         self.entities = entities.to_vec();
     }
 
-    fn delete_last(&mut self) -> Option<Boid> {
+    fn delete_last(&mut self, _run_options: &RunOptions) -> Option<Boid> {
         if self.entities.len() == 0 {
             None
         } else {

@@ -244,7 +244,7 @@ fn test_spatial_hash_dynamic_boids() {
 
     // Remove some boids
     for _ in 0..5 {
-        flock.delete_last();
+        flock.delete_last(&options);
     }
 
     assert_eq!(flock.view2().count(), 55);

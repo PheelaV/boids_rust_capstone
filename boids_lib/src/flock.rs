@@ -1,17 +1,21 @@
 use glam::Vec2;
+#[cfg(feature = "clustering")]
 use itertools::Itertools;
+#[cfg(feature = "clustering")]
 use linfa::{traits::Transformer, DatasetBase};
+#[cfg(feature = "clustering")]
 use linfa_clustering::Dbscan;
+#[cfg(feature = "clustering")]
 use linfa_nn::{distance::L2Dist, CommonNearestNeighbour};
+#[cfg(feature = "clustering")]
 use ndarray::Array2;
 use once_cell::sync::Lazy;
 use rand::Rng;
 use rand::SeedableRng;
 use rand_xoshiro::Xoshiro128Plus;
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Mutex,
-};
+#[cfg(feature = "clustering")]
+use std::collections::{HashMap, HashSet};
+use std::sync::Mutex;
 
 static MY_RNG: Lazy<Mutex<Xoshiro128Plus>> =
     Lazy::new(|| Mutex::new(Xoshiro128Plus::from_entropy()));
@@ -23,7 +27,9 @@ pub fn seed_rng(seed: u64) {
 
 use crate::boid::BoidMetadata;
 use crate::flock::replay_tracker::ReplayTracker;
+#[cfg(feature = "clustering")]
 use crate::math_helpers::distance_dyn_boid;
+#[cfg(feature = "clustering")]
 use crate::options::Boundary;
 use crate::options::InitiationStrategy;
 use crate::options::RunOptions;
@@ -111,8 +117,8 @@ impl<'a> Flock<'a> {
         self.tracker.insert_multiple(&boids, run_options);
     }
 
-    pub fn delete_last(&mut self) -> Option<Boid> {
-        self.tracker.delete_last()
+    pub fn delete_last(&mut self, run_options: &RunOptions) -> Option<Boid> {
+        self.tracker.delete_last(run_options)
     }
 
     pub fn delete_boid(&mut self, id_delete: usize, run_options: &RunOptions) {
@@ -181,6 +187,7 @@ fn get_boid(run_options: &RunOptions, id: usize) -> Boid {
     }
 }
 
+#[cfg(feature = "clustering")]
 fn get_flock_ids(tracker: &dyn Tracker, entities: &[Boid], run_options: &RunOptions) -> Vec<usize> {
     let test_data: Array2<f32> = entities
         .iter()
@@ -212,7 +219,14 @@ fn get_flock_ids(tracker: &dyn Tracker, entities: &[Boid], run_options: &RunOpti
     };
 }
 
+#[cfg(not(feature = "clustering"))]
+fn get_flock_ids(_tracker: &dyn Tracker, entities: &[Boid], _run_options: &RunOptions) -> Vec<usize> {
+    // Return all zeros (no clustering) when clustering feature is disabled
+    vec![0; entities.len()]
+}
+
 /// Helps to join adjacent flocks in toroidal space, using flock labels from an euclidean space
+#[cfg(feature = "clustering")]
 fn join_adjacent_flocks(
     tracker: &dyn Tracker,
     entities: &[Boid],

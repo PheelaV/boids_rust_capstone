@@ -388,7 +388,7 @@ impl Tracker for ReplayTracker {
             ReplayTracker::get_start_playhead(self.buff_bumper, self.run_options.init_boids);
     }
 
-    fn delete_last(&mut self) -> Option<boid::Boid> {
+    fn delete_last(&mut self, _run_options: &RunOptions) -> Option<boid::Boid> {
         todo!()
     }
 

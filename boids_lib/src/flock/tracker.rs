@@ -26,7 +26,7 @@ pub trait Tracker {
     fn update(&mut self, run_options: &RunOptions);
     fn insert_single(&mut self, entity: Boid, _: &RunOptions);
     fn restart(&mut self, entities: &[Boid]);
-    fn delete_last(&mut self) -> Option<Boid>;
+    fn delete_last(&mut self, run_options: &RunOptions) -> Option<Boid>;
     fn delete_multiple(&mut self, ids_delete: &[usize], run_options: &RunOptions);
     fn insert_multiple(&mut self, entities: &[Boid], _: &RunOptions);
     // fn view(&self) -> (&Vec<Boid>, &Vec<BoidMetadata>);

@@ -1,7 +1,9 @@
 [workspace]
 members = [
     "boids_lib",
-    "boids_app"
+    "boids_app",
+    "boids_wasm",
+    "web_tests"
     # "boidr/src/rust"
 ]
 
