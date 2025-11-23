@@ -173,12 +173,21 @@ impl Tracker for SpatHash1D {
         self.view = entities.iter().map(|e| e.id).collect_vec();
     }
 
-    fn delete_last(&mut self) -> Option<Boid> {
+    fn delete_last(&mut self, run_options: &RunOptions) -> Option<Boid> {
         let last_id = self.index.len() - 1;
         match self.table.iter().position(|e| e.id == last_id) {
             Some(table_index) => {
                 self.view.swap_remove(last_id);
-                Some(self.table.swap_remove(table_index))
+                let removed = self.table.swap_remove(table_index);
+
+                // Resize auxiliary arrays to match new table length
+                self.metadata.resize(self.table.len(), Default::default());
+                self.index.resize(self.table.len(), Default::default());
+
+                // Rebuild spatial hash grid structures
+                self.update_table(run_options);
+
+                Some(removed)
             }
             None => None,
         }
@@ -426,8 +435,10 @@ impl SpatHash1D {
         }
 
         let mut neighbours: Vec<&Boid> = Vec::with_capacity(32);
-        let mut accellerations: Vec<Vec2> = vec![Default::default(); run_options.init_boids];
-        let mut metadata: Vec<BoidMetadata> = vec![Default::default(); run_options.init_boids];
+        // Size these vectors based on current boid count, not initial count
+        // This allows for dynamic addition/removal of boids
+        let mut accellerations: Vec<Vec2> = vec![Default::default(); self.table.len()];
+        let mut metadata: Vec<BoidMetadata> = vec![Default::default(); self.metadata.len()];
 
         let mut clicked_neighbours: Vec<usize> =
             Vec::with_capacity(run_options.neighbours_cosidered);

@@ -109,8 +109,8 @@ impl<'a> Flock<'a> {
         self.tracker.insert_multiple(&boids, run_options);
     }
 
-    pub fn delete_last(&mut self) -> Option<Boid> {
-        self.tracker.delete_last()
+    pub fn delete_last(&mut self, run_options: &RunOptions) -> Option<Boid> {
+        self.tracker.delete_last(run_options)
     }
 
     pub fn delete_boid(&mut self, id_delete: usize, run_options: &RunOptions) {

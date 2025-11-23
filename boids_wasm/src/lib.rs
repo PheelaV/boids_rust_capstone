@@ -182,14 +182,14 @@ impl WasmSimulation {
 
     /// Remove the last boid
     pub fn remove_boid(&mut self) -> bool {
-        self.flock.delete_last().is_some()
+        self.flock.delete_last(&self.options).is_some()
     }
 
     /// Remove multiple boids
     pub fn remove_boids(&mut self, count: usize) -> usize {
         let mut removed = 0;
         for _ in 0..count {
-            if self.flock.delete_last().is_some() {
+            if self.flock.delete_last(&self.options).is_some() {
                 removed += 1;
             } else {
                 break;
