@@ -29,17 +29,18 @@ pub struct BoidMetadata {
 
 impl BoidMetadata {
     pub fn new(boid: &Boid) -> Self {
-        let mut default: BoidMetadata = Default::default();
-        default.id = boid.id;
-        default
+        Self {
+            id: boid.id,
+            ..Default::default()
+        }
     }
 }
 
 impl Default for BoidMetadata {
     fn default() -> Self {
         Self {
-            id: std::usize::MAX,
-            clicked_neighbour_id: std::usize::MAX,
+            id: usize::MAX,
+            clicked_neighbour_id: usize::MAX,
             cluster_id: 0,
             n_neighbours: 0,
             accelleration_update: Default::default(),

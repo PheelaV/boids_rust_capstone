@@ -211,7 +211,7 @@ impl Tracker for NaiveTracker {
     }
 
     fn signal(&mut self, _: TrackerSignal) {
-        () // noop
+        // noop
     }
 
     fn get_no_entities(&self) -> usize {

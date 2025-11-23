@@ -19,7 +19,7 @@ pub struct Birdwatcher {
     sample_rate: u64,
 }
 
-const PREFIX: &'static str = "boids-data";
+const PREFIX: &str = "boids-data";
 
 impl Birdwatcher {
     pub fn new(sample_rate: u16) -> Self {

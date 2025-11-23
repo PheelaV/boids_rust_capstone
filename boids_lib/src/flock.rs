@@ -43,8 +43,6 @@ pub struct Flock<'a> {
 }
 
 impl<'a> Flock<'a> {
-    // const GREY_SCALE: &str =
-    //     " .\'`^\",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
     pub fn new(run_options: &RunOptions) -> Self {
         // Seed RNG if a seed is provided for deterministic simulations
         if let Some(seed) = run_options.rng_seed {

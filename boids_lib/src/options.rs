@@ -270,12 +270,12 @@ impl WindowSize {
         win_w: i32,
     ) -> WindowSize {
         WindowSize {
-            win_left: win_left,
-            win_right: win_right,
+            win_left,
+            win_right,
             win_top: wind_top,
-            win_bottom: win_bottom,
-            win_h: win_h,
-            win_w: win_w,
+            win_bottom,
+            win_h,
+            win_w,
         }
     }
 }

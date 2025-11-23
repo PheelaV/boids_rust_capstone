@@ -236,7 +236,7 @@ impl Tracker for SpatHash1D {
     }
 
     fn signal(&mut self, _: TrackerSignal) {
-        () // noop
+        // noop
     }
 
     fn get_no_entities(&self) -> usize {
