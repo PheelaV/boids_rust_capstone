@@ -46,6 +46,9 @@ async function run() {
         // Set up controls
         setupControls();
 
+        // Set up keyboard controls
+        setupKeyboardControls();
+
         // Start animation loop
         animate();
 
@@ -125,6 +128,96 @@ function setupControls() {
             animate();
         }
     });
+}
+
+function setupKeyboardControls() {
+    document.addEventListener('keydown', (event) => {
+        const key = event.key.toLowerCase();
+
+        switch(key) {
+            case ' ': // Spacebar - pause/resume
+                event.preventDefault();
+                const pauseBtn = document.getElementById('pause');
+                pauseBtn.click();
+                break;
+
+            case 'r': // Reset simulation
+                event.preventDefault();
+                simulation.reset();
+                console.log('Simulation reset (keyboard)');
+                break;
+
+            case 'c': // Toggle controls panel visibility
+                event.preventDefault();
+                const controls = document.getElementById('controls');
+                controls.style.display = controls.style.display === 'none' ? 'block' : 'none';
+                break;
+
+            case '1': // Toggle alignment
+                event.preventDefault();
+                document.getElementById('toggle-alignment').click();
+                break;
+
+            case '2': // Toggle cohesion
+                event.preventDefault();
+                document.getElementById('toggle-cohesion').click();
+                break;
+
+            case '3': // Toggle separation
+                event.preventDefault();
+                document.getElementById('toggle-separation').click();
+                break;
+
+            case '4': // Toggle wander
+                event.preventDefault();
+                document.getElementById('toggle-wander').click();
+                break;
+
+            case '+':
+            case '=': // Increase max speed
+                event.preventDefault();
+                const speedSlider = document.getElementById('max-speed');
+                const newSpeed = Math.min(10, parseFloat(speedSlider.value) + 0.5);
+                speedSlider.value = newSpeed;
+                speedSlider.dispatchEvent(new Event('input'));
+                break;
+
+            case '-':
+            case '_': // Decrease max speed
+                event.preventDefault();
+                const speedSlider2 = document.getElementById('max-speed');
+                const newSpeed2 = Math.max(1, parseFloat(speedSlider2.value) - 0.5);
+                speedSlider2.value = newSpeed2;
+                speedSlider2.dispatchEvent(new Event('input'));
+                break;
+
+            case 'h':
+            case '?': // Show keyboard help
+                event.preventDefault();
+                showKeyboardHelp();
+                break;
+        }
+    });
+
+    console.log('Keyboard controls enabled. Press H or ? for help.');
+}
+
+function showKeyboardHelp() {
+    const helpText = `
+KEYBOARD SHORTCUTS:
+  Space    - Pause/Resume
+  R        - Reset simulation
+  C        - Toggle controls panel
+  1        - Toggle Alignment
+  2        - Toggle Cohesion
+  3        - Toggle Separation
+  4        - Toggle Wander
+  +/=      - Increase max speed
+  -/_      - Decrease max speed
+  H/?      - Show this help
+`;
+    console.log(helpText);
+    alert(helpText);
 }
 
 function updateToggleText(button, name) {

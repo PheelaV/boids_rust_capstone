@@ -35,12 +35,40 @@ This will:
 
 ## Running
 
-1. Build the WebAssembly module (see above)
+### Option 1: Quick Start (Recommended)
+
+Use the included build-and-serve script with a Rust-based web server:
+
+```bash
+cd web
+./serve.sh
+```
+
+This will:
+- Build the WebAssembly module automatically
+- Install `miniserve` if not already installed
+- Start the server at http://localhost:8080
+
+**Alternative:** Use `basic-http-server` instead:
+```bash
+./serve-basic.sh
+```
+
+### Option 2: Manual Build and Serve
+
+1. Build the WebAssembly module:
+   ```bash
+   cd boids_wasm
+   wasm-pack build --target web --out-dir ../web/pkg
+   ```
 
 2. Start a local web server from the `web` directory:
    ```bash
    cd ../web
-   python -m http.server 8080
+   # Choose one:
+   miniserve . --port 8080            # Rust (recommended)
+   python -m http.server 8080         # Python
+   npx http-server -p 8080            # Node.js
    ```
 
 3. Open your browser to:
@@ -65,6 +93,18 @@ This will:
 - **Actions**:
   - Reset: Restart simulation with random positions
   - Pause/Resume: Pause and resume the simulation
+
+- **Keyboard Shortcuts**: Full keyboard control support
+  - `Space` - Pause/Resume simulation
+  - `R` - Reset simulation
+  - `C` - Toggle controls panel visibility
+  - `1` - Toggle Alignment behavior
+  - `2` - Toggle Cohesion behavior
+  - `3` - Toggle Separation behavior
+  - `4` - Toggle Wander behavior
+  - `+/=` - Increase max speed
+  - `-/_` - Decrease max speed
+  - `H` or `?` - Show keyboard shortcuts help
 
 ### Visual Features
 

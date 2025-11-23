@@ -138,6 +138,16 @@
             border-radius: 8px;
             max-width: 500px;
         }
+
+        kbd {
+            background: #0f3460;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 10px;
+            margin-right: 4px;
+            color: #53a8b6;
+        }
     </style>
 </head>
 <body>
@@ -195,6 +205,16 @@
             <div style="margin-top: 30px; font-size: 11px; color: #666;">
                 <p>A WebAssembly-powered flocking simulation based on Craig Reynolds' Boids algorithm.</p>
                 <p style="margin-top: 10px;">Use the controls to adjust behavior parameters and observe emergent flocking patterns.</p>
+
+                <h2 style="margin-top: 20px; font-size: 14px; color: #53a8b6;">Keyboard Shortcuts</h2>
+                <div style="font-family: monospace; font-size: 10px; line-height: 1.6;">
+                    <div><kbd>Space</kbd> Pause/Resume</div>
+                    <div><kbd>R</kbd> Reset simulation</div>
+                    <div><kbd>C</kbd> Toggle controls panel</div>
+                    <div><kbd>1-4</kbd> Toggle behaviors</div>
+                    <div><kbd>+/-</kbd> Adjust max speed</div>
+                    <div><kbd>H</kbd> Show help</div>
+                </div>
             </div>
         </div>
     </div>
