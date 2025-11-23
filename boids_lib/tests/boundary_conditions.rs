@@ -103,6 +103,8 @@ fn test_absorbing_boundary() {
     options.cohesion_on = false;
     options.alignment_on = false;
     options.wander_on = false;
+    options.min_speed = 0.0; // Allow boid to stop completely
+    options.min_speed_sq = 0.0;
 
     // Create a boid moving right towards boundary
     let mut boid = Boid::new(95.0, 0.0, Vec2::new(10.0, 0.0), 0);

@@ -492,7 +492,9 @@ mod test {
         assert_eq!(expected.y, result.y);
     }
 
+    /// TODO: Requires test data file at ../boids-data.csv
     #[test]
+    #[ignore]
     fn initialise() {
         let rp = "../boids-data.csv".to_owned();
         let ro = RunOptions::default();
@@ -500,7 +502,9 @@ mod test {
         // assert!(rt.locations.len() != 0);
     }
 
+    /// TODO: Requires test data file at ../boids-data.csv
     #[test]
+    #[ignore]
     fn progress_forward() {
         let rp = "../boids-data.csv".to_owned();
         let ro = RunOptions::default();
