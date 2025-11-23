@@ -202,9 +202,8 @@ impl Tracker for SpatHash1D {
 
         // resize auxilary arrays
         self.metadata.resize(self.table.len(), Default::default());
-        self.index.resize(self.table.len(), Default::default());
 
-        // update data structure (index, pivots)
+        // rebuild spatial hash structure (view, index, pivots)
         self.update_table(run_options);
     }
 

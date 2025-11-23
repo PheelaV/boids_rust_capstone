@@ -131,8 +131,15 @@ The project includes a comprehensive integration test suite (49 tests) covering 
 
 Run tests:
 ```bash
-cargo test
+# Run all tests (unit + integration)
+cargo test test_
+
+# Or run specific test suites
+cargo test --lib                    # Unit tests only
+cargo test --test boid_behaviors    # Specific integration test
 ```
+
+**Note**: Due to a workspace configuration quirk, `cargo test` alone only runs unit tests. Use `cargo test test_` to run all tests including integration tests.
 
 Run benchmarks:
 ```bash

@@ -68,11 +68,19 @@ fn test_captured_data_validity() {
         "Y position should be within bounds"
     );
 
-    // Time should increase
-    if data.len() > 10 {
+    // Time should increase across samples
+    // Each sample has init_boids records
+    let init_boids = RunOptions::default().init_boids;
+    if data.len() > init_boids * 2 {
         assert!(
-            data[5].time < data[10].time,
-            "Time should increase"
+            data[0].time < data[init_boids].time,
+            "Time should increase between samples: {} < {}",
+            data[0].time, data[init_boids].time
+        );
+        assert!(
+            data[init_boids].time < data[init_boids * 2].time,
+            "Time should continue increasing: {} < {}",
+            data[init_boids].time, data[init_boids * 2].time
         );
     }
 }
@@ -159,6 +167,9 @@ fn test_temporal_consistency() {
     options.init_boids = 10;
     options.sample_rate = 1; // Sample every iteration for fine-grained check
 
+    let window_width = (options.window.win_right - options.window.win_left) as f32;
+    let window_height = (options.window.win_top - options.window.win_bottom) as f32;
+
     let data = flock_base(20, options);
 
     // Group data by boid ID
@@ -188,9 +199,16 @@ fn test_temporal_consistency() {
         }
 
         // Positions shouldn't teleport (movement should be continuous)
+        // Use toroidal distance since default boundary is toroidal
         for window in trajectory.windows(2) {
-            let dist = ((window[1].x - window[0].x).powi(2) + (window[1].y - window[0].y).powi(2))
-                .sqrt();
+            let dx = (window[1].x - window[0].x).abs();
+            let dy = (window[1].y - window[0].y).abs();
+
+            // Toroidal distance: take shorter path around the wrapped boundary
+            let dx_wrapped = dx.min(window_width - dx);
+            let dy_wrapped = dy.min(window_height - dy);
+
+            let dist = (dx_wrapped.powi(2) + dy_wrapped.powi(2)).sqrt();
 
             // With default max_speed and baseline_speed, movement per iteration
             // should be bounded
