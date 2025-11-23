@@ -202,7 +202,6 @@ impl ReplayTracker {
         }
     }
     fn load_buffer(&mut self) -> Result<bool, ReplayTrackerError> {
-
         let RunOptions {
             init_boids, window, ..
         } = self.run_options;
@@ -293,7 +292,6 @@ impl ReplayTracker {
                     }
                     false => 0,
                 };
-
 
             let boid = self.buff_boid.get_mut(buff_index).unwrap();
             let meta = self.buff_meta.get_mut(buff_index).unwrap();

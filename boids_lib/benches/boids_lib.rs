@@ -37,14 +37,12 @@ fn get_bench_params() -> Vec<FlockBench> {
     // [128, 1024, 4096].iter().for_each(|no_boids| {
     [4096, 8192].iter().for_each(|no_boids| {
         // [NO_BOIDS, 2 * NO_BOIDS, 4 * NO_BOIDS]
-        [2_u64.pow(12)]
-            .iter()
-            .for_each(|no_iter| {
-                result.push(FlockBench {
-                    no_iter: *no_iter,
-                    no_boids: *no_boids,
-                })
+        [2_u64.pow(12)].iter().for_each(|no_iter| {
+            result.push(FlockBench {
+                no_iter: *no_iter,
+                no_boids: *no_boids,
             })
+        })
     });
     result
 }

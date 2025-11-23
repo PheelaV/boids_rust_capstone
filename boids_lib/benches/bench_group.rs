@@ -23,5 +23,4 @@
 // criterion_main!(benches);
 
 #![allow(unused)]
-fn main() {
-}
+fn main() {}

@@ -1,6 +1,6 @@
-use std::f32::consts::PI;
 use glam::Vec2;
 use serde::{Deserialize, Serialize};
+use std::f32::consts::PI;
 
 use crate::math_helpers::deg_to_half_rad;
 
@@ -106,11 +106,11 @@ impl RunOptions {
         self.field_of_vision_half_rad = self.field_of_vision_deg * PI / 360.;
         self.field_of_vision_half_rad = deg_to_half_rad(self.field_of_vision_deg);
         self.field_of_vision_cos = deg_to_half_rad(self.field_of_vision_deg).cos();
-        
+
         self.alignment_fov_half_cos = deg_to_half_rad(self.alignment_fov_deg).cos();
         self.cohesion_fov_half_cos = deg_to_half_rad(self.cohesion_fov_deg).cos();
         self.separation_fov_half_cos = deg_to_half_rad(self.separation_fov_deg).cos();
-     }
+    }
 }
 
 impl Default for RunOptions {
@@ -294,7 +294,7 @@ pub enum Boundary {
     Absorbing,
     Reflective,
     Repulsive { distance: f32, force: f32 },
-    RepulsiveCircle { radius: f32}
+    RepulsiveCircle { radius: f32 },
 }
 
 #[derive(Debug, PartialEq, Copy, Clone, Serialize, Deserialize)]
@@ -317,7 +317,7 @@ pub enum NoiseModel {
 pub enum TrackerType {
     SpatHash,
     Naive,
-    Replay(String, u64)
+    Replay(String, u64),
 }
 
 #[derive(Debug, Clone)]

@@ -1,4 +1,4 @@
-use std::{collections::HashSet, f32::consts::PI, any::Any};
+use std::{any::Any, collections::HashSet, f32::consts::PI};
 
 use glam::Vec2;
 use rand::Rng;

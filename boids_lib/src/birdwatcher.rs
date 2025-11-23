@@ -1,7 +1,7 @@
-use std::{fs::OpenOptions, mem};
-use chrono::{DateTime, Utc};
-use serde::{Serialize, Deserialize};
 use crate::{flock::Flock, options::SaveOptions};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use std::{fs::OpenOptions, mem};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct BoidData {
@@ -56,7 +56,6 @@ impl Birdwatcher {
                 time: self.render_ticker / self.sample_rate,
             }
         }));
-
     }
 
     pub fn restart(&mut self) {

@@ -1,6 +1,9 @@
 use std::any::Any;
 
-use crate::{boid::{Boid, BoidMetadata}, options::RunOptions};
+use crate::{
+    boid::{Boid, BoidMetadata},
+    options::RunOptions,
+};
 
 /// Set of signals for concrete implementations of different trackers, of which
 /// implementation is purely optional
@@ -15,7 +18,6 @@ pub enum TrackerSignal {
 // a tracker will follow an implementation consisting of choosing a datastructure to
 // hold spatial information about boids in and have traits for querying 2D, later 3D
 // information
-
 
 pub trait Tracker {
     fn new(entities: &[Boid], run_options: &RunOptions) -> Self
@@ -33,5 +35,4 @@ pub trait Tracker {
     fn signal(&mut self, signal: TrackerSignal);
     fn get_no_entities(&self) -> usize;
     fn as_any(&self) -> &dyn Any;
-
 }

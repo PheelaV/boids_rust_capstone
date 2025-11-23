@@ -139,7 +139,7 @@ pub trait MyVec2Ext {
     fn rotate(&self, rhs: Vec2) -> Self;
     fn limit_length(&self, max_len: f32) -> Self;
     fn limit_length_sq(&self, max_len: f32, max_len: f32) -> Self;
-    fn ensure_length(&self, min_len: f32, max_len: f32) -> Self ;
+    fn ensure_length(&self, min_len: f32, max_len: f32) -> Self;
 }
 
 impl MyVec2Ext for Vec2 {
@@ -176,7 +176,7 @@ impl MyVec2Ext for Vec2 {
         }
     }
 
-    fn ensure_length(&self,min_len: f32, max_len: f32) -> Vec2 {
+    fn ensure_length(&self, min_len: f32, max_len: f32) -> Vec2 {
         let len = self.length();
         if len > max_len {
             self.normalize() * max_len

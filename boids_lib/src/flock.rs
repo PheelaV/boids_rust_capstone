@@ -1,25 +1,28 @@
-use std::{collections::{HashMap, HashSet}, sync::Mutex};
 use glam::Vec2;
 use itertools::Itertools;
 use linfa::{traits::Transformer, DatasetBase};
 use linfa_clustering::Dbscan;
 use linfa_nn::{distance::L2Dist, CommonNearestNeighbour};
 use ndarray::Array2;
+use once_cell::sync::Lazy;
 use rand::Rng;
-use lazy_static::lazy_static;
 use rand::SeedableRng;
 use rand_xoshiro::Xoshiro128Plus;
-lazy_static! {
-    static ref MY_RNG: Mutex<Xoshiro128Plus> = Mutex::new(Xoshiro128Plus::from_entropy());
-}
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Mutex,
+};
 
-use crate::{boid::Boid, math_helpers::MyVec2Ext};
+static MY_RNG: Lazy<Mutex<Xoshiro128Plus>> =
+    Lazy::new(|| Mutex::new(Xoshiro128Plus::from_entropy()));
+
 use crate::boid::BoidMetadata;
 use crate::flock::replay_tracker::ReplayTracker;
 use crate::math_helpers::distance_dyn_boid;
 use crate::options::Boundary;
 use crate::options::InitiationStrategy;
 use crate::options::RunOptions;
+use crate::{boid::Boid, math_helpers::MyVec2Ext};
 
 use self::naive_tracker::NaiveTracker;
 use self::spathash_tracker::SpatHash1D;
@@ -53,9 +56,7 @@ impl<'a> Flock<'a> {
             }
         };
 
-        Flock {
-            tracker,
-        }
+        Flock { tracker }
     }
 
     pub fn get_random() {
@@ -81,9 +82,11 @@ impl<'a> Flock<'a> {
         ro.alignment_on = run_options.alignment_coefficient != 0. && run_options.alignment_on;
         ro.cohesion_on = run_options.cohesion_coefficient != 0. && run_options.cohesion_on;
         ro.separation_on = run_options.separation_coefficient != 0. && run_options.separation_on;
-        ro.wander_on = run_options.wander_on && run_options.wander_coefficient != 0. && run_options.wander_rate != 0.;
-        ro.field_of_vision_on = run_options.field_of_vision_deg != 360. && run_options.field_of_vision_on;
-
+        ro.wander_on = run_options.wander_on
+            && run_options.wander_coefficient != 0.
+            && run_options.wander_rate != 0.;
+        ro.field_of_vision_on =
+            run_options.field_of_vision_deg != 360. && run_options.field_of_vision_on;
 
         self.tracker.update(&ro);
     }
@@ -171,7 +174,6 @@ fn get_boid(run_options: &RunOptions, id: usize) -> Boid {
 }
 
 fn get_flock_ids(tracker: &dyn Tracker, entities: &[Boid], run_options: &RunOptions) -> Vec<usize> {
-    // if run_options.dbscan_flock_clustering_on {
     let test_data: Array2<f32> = entities
         .iter()
         .map(|row| [row.position.x, row.position.y])

@@ -9,11 +9,10 @@ use clap_serde_derive::{
 };
 
 // #[derive(Parser, Debug)]
-#[derive(Parser)]
-#[derive(ClapSerde)]
+#[derive(Parser, ClapSerde)]
 #[command(author="PheelaV", version, about, long_about = None)]
 /// Implementation and visualisation of the Boids (Reynolds '86) algorithms.
-pub struct Args{
+pub struct Args {
     /// Config file
     #[arg(short, long = "config", default_value = "config.toml")]
     pub config_path: std::path::PathBuf,
@@ -24,10 +23,10 @@ pub struct Args{
 }
 
 /// Programatic configuration
-/// 
+///
 /// Uses defaults, which can be overwritten by specifying a filepath for the `-c` or `--config` arg option
 #[derive(ClapSerde, Serialize)]
-pub struct Config{
+pub struct Config {
     #[default(1.)]
     #[arg(short = 'b', long)]
     /// number of boids
@@ -46,16 +45,16 @@ pub struct Config{
     #[default(false)]
     #[arg(short = 's', long)]
     pub save: bool,
-    
+
     #[default(false)]
     #[arg(short = 't', long)]
     pub save_timestamp: bool,
-   
+
     // #[default(1350)]
     #[default(800)]
     #[arg(short = 'x', long)]
     pub init_width: u32,
-    
+
     #[default(800)]
     #[arg(short = 'y', long)]
     pub init_height: u32,
@@ -106,26 +105,26 @@ pub struct Config{
     pub dbscan_flock_clustering_on: bool,
     #[default(false)]
     #[arg(long = "wander")]
-    pub wander_on: bool, 
+    pub wander_on: bool,
     #[default(false)]
     #[arg(long = "wander_random")]
-    pub wander_random: bool, 
+    pub wander_random: bool,
     #[default(0.4)]
     #[arg(long = "wrate")]
-    pub wander_rate: f32, 
+    pub wander_rate: f32,
     #[default(11.5)]
     #[arg(long = "wradius")]
-    pub wander_radius: f32, 
+    pub wander_radius: f32,
     #[default(13.)]
     #[arg(long = "wdistance")]
-    pub wander_distance: f32, 
+    pub wander_distance: f32,
     #[default(1.0)]
     #[arg(long = "wcoeff")]
     pub wander_coefficient: f32,
     #[default(5.)]
     #[arg(long = "size")]
     /// number of boids
-    pub size: f32, 
+    pub size: f32,
     #[default(false)]
     #[arg(long = "rules_impl")]
     pub rules_impl: bool,

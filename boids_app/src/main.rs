@@ -3,20 +3,34 @@
 
 extern crate nannou;
 use boids_lib::{
-    birdwatcher::Birdwatcher, 
-    boid::{Boid, BoidMetadata}, 
-    flock::{spathash_tracker::SpatHash1D, Flock, tracker::TrackerSignal, replay_tracker::ReplayTracker}, 
-    math_helpers::{distance_dyn, tor_vec_p, tor_vec}, 
+    birdwatcher::Birdwatcher,
+    boid::{Boid, BoidMetadata},
+    flock::{
+        replay_tracker::ReplayTracker, spathash_tracker::SpatHash1D, tracker::TrackerSignal, Flock,
+    },
+    math_helpers::{distance_dyn, tor_vec, tor_vec_p},
     options::{
-        self, Boundary, Distance, NoiseModel, RunOptions, SaveOptions, WindowSize, TrackerType,
-    }};
+        self, Boundary, Distance, NoiseModel, RunOptions, SaveOptions, TrackerType, WindowSize,
+    },
+};
 use circular_queue::CircularQueue;
 use clap_serde_derive::{clap::Parser, ClapSerde};
 use itertools::Itertools;
-use nannou::{draw::{properties::ColorScalar}, geom::{Ellipse, Tri}, rand::{Rng, self}, color::*, prelude::*};
+use nannou::{
+    color::*,
+    draw::properties::ColorScalar,
+    geom::{Ellipse, Tri},
+    prelude::*,
+    rand::{self, Rng},
+};
 use nannou_egui::{egui, Egui};
-use splines::{Interpolation, Spline, Key as sKey};
-use std::{path::Path, fs, process::Command, sync::atomic::{AtomicU64, Ordering}};
+use splines::{Interpolation, Key as sKey, Spline};
+use std::{
+    fs,
+    path::Path,
+    process::Command,
+    sync::atomic::{AtomicU64, Ordering},
+};
 
 mod cliargs;
 use cliargs::{Args, Config};
@@ -60,7 +74,7 @@ pub struct Model<'a> {
     ghost_buffer: Option<CircularQueue<(Boid, BoidMetadata)>>,
     ghost_buffer_ready: bool,
     ghost_number: usize,
-    ghost_mode_on: bool
+    ghost_mode_on: bool,
 }
 
 fn model<'a>(app: &App) -> Model<'a> {
@@ -156,10 +170,8 @@ fn model<'a>(app: &App) -> Model<'a> {
         since_last_update_micros: 0,
         fps: 120,
         fps_limit_on: match run_options.tracker_type {
-            TrackerType::Replay(_, _) => {
-                true
-            },
-            _ => false
+            TrackerType::Replay(_, _) => true,
+            _ => false,
         },
         run_options,
         update_timing_on: true,
@@ -250,22 +262,22 @@ fn update(app: &App, model: &mut Model, update: Update) {
                     ui.horizontal(|ui| {
                         if ui.button("⏴").clicked() {
                             flock.tracker.signal(TrackerSignal::ReplayTickBackward)
-                        } 
+                        }
                         if ui.button("⏵").clicked() {
                             flock.tracker.signal(TrackerSignal::ReplayTickForward)
                         }
                         if ui.button("⏯").clicked() {
                             flock.tracker.signal(TrackerSignal::ReplayPlayPause)
-                        } 
+                        }
                         if ui.button("⟲⟳").clicked() {
                             flock.tracker.signal(TrackerSignal::ReplaySwitchDirection)
-                        } 
+                        }
                         ui.add(egui::Slider::new(update_ticks, 0..=ticks_max));
                     });
 
                     ui.horizontal(|ui| {
                         ui.add(egui::Checkbox::new(&mut model.fps_limit_on, "FPS limit"));
-        
+
                         ui.add_enabled(
                             model.fps_limit_on,
                             egui::Slider::new(&mut model.fps, 5..=120),
@@ -282,7 +294,7 @@ fn update(app: &App, model: &mut Model, update: Update) {
                         });
                     });
                     return ();
-                },
+                }
                 _ => (),
                 // TrackerType::SpatHash => todo!(),
                 // TrackerType::Naive => todo!(),
@@ -591,23 +603,27 @@ fn update(app: &App, model: &mut Model, update: Update) {
 
     if model.ghost_mode_on {
         if let Some(gb) = &model.ghost_buffer {
-            model.ghost_buffer_ready = gb.len() == (model.ghost_number + 1) // + 1 for current agents
-            * run_options.init_boids 
+            model.ghost_buffer_ready = gb.len()
+                == (model.ghost_number + 1) // + 1 for current agents
+            * run_options.init_boids
         } else {
             let new_buff = CircularQueue::with_capacity(
                 (model.ghost_number + 1) // + 1 for current agents
-                * run_options.init_boids
+                * run_options.init_boids,
             );
             model.ghost_buffer = Some(new_buff);
         }
 
-        flock.view2()
+        flock
+            .view2()
             .sorted_by(|a, b| a.0.id.cmp(&b.0.id))
-            .for_each(|em| 
-                _ = model.ghost_buffer.as_mut()
+            .for_each(|em| {
+                _ = model
+                    .ghost_buffer
+                    .as_mut()
                     .expect("ghost buffer uninitialized")
                     .push((*em.0, *em.1))
-            );
+            });
     } else {
         if let Some(_) = model.ghost_buffer {
             model.ghost_buffer = None;
@@ -680,7 +696,8 @@ fn key_pressed(app: &App, model: &mut Model, key: Key) -> () {
 
     // limit keys the app react's to when running in replay mode
     if let TrackerType::Replay(_, _) = run_options.tracker_type {
-        if !(key == Key::Space 
+        if !(
+            key == Key::Space
             || key == Key::R // restart replay
             || key == Key::M // stop movement
             || key == Key::C // controls toggle
@@ -694,8 +711,9 @@ fn key_pressed(app: &App, model: &mut Model, key: Key) -> () {
             || key == Key::F9 // labels
             || key == Key::F10 // debug distance
             || key == Key::F11 // debug grid
-            || key == Key::F12 // density based colours
-            ) {
+            || key == Key::F12
+            // density based colours
+        ) {
             return;
         }
         // commands specific to replay tracker
@@ -711,13 +729,13 @@ fn key_pressed(app: &App, model: &mut Model, key: Key) -> () {
     // if controls are open limit the keys only to the nescessary ones
     if model.control_state.controls_open &&
     // allow only these actions
-    !(key == Key::C 
-        || key == Key::R 
+    !(key == Key::C
+        || key == Key::R
         || key == Key::F8
-        || key == Key::F9 
-        || key == Key::F10 
-        || key == Key::F11 
-        || key == Key::F12 
+        || key == Key::F9
+        || key == Key::F10
+        || key == Key::F11
+        || key == Key::F12
         || key == Key::Space)
     {
         return;
@@ -749,13 +767,13 @@ fn key_pressed(app: &App, model: &mut Model, key: Key) -> () {
         // toggle alignment
         run_options.alignment_on = !run_options.alignment_on;
     } else if key == Key::Key2 {
-        // toggle cohesion 
+        // toggle cohesion
         run_options.cohesion_on = !run_options.cohesion_on;
     } else if key == Key::Key3 {
-        // toggle separation 
+        // toggle separation
         run_options.separation_on = !run_options.separation_on;
     } else if key == Key::Key4 {
-        // toggle wander 
+        // toggle wander
         run_options.wander_on = !run_options.wander_on;
     } else if key == Key::D && !model.ghost_mode_on {
         // delete a boid from the flock
@@ -767,7 +785,8 @@ fn key_pressed(app: &App, model: &mut Model, key: Key) -> () {
         run_options.init_boids /= 2;
         model.flock.delete_multiple(&ids_delete, run_options);
     } else if key == Key::I && !model.ghost_mode_on {
-        if run_options.init_boids > 2_usize.pow(15) { // M1 Pro gets up to ~6 fps at 2^15 units
+        if run_options.init_boids > 2_usize.pow(15) {
+            // M1 Pro gets up to ~6 fps at 2^15 units
             return;
         }
         run_options.init_boids *= 2;
@@ -780,7 +799,7 @@ fn key_pressed(app: &App, model: &mut Model, key: Key) -> () {
         // alternative implementation of cohesion
         run_options.cohesion_impl_mode = !run_options.cohesion_impl_mode;
     } else if key == Key::F3 {
-         // alternative implementation of separation
+        // alternative implementation of separation
         run_options.separation_impl_mode = !run_options.separation_impl_mode;
     } else if key == Key::F5 {
         // alternative implementation of run_rules
@@ -807,7 +826,11 @@ fn key_pressed(app: &App, model: &mut Model, key: Key) -> () {
         model.bird_watcher.restart();
 
         if model.ghost_mode_on {
-            model.ghost_buffer.as_mut().expect("Ghost buffer should be present").clear();
+            model
+                .ghost_buffer
+                .as_mut()
+                .expect("Ghost buffer should be present")
+                .clear();
             model.ghost_buffer_ready = false;
         }
         // TODO: under test, creating of video
@@ -819,7 +842,6 @@ fn key_pressed(app: &App, model: &mut Model, key: Key) -> () {
                 fs::create_dir("/my_local_video_png").expect("video folder creation error");
             }
         }
-
     } else if key == Key::V {
         // switch vision on or off
         run_options.field_of_vision_on = !run_options.field_of_vision_on
@@ -871,15 +893,14 @@ fn window_closed(_app: &App, model: &mut Model) {
             println!("draw_video_frames is on but video-compilation script has not been found")
         } else {
             let output = Command::new("my_local_helpers/create_video.sh")
-            .spawn()
-            .expect("Failed to call script")
-            .wait()
-            .expect("video script execution failed");
-            
+                .spawn()
+                .expect("Failed to call script")
+                .wait()
+                .expect("video script execution failed");
+
             if output.success() {
                 println!("video created");
                 empty_recording_folder("my_local_video_png".to_owned())
-                
             } else {
                 println!("video creation failed code: {}", output.code().unwrap())
             }
@@ -892,9 +913,8 @@ fn window_closed(_app: &App, model: &mut Model) {
 }
 
 fn empty_recording_folder(path: String) {
-
     let video_path = Path::new(&path);
-    
+
     if video_path.exists() {
         fs::remove_dir_all(video_path).expect("video folder deletion error");
         fs::create_dir(video_path).expect("video folder creation error");
@@ -902,56 +922,64 @@ fn empty_recording_folder(path: String) {
 }
 
 fn draw_spline_path(draw: &Draw, spline: Vec<Vec2>) {
-// <'a, I>
-// where
-//     I: Iterator<Item = &'a Vec2>,
+    use nannou::glam;
+
     let spline_points = spline.len() as f32;
 
     let keys_iter = spline
         .iter()
         .enumerate()
         .map(|(i, p)| {
-            sKey::new(i as f32 / spline_points, *p, Interpolation::CatmullRom)
+            // Convert nannou::geom::Vec2 to glam::Vec2 for splines
+            let glam_vec = glam::Vec2::new(p.x, p.y);
+            sKey::new(
+                i as f32 / spline_points,
+                glam_vec,
+                Interpolation::CatmullRom,
+            )
         })
         .collect_vec();
 
     // the values above have been mapped to [0, ..., 1], as corner points are consumed by the
     // spline algorithm we can assess the range [1/spline_points, 1 - 1/spline_points]
-    let spline = Spline::from_vec(keys_iter);
-    let spline_parts  = 100f32;
+    let spline: Spline<f32, glam::Vec2> = Spline::from_vec(keys_iter);
+    let spline_parts = 100f32;
 
     let spline_points = (1..(spline_parts as i32 - 1))
         .into_iter()
-        .map(|i| spline.clamped_sample( i as f32 / (spline_parts)))
+        .map(|i| spline.clamped_sample(i as f32 / (spline_parts)))
         .filter(|sp| sp.is_some())
-        .map(|sp| sp.unwrap())
+        .map(|sp| {
+            let glam_vec = sp.unwrap();
+            // Convert glam::Vec2 back to nannou::geom::Vec2
+            pt2(glam_vec.x, glam_vec.y)
+        })
         .collect_vec();
 
     draw.path()
         .stroke()
-        .weight(2.)     
+        .weight(2.)
         .color(BLACK)
         .z(-10.)
         .points(spline_points);
 }
 
- 
 fn crosses_boundary(v1: Vec2, v2: Vec2, run_options: &RunOptions) -> bool {
-    let tor_vec = tor_vec( v1, v2, &run_options.window);
+    let tor_vec = tor_vec(v1, v2, &run_options.window);
     let euc_vec = v2 - v1;
 
     (tor_vec - euc_vec).length_squared() > 0.00025 // five thousands
 }
 
-/// Takes in a sequence of spline segments, inclusive numerical ranges. 
-/// Makes sure all the segments are at least 4 elements in length 
+/// Takes in a sequence of spline segments, inclusive numerical ranges.
+/// Makes sure all the segments are at least 4 elements in length
 /// (minimum for Catmull-Rom spline).
 /// Uses time notation to refer to previous and upcoming segments,
 /// past and future respectively. Maybe a little counter-intuitive since
 /// when going forward in time, the past elements have a higher index.
-fn make_spline_sub_segments(sub_segments: &Vec<(usize, usize)>) 
-    -> Vec<(usize, usize, Option<Vec<usize>>, Option<Vec<usize>>)> {
-
+fn make_spline_sub_segments(
+    sub_segments: &Vec<(usize, usize)>,
+) -> Vec<(usize, usize, Option<Vec<usize>>, Option<Vec<usize>>)> {
     // each one of these is the (start of spline, end of spline, points added to the start, points added to the end)
     let mut result: Vec<(usize, usize, Option<Vec<usize>>, Option<Vec<usize>>)> = Vec::new();
 
@@ -969,15 +997,10 @@ fn make_spline_sub_segments(sub_segments: &Vec<(usize, usize)>)
             c_len = sub_segments[p_i].0 + 1;
 
             if c_len < 4 {
-                // we can't do this straight away as we need to 
+                // we can't do this straight away as we need to
                 // join the past and we did not know whether cur has >4 elements
                 c_len = 4;
-                append_end = Some(
-                    ((c_end + 1)..c_len)
-                        .into_iter()
-                        .collect_vec()
-                )
-                
+                append_end = Some(((c_end + 1)..c_len).into_iter().collect_vec())
             } else {
                 append_end = Some(vec![sub_segments[p_i].0])
             }
@@ -988,15 +1011,17 @@ fn make_spline_sub_segments(sub_segments: &Vec<(usize, usize)>)
             // future is implicit since we know we would not be joining
             // spline segments if there was not at least two
             let past_exists = i < sub_segments.len() - 1;
-            
+
             let mut append_start = Vec::with_capacity(4);
-            let mut append_end = Vec::with_capacity(if past_exists { 4 } else { 0});
+            let mut append_end = Vec::with_capacity(if past_exists { 4 } else { 0 });
 
             // stretch for future
             c_start = sub_segments[f_i].1;
             append_start.push(c_start);
             // stretch for past
-            if past_exists { c_end = sub_segments[p_i].0;}
+            if past_exists {
+                c_end = sub_segments[p_i].0;
+            }
             append_end.push(c_end);
             // now that we are connected to potentially both sides
             // check length
@@ -1010,7 +1035,7 @@ fn make_spline_sub_segments(sub_segments: &Vec<(usize, usize)>)
                 if !future_considered {
                     // try expanding future
                     future_considered = true;
-                    if c_start > sub_segments[f_i].0 { 
+                    if c_start > sub_segments[f_i].0 {
                         c_start -= 1;
                         append_start.push(c_start);
                     }
@@ -1026,24 +1051,27 @@ fn make_spline_sub_segments(sub_segments: &Vec<(usize, usize)>)
                 // if we have tried both future and past and are still under length
                 // just check whether we can expand further or panic!
                 if c_len < 4 // are we under length
-                && future_considered && (past_considered || !past_exists) // have we considered both past (if exists) and future?
+                && future_considered && (past_considered || !past_exists)
+                // have we considered both past (if exists) and future?
                 {
                     if c_start != sub_segments[f_i].0 // (all negated) -> if we've hit the future end
-                        || !(!past_exists || c_end == sub_segments[p_i].1) { // and past does not exist or we've hit its end
-                            // try again
-                            future_considered = false;
-                            past_considered = false;
-                            continue;
+                        || !(!past_exists || c_end == sub_segments[p_i].1)
+                    {
+                        // and past does not exist or we've hit its end
+                        // try again
+                        future_considered = false;
+                        past_considered = false;
+                        continue;
                     }
 
                     // or consider expansion
                     let mut lets_panic = true;
-                    if f_i > 0 { 
+                    if f_i > 0 {
                         f_i -= 1;
                         lets_panic = false;
                     }
-                    if p_i < sub_segments.len() - 1 { 
-                        p_i += 1; 
+                    if p_i < sub_segments.len() - 1 {
+                        p_i += 1;
                         lets_panic = false;
                     }
 
@@ -1057,7 +1085,7 @@ fn make_spline_sub_segments(sub_segments: &Vec<(usize, usize)>)
                 if c_start != 0 {
                     c_start -= 1;
                     append_start.push(append_start.last().unwrap() - 1)
-                    // we skip this one as it has already been take care of 
+                    // we skip this one as it has already been take care of
                     // continue; // maybe?
                 }
             }
@@ -1071,16 +1099,20 @@ fn make_spline_sub_segments(sub_segments: &Vec<(usize, usize)>)
 
             append_start.reverse();
 
-            result.push((c_start, c_end, Some(append_start), 
-            if past_exists { Some(append_end) } else { None }));
+            result.push((
+                c_start,
+                c_end,
+                Some(append_start),
+                if past_exists { Some(append_end) } else { None },
+            ));
         }
     }
 
     result
-} 
+}
 
 /// Takes a point and projects it to its nearest representation according to the toroidal distance
-fn project_this_to_that(this: Vec2, that: Vec2, run_options: &RunOptions) -> Vec2{
+fn project_this_to_that(this: Vec2, that: Vec2, run_options: &RunOptions) -> Vec2 {
     let WindowSize {
         win_w,
         win_h,
@@ -1116,97 +1148,96 @@ fn project_this_to_that(this: Vec2, that: Vec2, run_options: &RunOptions) -> Vec
     };
 
     return vec2(x, y);
-
 }
 
 // ghosts are representations of a given entity in the past (positive ghosts, negative would be future but that is not suppoerted atm)
-fn draw_ghosts(entity: &Boid, _: &BoidMetadata, ghosts: Vec<&(&Boid, &BoidMetadata)>,
- draw: &Draw, run_options: &RunOptions) {
-        // CatmullRom needs at least 4 points to draw a single line
-        // it uses the first and last points as guides on how to angle the last (or only) segment(s)
+fn draw_ghosts(
+    entity: &Boid,
+    _: &BoidMetadata,
+    ghosts: Vec<&(&Boid, &BoidMetadata)>,
+    draw: &Draw,
+    run_options: &RunOptions,
+) {
+    // CatmullRom needs at least 4 points to draw a single line
+    // it uses the first and last points as guides on how to angle the last (or only) segment(s)
 
-        // accumulate all the spline points
-        let mut spline_points: Vec<Vec2> = Vec::new();
+    // accumulate all the spline points
+    let mut spline_points: Vec<Vec2> = Vec::new();
 
-        // add projected destination given current velocity, that is to extend
-        // the spline to reach to the current position
-        spline_points.push(entity.position + entity.velocity.normalize() 
-            * (tor_vec(entity.position, ghosts[0].0.position
-                ,&run_options.window)).length());
-        spline_points.push(entity.position);
-        // add all the ghosts
-        spline_points.extend(ghosts.iter().map(|be| be.0.position));
-        // add a tail extending from the last ghost
-        spline_points.push(ghosts[ghosts.len() - 1].0.position - ghosts[ghosts.len() - 1].0.velocity);
+    // add projected destination given current velocity, that is to extend
+    // the spline to reach to the current position
+    spline_points.push(
+        entity.position
+            + entity.velocity.normalize()
+                * (tor_vec(entity.position, ghosts[0].0.position, &run_options.window)).length(),
+    );
+    spline_points.push(entity.position);
+    // add all the ghosts
+    spline_points.extend(ghosts.iter().map(|be| be.0.position));
+    // add a tail extending from the last ghost
+    spline_points.push(ghosts[ghosts.len() - 1].0.position - ghosts[ghosts.len() - 1].0.velocity);
 
-        // detect periodic boundary conditions
-        let mut spline_pieces: Vec<(usize, usize)> = Vec::new();
+    // detect periodic boundary conditions
+    let mut spline_pieces: Vec<(usize, usize)> = Vec::new();
 
-        let mut temp_end: usize = 0;
-        for i in 0..(spline_points.len() - 1) {
-            // get vector pointing to the previous step
-            // check if it crosses boundary
-            if crosses_boundary(spline_points[i], spline_points[i + 1], run_options) {
-                if i == temp_end {
-                    // only one point made it over
-                    spline_pieces.push((i,i));
-                } else {
-                    spline_pieces.push(( temp_end, i));
-                    temp_end = i + 1;
-                }
+    let mut temp_end: usize = 0;
+    for i in 0..(spline_points.len() - 1) {
+        // get vector pointing to the previous step
+        // check if it crosses boundary
+        if crosses_boundary(spline_points[i], spline_points[i + 1], run_options) {
+            if i == temp_end {
+                // only one point made it over
+                spline_pieces.push((i, i));
+            } else {
+                spline_pieces.push((temp_end, i));
+                temp_end = i + 1;
             }
         }
-        if temp_end == spline_points.len() {
-            // only one point made it over
-            spline_pieces.push((temp_end, temp_end));
-        } else {
-            spline_pieces.push((temp_end, spline_points.len() - 1));
-        }
-        
-        let spline_segments = if spline_pieces.len() > 1 { 
-            make_spline_sub_segments(&spline_pieces)
-        } else {
-            spline_pieces
-                .iter()
-                .map(|x| 
-                    (x.0, x.1, None::<Vec<usize>>, None::<Vec<usize>>)
-                )
-                .collect_vec()
-        };
+    }
+    if temp_end == spline_points.len() {
+        // only one point made it over
+        spline_pieces.push((temp_end, temp_end));
+    } else {
+        spline_pieces.push((temp_end, spline_points.len() - 1));
+    }
 
-        // map each segment into an iterator
-        spline_segments
+    let spline_segments = if spline_pieces.len() > 1 {
+        make_spline_sub_segments(&spline_pieces)
+    } else {
+        spline_pieces
             .iter()
-            .map(|s|{
-                let mut sp = (s.0..=s.1)
+            .map(|x| (x.0, x.1, None::<Vec<usize>>, None::<Vec<usize>>))
+            .collect_vec()
+    };
+
+    // map each segment into an iterator
+    spline_segments
+        .iter()
+        .map(|s| {
+            let mut sp = (s.0..=s.1)
                 .into_iter()
                 .map(|i| spline_points[i])
                 .collect_vec();
-            
-                // in care there are appended points, we need to project them nearby
-                let append_start = &s.2;
-                if let Some(ap_s) = append_start {
-                    for i in (0..ap_s.len()).rev() {
-                            sp[i] = project_this_to_that(sp[i], sp[i + 1]
-                                ,run_options)
-                        }
-                    }
-                let append_end = &s.3;
-                if let Some(ap_e) = append_end {
-                    let sp_last = sp.len() - 1;
-                    for i in (0..ap_e.len()).rev() {
-                        sp[sp_last - i] = 
-                        project_this_to_that(sp[sp_last - i]
-                            ,sp[sp_last - i - 1], run_options)
-                    }
+
+            // in care there are appended points, we need to project them nearby
+            let append_start = &s.2;
+            if let Some(ap_s) = append_start {
+                for i in (0..ap_s.len()).rev() {
+                    sp[i] = project_this_to_that(sp[i], sp[i + 1], run_options)
                 }
+            }
+            let append_end = &s.3;
+            if let Some(ap_e) = append_end {
+                let sp_last = sp.len() - 1;
+                for i in (0..ap_e.len()).rev() {
+                    sp[sp_last - i] =
+                        project_this_to_that(sp[sp_last - i], sp[sp_last - i - 1], run_options)
+                }
+            }
 
-                sp
-            })
-            .for_each(|spline| {
-                draw_spline_path(draw, spline)
-            });
-
+            sp
+        })
+        .for_each(|spline| draw_spline_path(draw, spline));
 }
 
 pub trait Drawable {
@@ -1221,24 +1252,22 @@ impl<'a> Drawable for Flock<'a> {
                 if let Some(rt) = model.flock.tracker.as_any().downcast_ref::<ReplayTracker>() {
                     let view_mat = self.view2().collect_vec();
 
-                    (0..rt.no_boids)
-                        .into_iter()
-                        .for_each(|i| {
-                            let (e, m) = view_mat[i]; 
-                                let ghosts = view_mat.iter()
-                                .skip(rt.no_boids + e.id)
-                                .step_by(rt.no_boids)
-                                .take(rt.no_ghosts.abs() as usize)
-                                .collect_vec();
-                            
-                                draw_ghosts(e, m, ghosts, draw, &rt.run_options); 
-                                e.draw(draw, color, run_options, m, model);
-                        });
+                    (0..rt.no_boids).into_iter().for_each(|i| {
+                        let (e, m) = view_mat[i];
+                        let ghosts = view_mat
+                            .iter()
+                            .skip(rt.no_boids + e.id)
+                            .step_by(rt.no_boids)
+                            .take(rt.no_ghosts.abs() as usize)
+                            .collect_vec();
+
+                        draw_ghosts(e, m, ghosts, draw, &rt.run_options);
+                        e.draw(draw, color, run_options, m, model);
+                    });
                 };
-            },
+            }
             // for all other trackers proceed as standard
             _ => {
-
                 if model.ghost_mode_on && model.ghost_buffer_ready {
                     // draw agents and ghosts
                     if let Some(gb) = &model.ghost_buffer {
@@ -1246,22 +1275,29 @@ impl<'a> Drawable for Flock<'a> {
                             .take(run_options.init_boids)
                             .enumerate()
                             .for_each(|(i, em)| {
-                                let ghosts = gb.iter()
+                                let ghosts = gb
+                                    .iter()
                                     .skip(i)
                                     .step_by(run_options.init_boids)
                                     .map(|em| (&em.0, &em.1))
                                     .collect_vec();
 
-                                draw_ghosts(&em.0, &em.1, ghosts.iter().collect_vec(), draw, run_options);
+                                draw_ghosts(
+                                    &em.0,
+                                    &em.1,
+                                    ghosts.iter().collect_vec(),
+                                    draw,
+                                    run_options,
+                                );
                                 em.0.draw(draw, color, run_options, &em.1, model);
                             })
-
                     } else {
                         panic!("buffer should have been created in update")
                     }
                 } else {
                     // just draw each boid
-                    self.view2().for_each(|(e, m)|  e.draw(&draw, color, run_options, m, model))
+                    self.view2()
+                        .for_each(|(e, m)| e.draw(&draw, color, run_options, m, model))
                 }
             }
         }
@@ -1385,10 +1421,10 @@ impl MyRotate for Vec2 {
     fn myrotate(&self, rhs: Vec2) -> Self {
         // this does complex number multiplication in cartesian coordinates,
         // for polar it would be z = re^(iθ); w = re^(iφ); zw = |z||w|^(i(θ + φ))
-        // where θ and φ are the vector angles 
+        // where θ and φ are the vector angles
         Vec2::new(
             self.x * rhs.x - self.y * rhs.y,
-            self.y * rhs.x + self.x * rhs.y
+            self.y * rhs.x + self.x * rhs.y,
         )
     }
 }
@@ -1413,9 +1449,7 @@ impl DrawableBoid for Boid {
         model: &Model,
     ) {
         let Boid {
-            position,
-            velocity,
-            ..
+            position, velocity, ..
         } = self;
         // Draw a triangle rotated in the direction of velocity
         // self.position += self.velocity * run_options.baseline_speed;
@@ -1423,7 +1457,7 @@ impl DrawableBoid for Boid {
         // let mut theta = (self.position self.position - self.velocity * run_options.baseline_speed).angle();
         let mut theta = velocity.angle();
 
-        if theta.is_nan() { 
+        if theta.is_nan() {
             theta = rand::thread_rng().gen_range(-PI..PI);
         }
         // Draw Boid body as an arrow with a triangle cutout
@@ -1442,7 +1476,7 @@ impl DrawableBoid for Boid {
             .z(1.)
             // investigate this:
             .rotate(2. * PI + theta);
-        
+
         // If this instance is selected, show diagnostics
         if self.id == run_options.clicked_boid_id {
             if run_options.wander_on {
@@ -1451,28 +1485,28 @@ impl DrawableBoid for Boid {
                 // gives the center of the circle driving the locomotion
                 let loco_center = match run_options.noise_model {
                     NoiseModel::Vicsek => self.position,
-                    NoiseModel::Reynolds => self.position + heading * (run_options.wander_distance * (2_f32).sqrt()),
+                    NoiseModel::Reynolds => {
+                        self.position + heading * (run_options.wander_distance * (2_f32).sqrt())
+                    }
                 };
 
                 // vector pointing at the point on circumference
                 let wander_point = match run_options.noise_model {
-                    NoiseModel::Vicsek =>  heading.myrotate(Vec2::new(
+                    NoiseModel::Vicsek => heading.myrotate(Vec2::new(
                         run_options.size * 1.5 * metadata.wander_direction.cos(),
                         run_options.size * 1.5 * metadata.wander_direction.sin(),
                     )),
                     NoiseModel::Reynolds => heading.myrotate(Vec2::new(
-                            run_options.wander_radius * metadata.wander_direction.cos(),
-                            run_options.wander_radius * metadata.wander_direction.sin(),
-                    ))
+                        run_options.wander_radius * metadata.wander_direction.cos(),
+                        run_options.wander_radius * metadata.wander_direction.sin(),
+                    )),
                 } * 0.9;
 
                 draw.ellipse()
-                    .radius(
-                        match run_options.noise_model {
-                            NoiseModel::Vicsek => run_options.size * 1.5,
-                            NoiseModel::Reynolds => run_options.wander_radius,
-                        }
-                    )
+                    .radius(match run_options.noise_model {
+                        NoiseModel::Vicsek => run_options.size * 1.5,
+                        NoiseModel::Reynolds => run_options.wander_radius,
+                    })
                     .color(rgba(0.1, 0.1, 0.1, 0.5))
                     .xy(loco_center)
                     .z(-2.);
@@ -1496,7 +1530,7 @@ impl DrawableBoid for Boid {
                         theta - run_options.field_of_vision_half_rad,
                         run_options.field_of_vision_half_rad * 2.,
                     );
-                let triangles = section.trangles();
+                let triangles = section.triangles();
                 let mut tris = Vec::new();
                 for t in triangles {
                     tris.push(Tri([
@@ -1556,7 +1590,6 @@ impl DrawableBoid for Boid {
         {
             drawing.color(CHARTREUSE);
         } else {
-
             let saturation = if run_options.col_by_neighbour {
                 color.saturation / 100. * 3. * metadata.n_neighbours as f32
             } else {
@@ -1630,11 +1663,11 @@ fn view(app: &App, model: &Model, frame: Frame) {
             settings.y_cell_res,
             settings.x_cell_count as f32,
         );
-    
+
         let mouse_label2 = format!("index: {}", index);
-    
+
         let mouse_label = format!("{x:.2} | {y:.2}", x = app.mouse.x, y = app.mouse.y);
-    
+
         draw.text(&mouse_label)
             .x_y(app.mouse.x + 50., app.mouse.y + 20.)
             .z(10.)
@@ -1645,13 +1678,13 @@ fn view(app: &App, model: &Model, frame: Frame) {
             .z(10.)
             .color(BLACK)
             .font_size(20);
-    
+
         let distance_boid = model
             .flock
             .view2()
             .filter(|(b, _)| b.id == model.run_options.clicked_boid_id)
             .next();
-    
+
         match distance_boid {
             Some((db, dm)) => {
                 let distance = distance_dyn(
@@ -1691,16 +1724,16 @@ fn view(app: &App, model: &Model, frame: Frame) {
                     .color(WHITE)
                     .font_size(20);
                 draw.text(&format!(
-                        "cosine test: {:.2}",
-                        app.mouse
+                    "cosine test: {:.2}",
+                    app.mouse
                         .position()
                         .normalize()
                         .dot(Vec2::new(1., 1.).normalize())
-                    ))
-                    .x_y(0., -60.)
-                    .z(10.)
-                    .color(WHITE)
-                    .font_size(20);
+                ))
+                .x_y(0., -60.)
+                .z(10.)
+                .color(WHITE)
+                .font_size(20);
                 draw.text(&format!("vec fr: {:.2}, {:.2}", vec_from.0, vec_from.1))
                     .x_y(0., -90.)
                     .z(10.)
@@ -1718,20 +1751,20 @@ fn view(app: &App, model: &Model, frame: Frame) {
         .draw(&draw, &model.color, &model.run_options, model);
 
     draw.to_frame(app, &frame).unwrap();
-    
+
     model.egui.draw_to_frame(&frame).unwrap();
 
     if model.draw_video_frames {
         let video_frame_path = format!("my_local_video_png/{}.png", model.update_ticks);
 
         app.window(model.window_id)
-        .expect("main app window")
-        .capture_frame(video_frame_path);
+            .expect("main app window")
+            .capture_frame(video_frame_path);
     }
 }
 
 fn edit_hsv(ui: &mut egui::Ui, color: &mut Hsv) {
-    let mut egui_hsv = egui::color::Hsva::new(
+    let mut egui_hsv = egui::ecolor::Hsva::new(
         color.hue.to_positive_radians() as f32 / (std::f32::consts::PI * 2.0),
         color.saturation,
         color.value,
