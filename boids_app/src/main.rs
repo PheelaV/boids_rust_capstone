@@ -1323,79 +1323,72 @@ impl<'a> Drawable for Flock<'a> {
         let settings = SpatHash1D::get_tracker_settings(run_options);
 
         if model.debug_distance {
-            let mut dist_max: f32 = ((run_options.window.win_w as f32).pow(2.)
-                + (run_options.window.win_h as f32).pow(2.))
+            let x_count = settings.x_cell_count as i32;
+            let y_count = settings.y_cell_count as i32;
+
+            let mut dist_max: f32 = ((run_options.window.win_w as f32).powi(2)
+                + (run_options.window.win_h as f32).powi(2))
             .sqrt();
 
             if model.run_options.distance == Distance::EucToroidal {
                 dist_max /= 2.;
             }
+
             let target = model.flock.view2().filter(|tuple| tuple.0.id == 0).next();
 
-            match target {
-                Some(b_tuple) => {
-                    for x in ((run_options.window.win_left as i32)
-                        ..(run_options.window.win_right as i32))
-                        .step_by(10)
-                    {
-                        for y in ((run_options.window.win_bottom as i32)
-                            ..(run_options.window.win_top as i32))
-                            .step_by(10)
-                        {
-                            let dist = distance_dyn(
-                                b_tuple.0.position.x,
-                                x as f32,
-                                b_tuple.0.position.y,
-                                y as f32,
-                                run_options,
-                            );
-                            let dist_scaled = dist / dist_max;
-                            // dbg!(dist_scaled);
-                            draw.ellipse().x_y(x as f32, y as f32).radius(5.).color(hsv(
-                                dist_scaled,
-                                1.,
-                                0.5,
-                            ));
-                        }
+            if let Some(b_tuple) = target {
+                for row in 0..y_count {
+                    for col in 0..x_count {
+                        let cell_center_x = run_options.window.win_left as f32
+                            + col as f32 * settings.x_cell_res
+                            + settings.x_cell_res / 2.0;
+                        let cell_center_y = run_options.window.win_bottom as f32
+                            + row as f32 * settings.y_cell_res
+                            + settings.y_cell_res / 2.0;
+
+                        let dist = distance_dyn(
+                            b_tuple.0.position.x,
+                            cell_center_x,
+                            b_tuple.0.position.y,
+                            cell_center_y,
+                            run_options,
+                        );
+                        let dist_scaled = dist / dist_max;
+
+                        draw.rect()
+                            .x_y(cell_center_x, cell_center_y)
+                            .w_h(settings.x_cell_res, settings.y_cell_res)
+                            .color(hsv(dist_scaled, 1., 0.5))
+                            .z(-2.);
                     }
                 }
-                None => (),
             }
         }
 
         if model.debug_grid {
-            let max_ined = (settings.x_cell_count * settings.y_cell_count) as f32;
-            for x in ((run_options.window.win_left as i32)..(run_options.window.win_right as i32))
-                .step_by(10)
-            {
-                for y in ((run_options.window.win_bottom as i32)
-                    ..(run_options.window.win_top as i32))
-                    .step_by(10)
-                {
-                    let index = SpatHash1D::get_table_index(
-                        x as f32,
-                        y as f32,
-                        run_options.window.win_left as f32,
-                        (run_options.window.win_right - 1) as f32,
-                        (run_options.window.win_bottom as f32) as f32,
-                        (run_options.window.win_top - 1) as f32,
-                        settings.x_cell_res,
-                        settings.y_cell_res,
-                        settings.x_cell_count as f32,
-                    );
-
-                    let r = 1. * ((index + 1) as f32 / max_ined) * (1. - (index % 2) as f32);
-                    let g = 1. - 1. * ((index + 1) as f32 / max_ined) * (0. + (index % 2) as f32);
-                    draw.ellipse()
-                        .x_y(x as f32, y as f32)
-                        .rgb(r, g, 1.)
-                        .z(-1.)
-                        .radius(2.);
-                }
-            }
             let x_count = settings.x_cell_count as i32;
             let y_count = settings.y_cell_count as i32;
 
+            // Draw checkerboard pattern
+            for row in 0..y_count {
+                for col in 0..x_count {
+                    if (row + col) % 2 == 0 {
+                        let x = run_options.window.win_left as f32
+                            + col as f32 * settings.x_cell_res
+                            + settings.x_cell_res / 2.0;
+                        let y = run_options.window.win_bottom as f32
+                            + row as f32 * settings.y_cell_res
+                            + settings.y_cell_res / 2.0;
+                        draw.rect()
+                            .x_y(x, y)
+                            .w_h(settings.x_cell_res, settings.y_cell_res)
+                            .rgba(0.8, 0.8, 0.8, 0.3)
+                            .z(-2.);
+                    }
+                }
+            }
+
+            // Draw grid lines
             for column in 0..=(x_count) {
                 let line_x_point =
                     run_options.window.win_left as f32 + column as f32 * settings.x_cell_res;
@@ -1406,7 +1399,7 @@ impl<'a> Drawable for Flock<'a> {
                         line_x_point,
                         run_options.window.win_bottom as f32,
                     ))
-                    .weight(2.)
+                    .weight(1.)
                     .z(-1.)
                     .color(DEEPPINK);
             }
@@ -1418,7 +1411,7 @@ impl<'a> Drawable for Flock<'a> {
                 draw.line()
                     .start(Vec2::new(run_options.window.win_left as f32, line_y_point))
                     .end(Vec2::new(run_options.window.win_right as f32, line_y_point))
-                    .weight(2.)
+                    .weight(1.)
                     .z(-1.)
                     .color(DEEPPINK);
             }
