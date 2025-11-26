@@ -978,7 +978,7 @@ fn draw_spline_path(draw: &Draw, spline: Vec<Vec2>) {
         .stroke()
         .weight(2.)
         .color(BLACK)
-        .z(-10.)
+        .z(-3.)
         .points(spline_points);
 }
 
@@ -1359,7 +1359,7 @@ impl<'a> Drawable for Flock<'a> {
                             .x_y(cell_center_x, cell_center_y)
                             .w_h(settings.x_cell_res, settings.y_cell_res)
                             .color(hsv(dist_scaled, 1., 0.5))
-                            .z(-2.);
+                            .z(-5.);
                     }
                 }
             }
@@ -1383,7 +1383,7 @@ impl<'a> Drawable for Flock<'a> {
                             .x_y(x, y)
                             .w_h(settings.x_cell_res, settings.y_cell_res)
                             .rgba(0.8, 0.8, 0.8, 0.3)
-                            .z(-2.);
+                            .z(-6.);
                     }
                 }
             }
@@ -1400,7 +1400,7 @@ impl<'a> Drawable for Flock<'a> {
                         run_options.window.win_bottom as f32,
                     ))
                     .weight(1.)
-                    .z(-1.)
+                    .z(-4.)
                     .color(DEEPPINK);
             }
 
@@ -1412,7 +1412,7 @@ impl<'a> Drawable for Flock<'a> {
                     .start(Vec2::new(run_options.window.win_left as f32, line_y_point))
                     .end(Vec2::new(run_options.window.win_right as f32, line_y_point))
                     .weight(1.)
-                    .z(-1.)
+                    .z(-4.)
                     .color(DEEPPINK);
             }
         }
