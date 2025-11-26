@@ -4,8 +4,8 @@ use glam::Vec2;
 use rand::Rng;
 
 use crate::{
-    boid::{Boid, BoidMetadata},
-    math_helpers::distance_dyn_boid,
+    boid::{Boid, BoidMetadata, NeighborData},
+    math_helpers::distance_and_direction_dyn_boid,
     options::RunOptions,
 };
 
@@ -42,25 +42,49 @@ impl NaiveTracker {
     //     }
     // }
 
-    pub fn get_neighbours_naive<'a>(
+    /// Returns neighbors with cached distance and direction data.
+    /// Also performs FOV filtering if enabled.
+    pub fn get_neighbours_naive_with_data<'a>(
         boid: &Boid,
         all_boids: &'a Vec<Boid>,
         run_options: &RunOptions,
-        neighbours: &mut Vec<&'a Boid>,
+        neighbours: &mut Vec<NeighborData<'a>>,
     ) {
+        // Pre-compute velocity direction for FOV check (if enabled)
+        let vel_norm = if run_options.field_of_vision_on {
+            Some(boid.velocity.normalize())
+        } else {
+            None
+        };
+
         for b_other in all_boids.iter() {
             if b_other.id == boid.id {
                 continue;
             }
 
-            let distance = distance_dyn_boid(&boid, b_other, &run_options);
-            if distance < run_options.max_sensory_distance {
-                neighbours.push(b_other);
-                if run_options.neighbours_cosidered != 0
-                    && neighbours.len() >= run_options.neighbours_cosidered
-                {
-                    return;  // Return early once limit is reached
+            let (distance, direction) = distance_and_direction_dyn_boid(boid, b_other, run_options);
+
+            if distance >= run_options.max_sensory_distance {
+                continue;
+            }
+
+            // FOV check using already-computed direction
+            if let Some(ref vel_dir) = vel_norm {
+                if vel_dir.dot(direction) <= run_options.field_of_vision_cos {
+                    continue; // Outside field of view
                 }
+            }
+
+            neighbours.push(NeighborData {
+                boid: b_other,
+                distance,
+                direction,
+            });
+
+            if run_options.neighbours_cosidered != 0
+                && neighbours.len() >= run_options.neighbours_cosidered
+            {
+                return; // Return early once limit is reached
             }
         }
     }
@@ -74,10 +98,10 @@ impl Tracker for NaiveTracker {
         }
     }
 
-    fn get_neighbours<'a>(&'a self, boid: &Boid, run_options: &RunOptions) -> Vec<&'a Boid> {
-        let mut res = Vec::<&'a Boid>::new();
+    fn get_neighbours<'a>(&'a self, boid: &Boid, run_options: &RunOptions) -> Vec<NeighborData<'a>> {
+        let mut res = Vec::<NeighborData<'a>>::new();
 
-        NaiveTracker::get_neighbours_naive(boid, &self.entities, run_options, &mut res);
+        NaiveTracker::get_neighbours_naive_with_data(boid, &self.entities, run_options, &mut res);
 
         res
     }
@@ -85,7 +109,7 @@ impl Tracker for NaiveTracker {
     fn update(&mut self, run_options: &RunOptions) {
         let mut accelleration: Vec<Vec2> = Vec::with_capacity(self.entities.len());
         let mut metadata: Vec<BoidMetadata> = vec![Default::default(); self.entities.len()];
-        let mut neighbours: Vec<&Boid> = Vec::new();
+        let mut neighbours: Vec<NeighborData> = Vec::new();
         // let mut clicked_neighbours: Vec<&Boid> =
         //     Vec::with_capacity(run_options.neighbours_cosidered);
 
@@ -115,12 +139,13 @@ impl Tracker for NaiveTracker {
                 }
             }
 
-            NaiveTracker::get_neighbours_naive(
+            NaiveTracker::get_neighbours_naive_with_data(
                 b_current,
                 &self.entities,
                 run_options,
                 &mut neighbours,
             );
+            // FOV filtering is now done inside get_neighbours_naive_with_data
             accelleration.push(self.entities[i_cur].run_rules(
                 &neighbours,
                 &metadata,
@@ -131,7 +156,7 @@ impl Tracker for NaiveTracker {
             // }
             if metadata[i_cur].id == run_options.clicked_boid_id {
                 for cn in neighbours.iter() {
-                    metadata[cn.id].clicked_neighbour_id = metadata[i_cur].id;
+                    metadata[cn.boid.id].clicked_neighbour_id = metadata[i_cur].id;
                 }
             }
         }

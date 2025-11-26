@@ -51,6 +51,16 @@ impl Default for BoidMetadata {
     }
 }
 
+/// Cached neighbor data to avoid redundant distance/direction calculations.
+/// Returned by get_neighbours and used by separation/cohesion/alignment rules.
+#[derive(Clone, Copy)]
+pub struct NeighborData<'a> {
+    pub boid: &'a Boid,
+    pub distance: f32,
+    /// Normalized direction vector FROM querying boid TO this neighbor
+    pub direction: Vec2,
+}
+
 #[derive(Clone, Copy, Default)]
 pub struct Boid {
     // sequential id starting from 0
@@ -83,31 +93,28 @@ impl Boid {
     }
 
     // TODO: action selection will be important as the number of rules grows
+    /// Run boid rules using pre-computed neighbor data.
+    /// FOV filtering is already applied in get_neighbours, so no additional filtering needed.
     pub fn run_rules(
         &self,
-        nearest_boids: &Vec<&Boid>,
+        nearest_boids: &[NeighborData],
         metadata: &Vec<BoidMetadata>,
         run_options: &RunOptions,
     ) -> Vec2 {
         let mut sum = Vec2::ZERO;
 
-        // if run_options.rules_impl {
-        let filtered = if !run_options.field_of_vision_on {
-            nearest_boids.to_owned()
-        } else {
-            self.filter_sight2(nearest_boids, run_options)
-        };
+        // FOV filtering is now done in get_neighbours, so we use neighbors directly
 
         if run_options.separation_on {
-            sum += self.separation(&filtered, run_options);
+            sum += self.separation(nearest_boids, run_options);
         }
 
         if run_options.cohesion_on && (!run_options.rules_impl || sum == Vec2::ZERO) {
-            sum += self.cohesion(&filtered, run_options);
+            sum += self.cohesion(nearest_boids, run_options);
         }
 
         if run_options.alignment_on {
-            sum += self.alignment(&filtered, run_options);
+            sum += self.alignment(nearest_boids, run_options);
         }
 
         if run_options.wander_on {
@@ -129,7 +136,10 @@ impl Boid {
         others: &Vec<&'a Boid>,
         run_options: &RunOptions,
     ) -> Vec<&'a Boid> {
-        let res: Vec<&Boid> = others
+        // Pre-compute velocity normalization once (not per neighbor)
+        let vel_norm = self.velocity.normalize();
+
+        others
             .iter()
             .filter(|b_other| {
                 if self.id == b_other.id {
@@ -147,17 +157,13 @@ impl Boid {
                     return false;
                 }
 
-                let vel_norm = self.velocity.normalize();
                 let vec_to_other_norm = vec_to_other.normalize();
 
-                // let rad_to_other = vel_norm.dot(vec_to_other_norm).acos();
-                // this calculates v•u = |v||u|cos(ß), which is cos(ß) because of v and u being unit vectors
+                // v•u = |v||u|cos(ß), which is cos(ß) because v and u are unit vectors
                 vel_norm.dot(vec_to_other_norm) > run_options.field_of_vision_cos
             })
             .copied()
-            .collect();
-
-        res
+            .collect()
     }
 
     pub fn filter_sight3<'a>(
@@ -166,7 +172,10 @@ impl Boid {
         run_options: &RunOptions,
         half_cos_treshold: f32,
     ) -> Vec<&'a Boid> {
-        let res: Vec<&Boid> = others
+        // Pre-compute velocity normalization once (not per neighbor)
+        let vel_norm = self.velocity.normalize();
+
+        others
             .iter()
             .filter(|b_other| {
                 if self.id == b_other.id {
@@ -184,59 +193,31 @@ impl Boid {
                     return false;
                 }
 
-                let vel_norm = self.velocity.normalize();
                 let vec_to_other_norm = vec_to_other.normalize();
 
-                // let rad_to_other = vel_norm.dot(vec_to_other_norm).acos();
-                // this calculates v•u = |v||u|cos(ß), which is cos(ß) because of v and u being unit vectors
+                // v•u = |v||u|cos(ß), which is cos(ß) because v and u are unit vectors
                 vel_norm.dot(vec_to_other_norm) > half_cos_treshold
             })
             .copied()
-            .collect();
-
-        res
+            .collect()
     }
 
-    pub fn separation(&self, others: &Vec<&Boid>, run_options: &RunOptions) -> Vec2 {
+    /// Separation rule using pre-computed neighbor data.
+    /// Uses cached distance and direction to avoid redundant calculations.
+    pub fn separation(&self, others: &[NeighborData], run_options: &RunOptions) -> Vec2 {
         let mut res = Vec2::new(0.0, 0.0);
         let mut count = 0;
-        if others.len() != 0 {
-            for other in others {
-                let distance = distance_dyn_boid(self, other, &run_options);
-                if distance > 0. && distance < run_options.separation_treshold_distance {
+        if !others.is_empty() {
+            for neighbor in others {
+                // Use cached distance from NeighborData
+                if neighbor.distance > 0. && neighbor.distance < run_options.separation_treshold_distance {
                     count += 1;
 
-                    let value = match run_options.distance {
-                        Distance::EucToroidal => {
-                            tor_vec(other.position, self.position, &run_options.window)
-                        }
-                        Distance::EucEnclosed => self.position - other.position,
-                    };
-                    res += value.normalize() / distance;
-                    // if !run_options.separation_impl_mode {
-                    //     res += value.normalize() / distance;
-                    // } else {
-                    //     res += value.normalize() * Self::scale_sigmoid(distance, run_options);
-                    // }
-
-                    // if !run_options.separation_impl_mode {
-                    //     res += ((self.position - other.position) / distance).normalize()
-                    // } else {
-                    //     res += (self.position - other.position).normalize() / distance
-                    // }
-                    // if !run_options.separation_impl_mode {
-                    //     res += (self.position - other.position).normalize() / distance.powi(2)
-                    // } else {
-                    //     res += (self.position - other.position).normalize() / distance
-                    // }
+                    // Use cached direction (negated for separation: we want to move AWAY)
+                    // neighbor.direction points FROM self TO neighbor, so negate it
+                    res += -neighbor.direction / neighbor.distance;
                 }
             }
-
-            // if run_options.separation_impl_mode {
-            //     res /= count as f32;
-            // }
-
-            // res *= run_options.separation_coefficient;
         }
 
         if count > 0 {
@@ -278,34 +259,26 @@ impl Boid {
         1. - (1. / (1. + E.powf(-ALPHA * (dist_ration - BETA))))
     }
 
-    pub fn cohesion(&self, others: &Vec<&Boid>, run_options: &RunOptions) -> Vec2 {
+    /// Cohesion rule using pre-computed neighbor data.
+    /// Uses cached distance and direction to avoid redundant calculations.
+    pub fn cohesion(&self, others: &[NeighborData], run_options: &RunOptions) -> Vec2 {
         let mut center = Vec2::new(0.0, 0.0);
         let mut count = 0;
 
-        for other in others {
-            let distance = distance_dyn_boid(self, other, &run_options);
-            if distance > 0. && distance < run_options.cohesion_treshold_distance {
-                center += match run_options.distance {
-                    Distance::EucToroidal => {
-                        tor_vec(self.position, other.position, &run_options.window)
-                    }
-                    Distance::EucEnclosed => other.position,
-                };
+        for neighbor in others {
+            // Use cached distance from NeighborData
+            if neighbor.distance > 0. && neighbor.distance < run_options.cohesion_treshold_distance {
+                // Reconstruct relative position from cached direction * distance
+                // neighbor.direction points FROM self TO neighbor
+                center += neighbor.direction * neighbor.distance;
                 count += 1;
             }
         }
 
         if count > 0 {
             center /= count as f32;
-            match run_options.distance {
-                Distance::EucToroidal => {
-                    self.steer(center, run_options) * run_options.cohesion_coefficient
-                }
-                Distance::EucEnclosed => {
-                    self.steer(center - self.position, run_options)
-                        * run_options.cohesion_coefficient
-                }
-            }
+            // center is now the average relative position (works for both toroidal and enclosed)
+            self.steer(center, run_options) * run_options.cohesion_coefficient
         } else {
             Vec2::ZERO
         }
@@ -335,14 +308,16 @@ impl Boid {
         }
     }
 
-    pub fn alignment(&self, others: &Vec<&Boid>, run_options: &RunOptions) -> Vec2 {
+    /// Alignment rule using pre-computed neighbor data.
+    /// Uses cached distance for threshold check.
+    pub fn alignment(&self, others: &[NeighborData], run_options: &RunOptions) -> Vec2 {
         let mut avg_vel = Vec2::ZERO;
         let mut count = 0.;
 
-        for other in others {
-            let distance = distance_dyn_boid(self, other, &run_options);
-            if distance > 0. && distance < run_options.alignment_treshold_distance {
-                avg_vel += other.velocity;
+        for neighbor in others {
+            // Use cached distance from NeighborData
+            if neighbor.distance > 0. && neighbor.distance < run_options.alignment_treshold_distance {
+                avg_vel += neighbor.boid.velocity;
                 count += 1.;
             }
         }
@@ -352,10 +327,6 @@ impl Boid {
             if run_options.agent_steering {
                 avg_vel = avg_vel.normalize();
                 avg_vel *= run_options.max_speed;
-                // if !run_options.alignment_impl_mode {
-                //     avg_vel = avg_vel.normalize();
-                //     avg_vel *= run_options.max_speed;
-                // }
 
                 // the line bellow was inconsistent for a long time, could have skewed results
                 // avg_vel = (avg_vel - self.velocity).normalize_or_zero();
@@ -364,7 +335,6 @@ impl Boid {
                     avg_vel.limit_length_sq(run_options.max_steering_sq, run_options.max_steering);
             }
             avg_vel * run_options.alignment_coefficient
-            // avg_vel
         } else {
             Vec2::ZERO
         }

@@ -14,6 +14,28 @@ pub fn distance_dyn_boid(b1: &Boid, b2: &Boid, run_options: &RunOptions) -> f32 
     }
 }
 
+/// Returns (distance, normalized_direction) from b1 to b2.
+/// Computes both in one pass to avoid redundant calculations.
+/// Direction is Vec2::ZERO if distance < 0.0001.
+#[inline]
+pub fn distance_and_direction_dyn_boid(
+    b1: &Boid,
+    b2: &Boid,
+    run_options: &RunOptions,
+) -> (f32, Vec2) {
+    let vec_to_b2 = match run_options.distance {
+        Distance::EucToroidal => tor_vec(b1.position, b2.position, &run_options.window),
+        Distance::EucEnclosed => b2.position - b1.position,
+    };
+    let distance = vec_to_b2.length();
+    let direction = if distance > 0.0001 {
+        vec_to_b2 / distance // normalize without extra sqrt
+    } else {
+        Vec2::ZERO
+    };
+    (distance, direction)
+}
+
 pub fn distance_dyn(x1: f32, x2: f32, y1: f32, y2: f32, run_options: &RunOptions) -> f32 {
     match run_options.distance {
         Distance::EucEnclosed => simple_distance(x1, x2, y1, y2, &run_options.window),

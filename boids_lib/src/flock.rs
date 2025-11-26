@@ -28,8 +28,6 @@ pub fn seed_rng(seed: u64) {
 use crate::boid::BoidMetadata;
 use crate::flock::replay_tracker::ReplayTracker;
 #[cfg(feature = "clustering")]
-use crate::math_helpers::distance_dyn_boid;
-#[cfg(feature = "clustering")]
 use crate::options::Boundary;
 use crate::options::InitiationStrategy;
 use crate::options::RunOptions;
@@ -274,7 +272,8 @@ fn join_adjacent_flocks(
         .collect::<HashMap<BoidId, (&Boid, &ClusterId)>>();
 
     boundary_boids.iter().for_each(|(_, (b1, c1))| {
-        'inner: for b2 in tracker.get_neighbours(b1, run_options) {
+        'inner: for neighbor_data in tracker.get_neighbours(b1, run_options) {
+            let b2 = neighbor_data.boid;
             let c2 = if boundary_boids.contains_key(&b2.id) {
                 boundary_boids.get(&b2.id).unwrap().1
             } else {
@@ -284,8 +283,8 @@ fn join_adjacent_flocks(
             if b1.id == b2.id || **c1 == *c2 {
                 continue 'inner;
             }
-            // check whether they are within sensory distance
-            if distance_dyn_boid(b1, b2, run_options) > run_options.max_sensory_distance {
+            // check whether they are within sensory distance (using cached distance)
+            if neighbor_data.distance > run_options.max_sensory_distance {
                 continue 'inner;
             }
 
@@ -372,9 +371,9 @@ fn join_adjacent_flocks(
         tracker
             .get_neighbours(nn1_entity, run_options)
             .into_iter()
-            .filter(|b| *boids_cluster_lookup[&b.id].1 == 0)
-            .for_each(|b| {
-                assigned_noise_entities.insert(b.id, *chosen_cluster);
+            .filter(|nd| *boids_cluster_lookup[&nd.boid.id].1 == 0)
+            .for_each(|nd| {
+                assigned_noise_entities.insert(nd.boid.id, *chosen_cluster);
             });
     }
 
@@ -620,11 +619,10 @@ mod tests {
 
         // let flock = Flock::new(&run_options);
 
-        let mut neighbours: Vec<&Boid> = Vec::with_capacity(2);
         let mut tracker = SpatHash1D::new(&boids, &run_options);
 
         tracker.update_table(&run_options);
-        SpatHash1D::get_neighbours(&tracker, &clicked, 17, &run_options, &mut neighbours);
+        let neighbours = tracker.get_neighbours(&clicked, &run_options);
 
         assert_eq!(neighbours.len(), 1);
     }
@@ -649,11 +647,10 @@ mod tests {
 
         // let flock = Flock::new(&run_options);
 
-        let mut neighbours: Vec<&Boid> = Vec::with_capacity(2);
         let mut tracker = SpatHash1D::new(&boids, &run_options);
 
         tracker.update_table(&run_options);
-        SpatHash1D::get_neighbours(&tracker, &clicked, 17, &run_options, &mut neighbours);
+        let neighbours = tracker.get_neighbours(&clicked, &run_options);
 
         assert_eq!(neighbours.len(), 1);
     }
@@ -798,43 +795,17 @@ mod tests {
         for i in 0..clicked.len() {
             let clicked_boid = &clicked[i];
 
-            let clicked_boid_index = get_index(clicked_boid, &run_options, &tracker.settings);
+            // Use public trait method
+            let neighbours = tracker.get_neighbours(clicked_boid, &run_options);
 
-            let mut neighbours: Vec<&Boid> = Vec::with_capacity(no_neighbours);
-
-            // neighbours.clear();
-            tracker.get_neighbours(
-                clicked_boid,
-                clicked_boid_index,
-                &run_options,
-                &mut neighbours,
-            );
-
-            // let retrieved_neighbour_id_set: HashSet<usize> =
-            //     neighbours.iter().map(|nb| nb.id).collect();
-
-            // let neighbour_difference: Vec<&Boid> = clicked_neighbours[i]
-            //     // .to_owned()
-            //     .iter()
-            //     .filter(|nb| !retrieved_neighbour_id_set.contains(&nb.id))
-            //     .collect();
-
-            // let neighbour_difference_indexes: Vec<usize> = neighbour_difference
-            //     .iter()
-            //     .map(|b| get_index(*b, &run_options, &tracker.settings))
-            //     .collect();
-
-            // let neighbour_difference_dist: Vec<f32> = neighbour_difference
-            //     .iter()
-            //     .map(|b| distance_dyn(b.position.x, clicked_boid.position.x, b.position.y,clicked_boid.position.y, &run_options))
-            //     .collect();
-
-            assert_eq!(clicked_neighbours[i].len(), neighbours.len()) //, "centroid id: {}, ND: {:#?}, NDI: {:#?}, NDD: {:#?}", clicked_boid.id, neighbour_difference, neighbour_difference_indexes, neighbour_difference_dist)
+            assert_eq!(clicked_neighbours[i].len(), neighbours.len())
         }
     }
 
     #[test]
     fn should_get_neighbours_sweep_boidtracker() {
+        use crate::boid::NeighborData;
+
         let mut run_options = RunOptions::default();
 
         // set up the boid space
@@ -852,23 +823,18 @@ mod tests {
         let (clicked, clicked_neighbours, boids) =
             get_neighbourhood_setup(&run_options, sensory_distance, no_neighbours);
 
-        // let tracker = BoidTracker::new(&boids, &run_options);
         // check all flockmates have been fetched
 
-        let mut neighbours: Vec<&Boid> = Vec::with_capacity(no_neighbours);
-
         for i in 0..clicked.len() {
-            neighbours.clear();
-
             let clicked_boid = &clicked[i];
 
-            NaiveTracker::get_neighbours_naive(clicked_boid, &boids, &run_options, &mut neighbours);
+            let mut neighbours: Vec<NeighborData> = Vec::new();
+            NaiveTracker::get_neighbours_naive_with_data(clicked_boid, &boids, &run_options, &mut neighbours);
 
             let retrieved_neighbour_id_set: HashSet<usize> =
-                neighbours.iter().map(|nb| nb.id).collect();
+                neighbours.iter().map(|nd| nd.boid.id).collect();
 
             let neighbour_difference: Vec<&Boid> = clicked_neighbours[i]
-                // .to_owned()
                 .iter()
                 .filter(|nb| !retrieved_neighbour_id_set.contains(&nb.id))
                 .collect();

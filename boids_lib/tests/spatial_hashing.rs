@@ -50,24 +50,18 @@ fn test_spathash_neighbor_consistency() {
             // Neighbors should not include the boid itself
             for neighbor in &neighbors {
                 assert_ne!(
-                    neighbor.id, query_boid.id,
+                    neighbor.boid.id, query_boid.id,
                     "Boid should not be in its own neighbor list"
                 );
             }
 
-            // All neighbors should be within sensory distance
+            // All neighbors should be within sensory distance (use cached distance)
             for neighbor in &neighbors {
-                let distance = boids_lib::math_helpers::distance_dyn_boid(
-                    query_boid,
-                    neighbor,
-                    &options
-                );
-
                 assert!(
-                    distance <= options.max_sensory_distance + 1.0,
+                    neighbor.distance <= options.max_sensory_distance + 1.0,
                     "Neighbor {} is {} away from boid {} (max: {})",
-                    neighbor.id,
-                    distance,
+                    neighbor.boid.id,
+                    neighbor.distance,
                     query_boid.id,
                     options.max_sensory_distance
                 );
