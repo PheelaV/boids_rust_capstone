@@ -7,7 +7,10 @@
 Benchmark runner that records results per git commit.
 
 Usage:
-    uv run scripts/bench_runner.py [--output-dir benchmark_data]
+    uv run scripts/bench_runner.py [--output-dir benchmark_data] [--quick]
+
+Options:
+    --quick       Run only 2^14 benchmark for quick iteration/testing
 
 Results are saved to:
   - benchmark_data/results.json  (structured data for all runs)
@@ -49,13 +52,17 @@ def get_git_info():
     }
 
 
-def run_benchmark():
+def run_benchmark(quick=False):
     """Run cargo bench and stream output while capturing it.
 
     Returns (output, exit_code, error_message).
     """
+    cmd = ["cargo", "bench", "--bench", "flock_scalability"]
+    if quick:
+        cmd.extend(["--", r"2\^14"])  # Only run 2^14 benchmark (escape ^ for regex)
+
     print("=" * 60)
-    print("Running: cargo bench --bench flock_scalability")
+    print(f"Running: {' '.join(cmd)}")
     print("=" * 60)
     print()
 
@@ -63,7 +70,7 @@ def run_benchmark():
     error_message = None
 
     process = subprocess.Popen(
-        ["cargo", "bench", "--bench", "flock_scalability"],
+        cmd,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
@@ -96,27 +103,37 @@ def parse_criterion_output(output):
     """Parse criterion benchmark output into structured data."""
     results = {}
 
-    # Pattern: flock_scalability/boids/2^14
-    #                          time:   [3.2824 s 3.2887 s 3.2951 s]
-    #                          thrpt:  [1.2729 Melem/s 1.2754 Melem/s 1.2778 Melem/s]
+    # Pattern: benchmark name on its own line, then time on next line
+    # flock_scalability/boids/2^14
+    #                         time:   [3.2824 s 3.2887 s 3.2951 s]
+    #                         thrpt:  [1.2729 Melem/s 1.2754 Melem/s 1.2778 Melem/s]
 
-    time_pattern = r"flock_scalability/boids/(2\^\d+)\s+time:\s+\[([0-9.]+)\s+(\w+)\s+([0-9.]+)\s+(\w+)\s+([0-9.]+)\s+(\w+)\]"
-    thrpt_pattern = r"thrpt:\s+\[([0-9.]+)\s+(\w+)\s+([0-9.]+)\s+(\w+)\s+([0-9.]+)\s+(\w+)\]"
+    name_pattern = r"flock_scalability/boids/(2\^\d+)\s*$"
+    time_pattern = r"time:\s+\[([0-9.]+)\s+(\w+)\s+([0-9.]+)\s+(\w+)\s+([0-9.]+)\s+(\w+)\]"
+    thrpt_pattern = r"thrpt:\s+\[([0-9.]+)\s+([\w/]+)\s+([0-9.]+)\s+([\w/]+)\s+([0-9.]+)\s+([\w/]+)\]"
 
     lines = output.split("\n")
     i = 0
     while i < len(lines):
-        time_match = re.search(time_pattern, lines[i])
-        if time_match:
-            name = time_match.group(1)  # e.g., "2^14"
-            time_low = float(time_match.group(2))
-            time_unit = time_match.group(3)
-            time_mid = float(time_match.group(4))
-            time_high = float(time_match.group(6))
+        name_match = re.search(name_pattern, lines[i])
+        if name_match:
+            name = name_match.group(1)  # e.g., "2^14"
 
-            # Look for throughput on next few lines
+            # Look for time on next few lines
+            time_data = None
             thrpt_data = None
-            for j in range(i + 1, min(i + 5, len(lines))):
+            for j in range(i + 1, min(i + 10, len(lines))):
+                if time_data is None:
+                    time_match = re.search(time_pattern, lines[j])
+                    if time_match:
+                        time_data = {
+                            "low": float(time_match.group(1)),
+                            "mid": float(time_match.group(3)),
+                            "high": float(time_match.group(5)),
+                            "unit": time_match.group(2),
+                        }
+                        continue
+
                 thrpt_match = re.search(thrpt_pattern, lines[j])
                 if thrpt_match:
                     thrpt_data = {
@@ -127,18 +144,44 @@ def parse_criterion_output(output):
                     }
                     break
 
-            results[name] = {
-                "time": {
-                    "low": time_low,
-                    "mid": time_mid,
-                    "high": time_high,
-                    "unit": time_unit,
-                },
-                "throughput": thrpt_data,
-            }
+            if time_data:
+                results[name] = {
+                    "time": time_data,
+                    "throughput": thrpt_data,
+                }
         i += 1
 
     return results
+
+
+def infer_iterations(bench_results):
+    """Infer iteration count for each benchmark from throughput and time.
+
+    iterations = (throughput * time) / boid_count
+    """
+    result = {}
+    for name, data in bench_results.items():
+        if data["throughput"] is None:
+            result[name] = None
+            continue
+
+        exp = int(name.split("^")[1])
+        boid_count = 1 << exp
+
+        # Convert throughput to elements/s
+        thrpt = data["throughput"]["mid"]
+        unit = data["throughput"]["unit"]
+        if "Melem" in unit:
+            thrpt *= 1_000_000
+        elif "Kelem" in unit:
+            thrpt *= 1_000
+
+        time_s = data["time"]["mid"]
+        elements = thrpt * time_s
+        iterations = round(elements / boid_count)
+        result[name] = iterations
+
+    return result
 
 
 def generate_report(git_info, bench_results, timestamp, error_message=None):
@@ -168,47 +211,70 @@ def generate_report(git_info, bench_results, timestamp, error_message=None):
         lines.append("=" * 60)
         return "\n".join(lines)
 
-    lines.append(f"{'Benchmark':<15} {'Time (s)':<25} {'Throughput':<20}")
-    lines.append(f"{'-'*15} {'-'*25} {'-'*20}")
+    # Infer iterations for each benchmark
+    iterations_map = infer_iterations(bench_results)
+
+    lines.append(f"{'Benchmark':<12} {'Iters':<8} {'Time (s)':<25} {'Throughput':<15}")
+    lines.append(f"{'-'*12} {'-'*8} {'-'*25} {'-'*15}")
 
     for name in sorted(bench_results.keys(), key=lambda x: int(x.split("^")[1])):
         data = bench_results[name]
         time_str = f"{data['time']['mid']:.3f} [{data['time']['low']:.3f}-{data['time']['high']:.3f}] {data['time']['unit']}"
+        iters = iterations_map.get(name)
+        iters_str = str(iters) if iters else "?"
         if data["throughput"]:
             thrpt_str = f"{data['throughput']['mid']:.2f} {data['throughput']['unit']}"
         else:
             thrpt_str = "N/A"
-        lines.append(f"{name:<15} {time_str:<25} {thrpt_str:<20}")
+        lines.append(f"{name:<12} {iters_str:<8} {time_str:<25} {thrpt_str:<15}")
 
     lines.append("")
 
-    # Scaling analysis
+    # Scaling analysis - only compare benchmarks with same iteration count
     if len(bench_results) >= 2:
-        lines.append("-" * 60)
-        lines.append("SCALING ANALYSIS")
-        lines.append("-" * 60)
-        lines.append("")
+        # Group by iteration count
+        by_iters = {}
+        for name, iters in iterations_map.items():
+            if iters is not None:
+                by_iters.setdefault(iters, []).append(name)
 
-        sorted_names = sorted(
-            bench_results.keys(), key=lambda x: int(x.split("^")[1])
-        )
-        for i in range(1, len(sorted_names)):
-            prev_name = sorted_names[i - 1]
-            curr_name = sorted_names[i]
-            prev_exp = int(prev_name.split("^")[1])
-            curr_exp = int(curr_name.split("^")[1])
+        # Only do scaling analysis for groups with 2+ benchmarks
+        comparable_groups = {k: v for k, v in by_iters.items() if len(v) >= 2}
 
-            prev_time = bench_results[prev_name]["time"]["mid"]
-            curr_time = bench_results[curr_name]["time"]["mid"]
+        if comparable_groups:
+            lines.append("-" * 60)
+            lines.append("SCALING ANALYSIS")
+            lines.append("-" * 60)
+            lines.append("")
 
-            # Boids doubled = 2x, expected O(n) would be 2x, O(n^2) would be 4x
-            boid_ratio = 2 ** (curr_exp - prev_exp)
-            time_ratio = curr_time / prev_time
+            for iters, names in sorted(comparable_groups.items(), reverse=True):
+                sorted_names = sorted(names, key=lambda x: int(x.split("^")[1]))
+                lines.append(f"[{iters} iterations]")
 
-            lines.append(f"{prev_name} -> {curr_name}:")
-            lines.append(f"  Boid count:  {boid_ratio:.1f}x")
-            lines.append(f"  Time ratio:  {time_ratio:.2f}x")
-            lines.append(f"  Efficiency:  {boid_ratio/time_ratio:.2f}x (1.0 = linear scaling)")
+                for i in range(1, len(sorted_names)):
+                    prev_name = sorted_names[i - 1]
+                    curr_name = sorted_names[i]
+                    prev_exp = int(prev_name.split("^")[1])
+                    curr_exp = int(curr_name.split("^")[1])
+
+                    prev_time = bench_results[prev_name]["time"]["mid"]
+                    curr_time = bench_results[curr_name]["time"]["mid"]
+
+                    # Boids doubled = 2x, expected O(n) would be 2x, O(n^2) would be 4x
+                    boid_ratio = 2 ** (curr_exp - prev_exp)
+                    time_ratio = curr_time / prev_time
+
+                    lines.append(f"  {prev_name} -> {curr_name}:")
+                    lines.append(f"    Boid count:  {boid_ratio:.1f}x")
+                    lines.append(f"    Time ratio:  {time_ratio:.2f}x")
+                    lines.append(f"    Efficiency:  {boid_ratio/time_ratio:.2f}x (1.0 = linear scaling)")
+                lines.append("")
+
+        # List benchmarks that couldn't be compared
+        uncomparable = [n for n, i in iterations_map.items()
+                       if i is None or i not in comparable_groups or len(by_iters.get(i, [])) < 2]
+        if uncomparable:
+            lines.append("Note: No scaling comparison for: " + ", ".join(sorted(uncomparable)))
             lines.append("")
 
     lines.append("=" * 60)
@@ -232,6 +298,7 @@ def save_results(filepath, results):
 
 def main():
     output_dir = Path("benchmark_data")
+    quick_mode = "--quick" in sys.argv
 
     # Parse args
     if "--output-dir" in sys.argv:
@@ -257,7 +324,9 @@ def main():
     print()
 
     # Run benchmark (streams to console)
-    output, exit_code, error_message = run_benchmark()
+    if quick_mode:
+        print("QUICK MODE: Running only 2^14 benchmark\n")
+    output, exit_code, error_message = run_benchmark(quick=quick_mode)
 
     # Save raw log
     log_file = logs_dir / f"{git_info['commit_short']}_{file_timestamp}.log"

@@ -1,0 +1,50 @@
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /Users/filip/source/repos/boids_rust_capstone/boids_wasm/Cargo.toml
+workspace: /Users/filip/source/repos/boids_rust_capstone/Cargo.toml
+    Finished `bench` profile [optimized] target(s) in 0.21s
+warning: the following packages contain code that will be rejected by a future version of Rust: partitions v0.2.4
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 6`
+     Running benches/flock_scalability.rs (target/release/deps/flock_scalability-95acbfb422eadf3b)
+Gnuplot not found, using plotters backend
+Benchmarking flock_scalability/boids/2^14
+Benchmarking flock_scalability/boids/2^14: Warming up for 3.0000 s
+
+Warning: Unable to complete 10 samples in 30.0s. You may wish to increase target time to 32.2s.
+Benchmarking flock_scalability/boids/2^14: Collecting 10 samples in estimated 32.191 s (10 iterations)
+Benchmarking flock_scalability/boids/2^14: Analyzing
+flock_scalability/boids/2^14
+                        time:   [3.1596 s 3.1928 s 3.2259 s]
+                        thrpt:  [1.3002 Melem/s 1.3137 Melem/s 1.3275 Melem/s]
+                 change:
+                        time:   [-1.2244% -0.1810% +1.1472%] (p = 0.78 > 0.05)
+                        thrpt:  [-1.1342% +0.1813% +1.2396%]
+                        No change in performance detected.
+Benchmarking flock_scalability/boids/2^15
+Benchmarking flock_scalability/boids/2^15: Warming up for 3.0000 s
+
+Warning: Unable to complete 10 samples in 30.0s. You may wish to increase target time to 108.9s.
+Benchmarking flock_scalability/boids/2^15: Collecting 10 samples in estimated 108.94 s (10 iterations)
+Benchmarking flock_scalability/boids/2^15: Analyzing
+flock_scalability/boids/2^15
+                        time:   [10.670 s 10.705 s 10.739 s]
+                        thrpt:  [781.16 Kelem/s 783.59 Kelem/s 786.16 Kelem/s]
+                 change:
+                        time:   [+0.7299% +1.1609% +1.6197%] (p = 0.00 < 0.05)
+                        thrpt:  [-1.5939% -1.1476% -0.7247%]
+                        Change within noise threshold.
+Benchmarking flock_scalability/boids/2^16
+Benchmarking flock_scalability/boids/2^16: Warming up for 3.0000 s
+
+Warning: Unable to complete 10 samples in 30.0s. You may wish to increase target time to 32.8s.
+Benchmarking flock_scalability/boids/2^16: Collecting 10 samples in estimated 32.800 s (10 iterations)
+Benchmarking flock_scalability/boids/2^16: Analyzing
+flock_scalability/boids/2^16
+                        time:   [3.2648 s 3.2822 s 3.3045 s]
+                        thrpt:  [495.80 Kelem/s 499.18 Kelem/s 501.84 Kelem/s]
+                 change:
+                        time:   [+0.7197% +1.2650% +1.9373%] (p = 0.00 < 0.05)
+                        thrpt:  [-1.9005% -1.2492% -0.7146%]
+                        Change within noise threshold.
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+
