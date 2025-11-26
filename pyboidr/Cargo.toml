@@ -1,0 +1,21 @@
+[package]
+name = "pyboidr"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Python bindings for the boids simulation library"
+
+[lib]
+name = "_pyboidr"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.27", features = ["extension-module", "abi3-py313"] }
+boids_lib = { path = "../boids_lib", default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+glam = { version = "0.17", features = ["serde"] }
+
+[features]
+default = []
+clustering = ["boids_lib/clustering"]

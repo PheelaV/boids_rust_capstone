@@ -1,0 +1,33 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "pyboidr"
+version = "0.1.0"
+description = "Python bindings for boids simulation library"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.13"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Rust",
+    "Topic :: Scientific/Engineering :: Artificial Life",
+]
+keywords = ["boids", "simulation", "flocking", "swarm"]
+dependencies = ["polars>=1.0"]
+
+[tool.maturin]
+python-source = "python"
+module-name = "pyboidr._pyboidr"
+# features are specified in Cargo.toml
+strip = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"
+
+[dependency-groups]
+dev = ["mypy>=1.18.2", "pytest>=9.0.1", "pytest-cov>=7.0.0", "ruff>=0.14.6"]
