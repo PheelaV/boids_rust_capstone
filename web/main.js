@@ -49,6 +49,9 @@ async function run() {
         // Set up keyboard controls
         setupKeyboardControls();
 
+        // Set up responsive canvas resizing
+        setupResponsiveCanvas();
+
         // Start animation loop
         animate();
 
@@ -156,6 +159,18 @@ function setupControls() {
             animate();
         }
     });
+
+    // Canvas size controls
+    document.getElementById('apply-canvas-size').addEventListener('click', () => {
+        const width = parseInt(document.getElementById('canvas-width').value);
+        const height = parseInt(document.getElementById('canvas-height').value);
+        if (width >= 400 && width <= 1920 && height >= 300 && height <= 1080) {
+            canvas.width = width;
+            canvas.height = height;
+            simulation.set_window_size(width, height);
+            console.log(`Canvas resized to ${width}x${height}`);
+        }
+    });
 }
 
 function updateBoidCountInput() {
@@ -184,6 +199,8 @@ function setupKeyboardControls() {
                 event.preventDefault();
                 const controls = document.getElementById('controls');
                 controls.style.display = controls.style.display === 'none' ? 'block' : 'none';
+                // Trigger resize after controls toggle
+                window.dispatchEvent(new Event('resize'));
                 break;
 
             case '1': // Toggle alignment
@@ -272,6 +289,40 @@ KEYBOARD SHORTCUTS:
 function updateToggleText(button, name) {
     const isActive = button.classList.contains('active');
     button.textContent = `${name}: ${isActive ? 'ON' : 'OFF'}`;
+}
+
+function setupResponsiveCanvas() {
+    function resizeCanvas() {
+        const container = document.getElementById('canvas-container');
+        const controls = document.getElementById('controls');
+        const controlsWidth = controls.style.display === 'none' ? 0 : controls.offsetWidth;
+
+        // Calculate available space (with some padding)
+        const availableWidth = window.innerWidth - controlsWidth - 40;
+        const availableHeight = window.innerHeight - 40;
+
+        // Set canvas size to fit available space
+        const newWidth = Math.max(400, Math.min(availableWidth, 1920));
+        const newHeight = Math.max(300, Math.min(availableHeight, 1080));
+
+        canvas.width = newWidth;
+        canvas.height = newHeight;
+        simulation.set_window_size(newWidth, newHeight);
+
+        // Update the input fields to reflect current size
+        document.getElementById('canvas-width').value = newWidth;
+        document.getElementById('canvas-height').value = newHeight;
+    }
+
+    // Resize on window resize (debounced)
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(resizeCanvas, 150);
+    });
+
+    // Initial resize
+    resizeCanvas();
 }
 
 function animate() {

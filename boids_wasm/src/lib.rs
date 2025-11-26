@@ -2,7 +2,7 @@ mod utils;
 
 use boids_lib::{
     flock::Flock,
-    options::{RunOptions, WindowSize, TrackerType, InitiationStrategy, Distance, Boundary, NoiseModel, SaveOptions},
+    options::{self, RunOptions, WindowSize, TrackerType, InitiationStrategy, Distance, Boundary, NoiseModel, SaveOptions},
 };
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
@@ -165,6 +165,21 @@ impl WasmSimulation {
         self.options.wander_on = !self.options.wander_on;
     }
 
+    /// Set the window/canvas size
+    pub fn set_window_size(&mut self, width: i32, height: i32) {
+        self.options.window = options::get_window_size(width as u32, height as u32);
+    }
+
+    /// Get the current window width
+    pub fn get_window_width(&self) -> i32 {
+        self.options.window.win_w
+    }
+
+    /// Get the current window height
+    pub fn get_window_height(&self) -> i32 {
+        self.options.window.win_h
+    }
+
     /// Add a new boid at a specific position with velocity
     pub fn add_boid(&mut self, _x: f32, _y: f32, _vx: f32, _vy: f32) {
         // Note: This is a simplified version - boids_lib doesn't expose a way to add boids
@@ -178,11 +193,16 @@ impl WasmSimulation {
         for _ in 0..count {
             self.flock.insert_single(&self.options);
         }
+        self.options.init_boids = self.get_boid_count();
     }
 
     /// Remove the last boid
     pub fn remove_boid(&mut self) -> bool {
-        self.flock.delete_last(&self.options).is_some()
+        let removed = self.flock.delete_last(&self.options).is_some();
+        if removed {
+            self.options.init_boids = self.get_boid_count();
+        }
+        removed
     }
 
     /// Remove multiple boids
@@ -194,6 +214,9 @@ impl WasmSimulation {
             } else {
                 break;
             }
+        }
+        if removed > 0 {
+            self.options.init_boids = self.get_boid_count();
         }
         removed
     }

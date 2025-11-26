@@ -216,6 +216,19 @@
             <button id="reset">Reset Simulation</button>
             <button id="pause">Pause</button>
 
+            <h2>Canvas Size</h2>
+            <div class="control-group">
+                <label>Width x Height</label>
+                <div style="display: flex; gap: 5px; margin-bottom: 5px;">
+                    <input type="number" id="canvas-width" min="400" max="1920" value="1000"
+                           style="flex: 1; padding: 5px; background: #0f3460; color: #eee; border: 1px solid #53a8b6; border-radius: 3px;">
+                    <span style="color: #53a8b6; padding: 5px;">x</span>
+                    <input type="number" id="canvas-height" min="300" max="1080" value="800"
+                           style="flex: 1; padding: 5px; background: #0f3460; color: #eee; border: 1px solid #53a8b6; border-radius: 3px;">
+                </div>
+                <button id="apply-canvas-size">Apply Size</button>
+            </div>
+
             <div style="margin-top: 30px; font-size: 11px; color: #666;">
                 <p>A WebAssembly-powered flocking simulation based on Craig Reynolds' Boids algorithm.</p>
                 <p style="margin-top: 10px;">Use the controls to adjust behavior parameters and observe emergent flocking patterns.</p>
