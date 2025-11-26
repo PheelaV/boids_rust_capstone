@@ -10,7 +10,8 @@ use boids_lib::{
     },
     math_helpers::{distance_dyn, tor_vec, tor_vec_p},
     options::{
-        self, Boundary, Distance, NeighbourSampling, NoiseModel, RunOptions, SaveOptions, TrackerType, WindowSize,
+        self, Boundary, Distance, NeighbourSampling, NoiseModel, RunOptions, SaveOptions,
+        TrackerType, WindowSize,
     },
 };
 use circular_queue::CircularQueue;
@@ -960,7 +961,7 @@ fn draw_spline_path(draw: &Draw, spline: Vec<Vec2>) {
     // the values above have been mapped to [0, ..., 1], as corner points are consumed by the
     // spline algorithm we can assess the range [1/spline_points, 1 - 1/spline_points]
     let spline: Spline<f32, glam::Vec2> = Spline::from_vec(keys_iter);
-    let spline_parts = 100f32;
+    let spline_parts = 10f32;
 
     let spline_points = (1..(spline_parts as i32 - 1))
         .into_iter()
