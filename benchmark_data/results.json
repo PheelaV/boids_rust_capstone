@@ -1,0 +1,110 @@
+[
+  {
+    "timestamp": "2025-11-26T03:34:03.068375",
+    "git": {
+      "commit": "b2b2abec77eb037cea3017f785624e622c1af354",
+      "commit_short": "b2b2abe",
+      "branch": "v2",
+      "dirty": true
+    },
+    "benchmarks": {
+      "2^14": {
+        "time": {
+          "low": 3.1596,
+          "mid": 3.1928,
+          "high": 3.2259,
+          "unit": "s"
+        },
+        "throughput": {
+          "low": 1.3002,
+          "mid": 1.3137,
+          "high": 1.3275,
+          "unit": "Melem/s"
+        }
+      },
+      "2^15": {
+        "time": {
+          "low": 10.67,
+          "mid": 10.705,
+          "high": 10.739,
+          "unit": "s"
+        },
+        "throughput": {
+          "low": 781.16,
+          "mid": 783.59,
+          "high": 786.16,
+          "unit": "Kelem/s"
+        }
+      },
+      "2^16": {
+        "time": {
+          "low": 3.2648,
+          "mid": 3.2822,
+          "high": 3.3045,
+          "unit": "s"
+        },
+        "throughput": {
+          "low": 495.8,
+          "mid": 499.18,
+          "high": 501.84,
+          "unit": "Kelem/s"
+        }
+      }
+    },
+    "status": "success"
+  },
+  {
+    "timestamp": "2025-11-26T04:28:51.917088",
+    "git": {
+      "commit": "9fae7b555146106d2a2380e8adc6d8c943c4b9e6",
+      "commit_short": "9fae7b5",
+      "branch": "v0.2.0",
+      "dirty": true
+    },
+    "benchmarks": {
+      "2^14": {
+        "time": {
+          "low": 2.5856,
+          "mid": 2.603,
+          "high": 2.6204,
+          "unit": "s"
+        },
+        "throughput": {
+          "low": 1.6006,
+          "mid": 1.6113,
+          "high": 1.6222,
+          "unit": "Melem/s"
+        }
+      },
+      "2^15": {
+        "time": {
+          "low": 8.9335,
+          "mid": 9.0006,
+          "high": 9.0729,
+          "unit": "s"
+        },
+        "throughput": {
+          "low": 924.58,
+          "mid": 932.01,
+          "high": 939.01,
+          "unit": "Kelem/s"
+        }
+      },
+      "2^16": {
+        "time": {
+          "low": 2.7954,
+          "mid": 2.8141,
+          "high": 2.8357,
+          "unit": "s"
+        },
+        "throughput": {
+          "low": 577.79,
+          "mid": 582.22,
+          "high": 586.1,
+          "unit": "Kelem/s"
+        }
+      }
+    },
+    "status": "success"
+  }
+]

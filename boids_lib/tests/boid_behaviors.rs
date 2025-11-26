@@ -4,8 +4,18 @@
 //! behaviors produce expected effects on boid movement.
 
 use approx::assert_relative_eq;
-use boids_lib::{boid::*, flock::Flock, options::*};
+use boids_lib::{boid::*, flock::Flock, math_helpers::distance_and_direction_dyn_boid, options::*};
 use glam::Vec2;
+
+/// Helper to create NeighborData from boids for testing
+fn make_neighbor_data<'a>(self_boid: &Boid, other: &'a Boid, options: &RunOptions) -> NeighborData<'a> {
+    let (distance, direction) = distance_and_direction_dyn_boid(self_boid, other, options);
+    NeighborData {
+        boid: other,
+        distance,
+        direction,
+    }
+}
 
 /// Test that separation pushes boids apart when too close
 #[test]
@@ -25,14 +35,14 @@ fn test_separation_behavior() {
     options.separation_treshold_distance = 100.0;
 
     // Create two boids very close together
-    let mut boid1 = Boid::new(0.0, 0.0, Vec2::new(0.0, 0.0), 0);
+    let boid1 = Boid::new(0.0, 0.0, Vec2::new(0.0, 0.0), 0);
     let boid2 = Boid::new(10.0, 0.0, Vec2::new(0.0, 0.0), 1);
 
-    let boids = vec![&boid1, &boid2];
+    let neighbors = vec![make_neighbor_data(&boid1, &boid2, &options)];
     let metadata = vec![BoidMetadata::new(&boid1), BoidMetadata::new(&boid2)];
 
     // Calculate separation force
-    let force = boid1.run_rules(&boids, &metadata, &options);
+    let force = boid1.run_rules(&neighbors, &metadata, &options);
 
     // Force should push boid1 away from boid2 (negative x direction)
     assert!(
@@ -64,7 +74,10 @@ fn test_cohesion_behavior() {
     let boid2 = Boid::new(50.0, 0.0, Vec2::new(0.0, 0.0), 1);
     let boid3 = Boid::new(50.0, 50.0, Vec2::new(0.0, 0.0), 2);
 
-    let boids = vec![&boid1, &boid2, &boid3];
+    let neighbors = vec![
+        make_neighbor_data(&boid1, &boid2, &options),
+        make_neighbor_data(&boid1, &boid3, &options),
+    ];
     let metadata = vec![
         BoidMetadata::new(&boid1),
         BoidMetadata::new(&boid2),
@@ -72,7 +85,7 @@ fn test_cohesion_behavior() {
     ];
 
     // Calculate cohesion force for boid1
-    let force = boid1.run_rules(&boids, &metadata, &options);
+    let force = boid1.run_rules(&neighbors, &metadata, &options);
 
     // Force should pull boid1 towards the center of mass (positive x direction)
     assert!(
@@ -105,7 +118,10 @@ fn test_alignment_behavior() {
     let boid2 = Boid::new(50.0, 0.0, Vec2::new(0.0, 3.0), 1); // Moving up
     let boid3 = Boid::new(100.0, 0.0, Vec2::new(0.0, 3.0), 2); // Moving up
 
-    let boids = vec![&boid1, &boid2, &boid3];
+    let neighbors = vec![
+        make_neighbor_data(&boid1, &boid2, &options),
+        make_neighbor_data(&boid1, &boid3, &options),
+    ];
     let metadata = vec![
         BoidMetadata::new(&boid1),
         BoidMetadata::new(&boid2),
@@ -113,7 +129,7 @@ fn test_alignment_behavior() {
     ];
 
     // Calculate alignment force for boid1
-    let force = boid1.run_rules(&boids, &metadata, &options);
+    let force = boid1.run_rules(&neighbors, &metadata, &options);
 
     // Force should have positive y component to align with neighbors moving up
     assert!(

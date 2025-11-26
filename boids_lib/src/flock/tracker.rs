@@ -1,7 +1,7 @@
 use std::any::Any;
 
 use crate::{
-    boid::{Boid, BoidMetadata},
+    boid::{Boid, BoidMetadata, NeighborData},
     options::RunOptions,
 };
 
@@ -31,7 +31,7 @@ pub trait Tracker {
     fn insert_multiple(&mut self, entities: &[Boid], _: &RunOptions);
     // fn view(&self) -> (&Vec<Boid>, &Vec<BoidMetadata>);
     fn view<'a>(&'a self) -> Box<dyn Iterator<Item = (&'a Boid, &'a BoidMetadata)> + 'a>;
-    fn get_neighbours<'a>(&'a self, boid: &Boid, run_options: &RunOptions) -> Vec<&'a Boid>;
+    fn get_neighbours<'a>(&'a self, boid: &Boid, run_options: &RunOptions) -> Vec<NeighborData<'a>>;
     fn signal(&mut self, signal: TrackerSignal);
     fn get_no_entities(&self) -> usize;
     fn as_any(&self) -> &dyn Any;

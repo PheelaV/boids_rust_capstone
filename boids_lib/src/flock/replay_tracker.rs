@@ -407,7 +407,7 @@ impl Tracker for ReplayTracker {
         Box::new(self.buff_boid.iter().zip(self.buff_meta.iter()))
     }
 
-    fn get_neighbours<'a>(&'a self, _: &boid::Boid, _: &RunOptions) -> Vec<&'a boid::Boid> {
+    fn get_neighbours<'a>(&'a self, _: &boid::Boid, _: &RunOptions) -> Vec<boid::NeighborData<'a>> {
         todo!()
     }
 

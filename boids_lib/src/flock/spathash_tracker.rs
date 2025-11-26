@@ -10,8 +10,8 @@ use itertools::Itertools;
 use rand::Rng;
 
 use crate::{
-    boid::{Boid, BoidMetadata},
-    math_helpers::distance_dyn_boid,
+    boid::{Boid, BoidMetadata, NeighborData},
+    math_helpers::distance_and_direction_dyn_boid,
     options::{Distance, NeighbourSampling, RunOptions},
 };
 
@@ -225,7 +225,7 @@ impl Tracker for SpatHash1D {
         )
     }
 
-    fn get_neighbours<'a>(&'a self, boid: &Boid, run_options: &RunOptions) -> Vec<&'a Boid> {
+    fn get_neighbours<'a>(&'a self, boid: &Boid, run_options: &RunOptions) -> Vec<NeighborData<'a>> {
         let cell_index = SpatHash1D::get_table_index(
             boid.position.x,
             boid.position.y,
@@ -237,9 +237,9 @@ impl Tracker for SpatHash1D {
             self.settings.y_cell_res,
             self.settings.x_cell_count as f32,
         );
-        let mut result = Vec::<&Boid>::new();
+        let mut result = Vec::<NeighborData>::new();
 
-        self.get_neighbours(boid, cell_index, run_options, &mut result);
+        self.get_neighbours_with_data(boid, cell_index, run_options, &mut result);
 
         result
     }
@@ -433,7 +433,7 @@ impl SpatHash1D {
             self.metadata[b.id].accelleration_update = metadata_default.accelleration_update;
         }
 
-        let mut neighbours: Vec<&Boid> = Vec::with_capacity(32);
+        let mut neighbours: Vec<NeighborData> = Vec::with_capacity(32);
         // Size these vectors based on current boid count, not initial count
         // This allows for dynamic addition/removal of boids
         let mut accellerations: Vec<Vec2> = vec![Default::default(); self.table.len()];
@@ -447,7 +447,7 @@ impl SpatHash1D {
             neighbours.clear();
 
             let b: &Boid = &self.table[e];
-            self.get_neighbours(b, self.index[b.id], run_options, &mut neighbours);
+            self.get_neighbours_with_data(b, self.index[b.id], run_options, &mut neighbours);
 
             // this should really be in one of the boid rules,
             // but then there goes borrow checker and boids having
@@ -473,11 +473,11 @@ impl SpatHash1D {
             // clicked neighbour
             if self.table[e].id == run_options.clicked_boid_id {
                 for n in &neighbours {
-                    clicked_neighbours.push(n.id)
+                    clicked_neighbours.push(n.boid.id)
                 }
             }
 
-            // todo: this is
+            // FOV filtering is now done inside get_neighbours_with_data
             let accelleration = self.table[e].run_rules(&neighbours, &self.metadata, run_options);
             metadata[self.table[e].id].accelleration_update = accelleration;
             accellerations[e] = accelleration;
@@ -687,18 +687,27 @@ impl SpatHash1D {
         }
     }
 
-    pub(crate) fn get_neighbours<'a>(
+    /// Returns neighbors with cached distance and direction data.
+    /// Also performs FOV filtering if enabled, avoiding redundant direction calculations.
+    pub(crate) fn get_neighbours_with_data<'a>(
         &'a self,
         boid: &Boid,
         cell_index: usize,
         run_options: &RunOptions,
-        neighbours: &mut Vec<&'a Boid>,
+        neighbours: &mut Vec<NeighborData<'a>>,
     ) {
         // if the table grid is less than 4x4
         if self.settings.x_cell_count <= 3 && self.settings.y_cell_count <= 3 {
             // fall back to naive method
-            return NaiveTracker::get_neighbours_naive(boid, &self.table, run_options, neighbours);
+            return NaiveTracker::get_neighbours_naive_with_data(boid, &self.table, run_options, neighbours);
         }
+
+        // Pre-compute velocity direction for FOV check (if enabled)
+        let vel_norm = if run_options.field_of_vision_on {
+            Some(boid.velocity.normalize())
+        } else {
+            None
+        };
 
         // only add it once
         let is_left = cell_index % self.settings.x_cell_count as usize == 0;
@@ -740,16 +749,33 @@ impl SpatHash1D {
                     continue;
                 }
                 for index in self.pivots[cell].init.unwrap()..self.pivots[cell].fin.unwrap() {
-                    if self.table[index].id != boid.id
-                        && distance_dyn_boid(boid, &self.table[index], run_options)
-                            <= run_options.max_sensory_distance
-                    {
-                        neighbours.push(&self.table[index]);
-                        if run_options.neighbours_cosidered != 0
-                            && neighbours.len() >= run_options.neighbours_cosidered
-                        {
-                            return;
+                    if self.table[index].id == boid.id {
+                        continue;
+                    }
+
+                    let (distance, direction) = distance_and_direction_dyn_boid(boid, &self.table[index], run_options);
+
+                    if distance > run_options.max_sensory_distance {
+                        continue;
+                    }
+
+                    // FOV check using already-computed direction
+                    if let Some(ref vel_dir) = vel_norm {
+                        if vel_dir.dot(direction) <= run_options.field_of_vision_cos {
+                            continue; // Outside field of view
                         }
+                    }
+
+                    neighbours.push(NeighborData {
+                        boid: &self.table[index],
+                        distance,
+                        direction,
+                    });
+
+                    if run_options.neighbours_cosidered != 0
+                        && neighbours.len() >= run_options.neighbours_cosidered
+                    {
+                        return;
                     }
                 }
             }
@@ -771,13 +797,29 @@ impl SpatHash1D {
             }
             for index in self.pivots[cell].init.unwrap()..self.pivots[cell].fin.unwrap() {
                 if candidate_index % stride == 0 {
-                    if self.table[index].id != boid.id
-                        && distance_dyn_boid(boid, &self.table[index], run_options)
-                            <= run_options.max_sensory_distance
-                    {
-                        neighbours.push(&self.table[index]);
-                        if neighbours.len() >= run_options.neighbours_cosidered {
-                            return;
+                    if self.table[index].id == boid.id {
+                        candidate_index += 1;
+                        continue;
+                    }
+
+                    let (distance, direction) = distance_and_direction_dyn_boid(boid, &self.table[index], run_options);
+
+                    if distance <= run_options.max_sensory_distance {
+                        // FOV check using already-computed direction
+                        let in_fov = match vel_norm {
+                            Some(ref vel_dir) => vel_dir.dot(direction) > run_options.field_of_vision_cos,
+                            None => true,
+                        };
+
+                        if in_fov {
+                            neighbours.push(NeighborData {
+                                boid: &self.table[index],
+                                distance,
+                                direction,
+                            });
+                            if neighbours.len() >= run_options.neighbours_cosidered {
+                                return;
+                            }
                         }
                     }
                 }
