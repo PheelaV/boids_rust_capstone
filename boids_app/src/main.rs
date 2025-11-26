@@ -10,7 +10,7 @@ use boids_lib::{
     },
     math_helpers::{distance_dyn, tor_vec, tor_vec_p},
     options::{
-        self, Boundary, Distance, NoiseModel, RunOptions, SaveOptions, TrackerType, WindowSize,
+        self, Boundary, Distance, NeighbourSampling, NoiseModel, RunOptions, SaveOptions, TrackerType, WindowSize,
     },
 };
 use circular_queue::CircularQueue;
@@ -532,6 +532,23 @@ fn update(app: &App, model: &mut Model, update: Update) {
                     &mut run_options.neighbours_cosidered,
                     0..=60,
                 ))
+            });
+
+            ui.horizontal(|ui| {
+                egui::ComboBox::from_label("neighbour sampling")
+                    .selected_text(format!("{:?}", run_options.neighbour_sampling))
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(
+                            &mut run_options.neighbour_sampling,
+                            NeighbourSampling::Biased,
+                            "Biased",
+                        );
+                        ui.selectable_value(
+                            &mut run_options.neighbour_sampling,
+                            NeighbourSampling::Uniform,
+                            "Uniform",
+                        );
+                    });
             });
 
             ui.horizontal(|ui| {

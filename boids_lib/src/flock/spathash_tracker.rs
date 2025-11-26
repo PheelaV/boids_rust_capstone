@@ -12,7 +12,7 @@ use rand::Rng;
 use crate::{
     boid::{Boid, BoidMetadata},
     math_helpers::distance_dyn_boid,
-    options::{Distance, RunOptions},
+    options::{Distance, NeighbourSampling, RunOptions},
 };
 
 use super::{get_flock_ids, naive_tracker::NaiveTracker, tracker::TrackerSignal, Tracker, MY_RNG};
@@ -724,31 +724,64 @@ impl SpatHash1D {
             }
         };
 
-        for cell in m
-            // depending on the match, iterate the vectors
-            .iter()
-            // filter out the out-of-bound vectors, the home vector is used as a placeholder
-            .filter(|l| **l != Self::HOME)
-            // always consider the boid's current 'home' vector
-            .chain(iter::once(&Self::HOME))
-            // convert vectors to the table's 1D indexes pointing to cells
-            .map(|l| (cell_index as i32 + l[0] + l[1] * self.settings.x_cell_count as i32) as usize)
+        let cell_iter = || {
+            m.iter()
+                .filter(|l| **l != Self::HOME)
+                .chain(iter::once(&Self::HOME))
+                .map(|l| (cell_index as i32 + l[0] + l[1] * self.settings.x_cell_count as i32) as usize)
+        };
+
+        // Fast path: no neighbor limit or biased sampling
+        if run_options.neighbours_cosidered == 0
+            || run_options.neighbour_sampling == NeighbourSampling::Biased
         {
+            for cell in cell_iter() {
+                if self.pivots[cell].usg == 0 {
+                    continue;
+                }
+                for index in self.pivots[cell].init.unwrap()..self.pivots[cell].fin.unwrap() {
+                    if self.table[index].id != boid.id
+                        && distance_dyn_boid(boid, &self.table[index], run_options)
+                            <= run_options.max_sensory_distance
+                    {
+                        neighbours.push(&self.table[index]);
+                        if run_options.neighbours_cosidered != 0
+                            && neighbours.len() >= run_options.neighbours_cosidered
+                        {
+                            return;
+                        }
+                    }
+                }
+            }
+            return;
+        }
+
+        // Uniform strided sampling across all neighboring cells
+        let total_candidates: usize = cell_iter()
+            .filter(|&cell| self.pivots[cell].usg > 0)
+            .map(|cell| self.pivots[cell].usg)
+            .sum();
+
+        let stride = (total_candidates / run_options.neighbours_cosidered).max(1);
+        let mut candidate_index = 0usize;
+
+        for cell in cell_iter() {
             if self.pivots[cell].usg == 0 {
                 continue;
             }
             for index in self.pivots[cell].init.unwrap()..self.pivots[cell].fin.unwrap() {
-                if self.table[index].id != boid.id
-                    && distance_dyn_boid(boid, &self.table[index], run_options)
-                        <= run_options.max_sensory_distance
-                {
-                    neighbours.push(&self.table[index]);
-                    if run_options.neighbours_cosidered != 0
-                        && neighbours.len() >= run_options.neighbours_cosidered
+                if candidate_index % stride == 0 {
+                    if self.table[index].id != boid.id
+                        && distance_dyn_boid(boid, &self.table[index], run_options)
+                            <= run_options.max_sensory_distance
                     {
-                        return;  // Return early once limit is reached
+                        neighbours.push(&self.table[index]);
+                        if neighbours.len() >= run_options.neighbours_cosidered {
+                            return;
+                        }
                     }
                 }
+                candidate_index += 1;
             }
         }
     }

@@ -79,6 +79,7 @@ pub struct RunOptions {
     pub sample_rate: u16,
     pub dbscan_flock_clustering_on: bool,
     pub neighbours_cosidered: usize,
+    pub neighbour_sampling: NeighbourSampling,
     pub stop_movement: bool,
     pub seek_target_on: bool,
     pub seek_location: Option<Vec2>,
@@ -207,6 +208,7 @@ impl Default for RunOptions {
             sample_rate,
             dbscan_flock_clustering_on: false,
             neighbours_cosidered: 0,
+            neighbour_sampling: NeighbourSampling::default(),
             stop_movement: false,
             wander_rate: 0.03,
             wander_on: false,
@@ -223,7 +225,7 @@ impl Default for RunOptions {
             separation_fov_half_cos: 0.,
             rules_impl: false,
             agent_steering: true,
-            rng_seed: None,  // Default to random seed
+            rng_seed: None, // Default to random seed
         };
 
         res.update_sensory_distances();
@@ -315,6 +317,15 @@ pub enum Distance {
 pub enum NoiseModel {
     Vicsek,
     Reynolds,
+}
+
+#[derive(Debug, PartialEq, Copy, Clone, Serialize, Deserialize, Default)]
+pub enum NeighbourSampling {
+    /// Original behavior: early return once limit reached (biased toward first cells)
+    Biased,
+    /// Uniform strided sampling across all neighboring cells
+    #[default]
+    Uniform,
 }
 
 #[derive(Debug, Clone)]
