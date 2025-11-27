@@ -383,7 +383,7 @@ impl Tracker for ReplayTracker {
 
     fn insert_single(&mut self, _: boid::Boid, _: &RunOptions) {}
 
-    fn restart(&mut self, _: &[boid::Boid]) {
+    fn restart(&mut self, _: &[boid::Boid], _run_options: &RunOptions) {
         self.buff_playhead =
             ReplayTracker::get_start_playhead(self.buff_bumper, self.run_options.init_boids);
     }

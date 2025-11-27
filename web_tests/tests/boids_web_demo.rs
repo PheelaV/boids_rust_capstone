@@ -48,6 +48,7 @@
 use std::time::Duration;
 use thirtyfour::prelude::*;
 use tokio::time::sleep;
+use warp::Filter;
 
 /// Start a local web server serving the web demo
 /// Returns the server handle and the URL to access it
@@ -61,7 +62,10 @@ async fn start_test_server() -> (tokio::task::JoinHandle<()>, String) {
         .unwrap()
         .join("web");
 
-    let routes = warp::fs::dir(web_dir);
+    // Add no-cache headers to prevent WASM caching issues
+    let routes = warp::fs::dir(web_dir)
+        .with(warp::reply::with::header("Cache-Control", "no-store, no-cache, must-revalidate"))
+        .with(warp::reply::with::header("Pragma", "no-cache"));
 
     let server = tokio::spawn(async move {
         warp::serve(routes).run(([127, 0, 0, 1], port)).await;
@@ -74,27 +78,29 @@ async fn start_test_server() -> (tokio::task::JoinHandle<()>, String) {
 }
 
 /// Create a new WebDriver instance with headless mode
-/// Tries Chrome first, falls back to Firefox
+/// Tries Firefox first, falls back to Chrome
 /// Both browsers are configured to run headless for CI/server environments
 async fn create_driver() -> WebDriverResult<WebDriver> {
-    // Configure Chrome with headless mode
-    let mut chrome_caps = DesiredCapabilities::chrome();
-    chrome_caps.add_arg("--headless=new")?;
-    chrome_caps.add_arg("--no-sandbox")?;
-    chrome_caps.add_arg("--disable-dev-shm-usage")?;
-    chrome_caps.add_arg("--disable-gpu")?;
-    chrome_caps.add_arg("--window-size=1920,1080")?;
+    // Try Firefox first (more reliable WASM handling)
+    let mut firefox_caps = DesiredCapabilities::firefox();
+    firefox_caps.add_arg("-headless")?;
+    firefox_caps.add_arg("--width=1920")?;
+    firefox_caps.add_arg("--height=1080")?;
 
-    // Try Chrome first
-    match WebDriver::new("http://localhost:4444", chrome_caps).await {
+    match WebDriver::new("http://localhost:4444", firefox_caps).await {
         Ok(driver) => Ok(driver),
         Err(_) => {
-            // Fall back to Firefox with headless mode
-            let mut firefox_caps = DesiredCapabilities::firefox();
-            firefox_caps.add_arg("-headless")?;
-            firefox_caps.add_arg("--width=1920")?;
-            firefox_caps.add_arg("--height=1080")?;
-            WebDriver::new("http://localhost:4444", firefox_caps).await
+            // Fall back to Chrome with headless mode
+            let mut chrome_caps = DesiredCapabilities::chrome();
+            chrome_caps.add_arg("--headless=new")?;
+            chrome_caps.add_arg("--no-sandbox")?;
+            chrome_caps.add_arg("--disable-dev-shm-usage")?;
+            chrome_caps.add_arg("--disable-gpu")?;
+            chrome_caps.add_arg("--window-size=1920,1080")?;
+            // Disable caching to ensure fresh WASM loads
+            chrome_caps.add_arg("--disable-application-cache")?;
+            chrome_caps.add_arg("--disk-cache-size=0")?;
+            WebDriver::new("http://localhost:4444", chrome_caps).await
         }
     }
 }
@@ -216,12 +222,13 @@ async fn test_set_boid_count() -> WebDriverResult<()> {
     driver.goto(&url).await?;
     sleep(Duration::from_secs(3)).await;
 
-    // Find the input field
-    let input = driver.find(By::Id("boid-count-input")).await?;
+    // Pause the simulation first to prevent updateStats() from overwriting the input field
+    // (updateStats overwrites the input every 30 frames, causing race conditions)
+    click_button(&driver, "pause").await?;
+    sleep(Duration::from_millis(200)).await;
 
-    // Clear and set new value
-    input.clear().await?;
-    input.send_keys("150").await?;
+    // Use JavaScript to set the input value (more reliable than clear/send_keys in headless mode)
+    driver.execute("document.getElementById('boid-count-input').value = '150';", vec![]).await?;
 
     // Click set button
     click_button(&driver, "set-boid-count").await?;
@@ -342,9 +349,9 @@ async fn test_reset_simulation() -> WebDriverResult<()> {
     let doubled_count: i32 = doubled_count_text.parse().unwrap();
     assert_eq!(doubled_count, 400, "Count should be doubled");
 
-    // Reset
+    // Reset - click the button and wait for animation frame to update display
     click_button(&driver, "reset").await?;
-    sleep(Duration::from_millis(500)).await;
+    sleep(Duration::from_secs(1)).await;
 
     // Should be back to initial count
     let reset_count_text = get_element_text(&driver, "#boid-count").await?;
@@ -364,11 +371,7 @@ async fn test_pause_resume() -> WebDriverResult<()> {
     driver.goto(&url).await?;
     sleep(Duration::from_secs(3)).await;
 
-    // Get initial frame count
-    let initial_frame_text = get_element_text(&driver, "#frame").await?;
-    let initial_frame: i32 = initial_frame_text.parse().unwrap();
-
-    // Click pause
+    // Click pause first
     let pause_btn = driver.find(By::Id("pause")).await?;
     pause_btn.click().await?;
 
@@ -376,11 +379,18 @@ async fn test_pause_resume() -> WebDriverResult<()> {
     let button_text = pause_btn.text().await?;
     assert_eq!(button_text, "Resume", "Button should say 'Resume' when paused");
 
-    // Wait and verify frame count doesn't change
-    sleep(Duration::from_secs(1)).await;
+    // Wait a moment for pause to fully take effect
+    sleep(Duration::from_millis(200)).await;
+
+    // Now read frame count AFTER pause is confirmed
     let paused_frame_text = get_element_text(&driver, "#frame").await?;
     let paused_frame: i32 = paused_frame_text.parse().unwrap();
-    assert_eq!(paused_frame, initial_frame, "Frame count should not increase when paused");
+
+    // Wait and verify frame count doesn't change
+    sleep(Duration::from_secs(1)).await;
+    let still_paused_frame_text = get_element_text(&driver, "#frame").await?;
+    let still_paused_frame: i32 = still_paused_frame_text.parse().unwrap();
+    assert_eq!(still_paused_frame, paused_frame, "Frame count should not increase when paused");
 
     // Resume
     pause_btn.click().await?;
@@ -391,7 +401,7 @@ async fn test_pause_resume() -> WebDriverResult<()> {
     sleep(Duration::from_secs(1)).await;
     let resumed_frame_text = get_element_text(&driver, "#frame").await?;
     let resumed_frame: i32 = resumed_frame_text.parse().unwrap();
-    assert!(resumed_frame > paused_frame, "Frame count should increase after resume");
+    assert!(resumed_frame > still_paused_frame, "Frame count should increase after resume");
 
     driver.quit().await?;
     Ok(())

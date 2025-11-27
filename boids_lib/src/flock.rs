@@ -129,7 +129,7 @@ impl<'a> Flock<'a> {
 
     pub fn restart(&mut self, run_options: &RunOptions) -> () {
         let boids = get_boids(run_options);
-        self.tracker.restart(&boids);
+        self.tracker.restart(&boids, run_options);
     }
 }
 
@@ -218,7 +218,11 @@ fn get_flock_ids(tracker: &dyn Tracker, entities: &[Boid], run_options: &RunOpti
 }
 
 #[cfg(not(feature = "clustering"))]
-fn get_flock_ids(_tracker: &dyn Tracker, entities: &[Boid], _run_options: &RunOptions) -> Vec<usize> {
+fn get_flock_ids(
+    _tracker: &dyn Tracker,
+    entities: &[Boid],
+    _run_options: &RunOptions,
+) -> Vec<usize> {
     // Return all zeros (no clustering) when clustering feature is disabled
     vec![0; entities.len()]
 }
@@ -508,7 +512,7 @@ mod tests {
     use rand::{Rng, SeedableRng};
     use rand_xoshiro::{self, Xoshiro128StarStar};
 
-    use crate::flock::spathash_tracker::{SpatHash1D, SpatialHashingTableSettings};
+    use crate::flock::spathash_tracker::SpatHash1D;
     use crate::math_helpers::distance_dyn;
     use crate::{
         boid::Boid,
@@ -773,23 +777,23 @@ mod tests {
         let mut tracker = SpatHash1D::new(&boids, &run_options);
         tracker.update_table(&run_options);
 
-        fn get_index(
-            entity: &Boid,
-            run_options: &RunOptions,
-            settings: &SpatialHashingTableSettings,
-        ) -> usize {
-            SpatHash1D::get_table_index(
-                entity.position.x,
-                entity.position.y,
-                run_options.window.win_left as f32,
-                (run_options.window.win_right - 1) as f32,
-                run_options.window.win_bottom as f32,
-                (run_options.window.win_top - 1) as f32,
-                settings.x_cell_res,
-                settings.y_cell_res,
-                settings.x_cell_count as f32,
-            )
-        }
+        // fn get_index(
+        //     entity: &Boid,
+        //     run_options: &RunOptions,
+        //     settings: &SpatialHashingTableSettings,
+        // ) -> usize {
+        //     SpatHash1D::get_table_index(
+        //         entity.position.x,
+        //         entity.position.y,
+        //         run_options.window.win_left as f32,
+        //         (run_options.window.win_right - 1) as f32,
+        //         run_options.window.win_bottom as f32,
+        //         (run_options.window.win_top - 1) as f32,
+        //         settings.x_cell_res,
+        //         settings.y_cell_res,
+        //         settings.x_cell_count as f32,
+        //     )
+        // }
 
         // check all flockmates have been fetched
         for i in 0..clicked.len() {
@@ -829,7 +833,12 @@ mod tests {
             let clicked_boid = &clicked[i];
 
             let mut neighbours: Vec<NeighborData> = Vec::new();
-            NaiveTracker::get_neighbours_naive_with_data(clicked_boid, &boids, &run_options, &mut neighbours);
+            NaiveTracker::get_neighbours_naive_with_data(
+                clicked_boid,
+                &boids,
+                &run_options,
+                &mut neighbours,
+            );
 
             let retrieved_neighbour_id_set: HashSet<usize> =
                 neighbours.iter().map(|nd| nd.boid.id).collect();

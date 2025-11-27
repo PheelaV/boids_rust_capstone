@@ -1,39 +1,11 @@
-//! Integration tests for simulation determinism and reproducibility
+//! Integration tests for simulation behavior and reproducibility
 //!
-//! These tests ensure that the simulation produces consistent, reproducible results
-//! with fixed random seeds and validate core behavioral properties.
+//! These tests validate core behavioral properties of the simulation.
+//! The determinism test is in a separate file (determinism_isolated.rs)
+//! to avoid RNG interference from parallel tests.
 
-use approx::assert_relative_eq;
-use boids_lib::{flock_base, options::*, boid::Boid, flock::Flock};
+use boids_lib::{flock_base, options::*, flock::Flock};
 use glam::Vec2;
-
-/// Test that simulation with same seed produces identical results
-#[test]
-fn test_deterministic_simulation() {
-    let mut options1 = RunOptions::default();
-    options1.init_boids = 50;
-    options1.window = get_window_size(800, 600);
-    options1.rng_seed = Some(42); // Use fixed seed for determinism
-
-    let mut options2 = options1.clone();
-
-    // Run simulation twice with same settings and seed
-    let result1 = flock_base(100, options1);
-    let result2 = flock_base(100, options2);
-
-    // Results should be identical for deterministic behavior
-    assert_eq!(result1.len(), result2.len(), "Same number of data points");
-
-    // Compare a few sample points
-    if !result1.is_empty() {
-        let sample1 = &result1[0];
-        let sample2 = &result2[0];
-
-        assert_eq!(sample1.id, sample2.id, "Boid IDs match");
-        assert_relative_eq!(sample1.x, sample2.x, epsilon = 0.0001);
-        assert_relative_eq!(sample1.y, sample2.y, epsilon = 0.0001);
-    }
-}
 
 /// Test that simulation progresses (boids move)
 #[test]
@@ -263,4 +235,26 @@ fn test_simulation_with_many_boids() {
     }
 
     assert_eq!(flock.view2().count(), 1000);
+}
+
+/// Test that restart properly changes boid count
+#[test]
+fn test_restart_changes_boid_count() {
+    let mut options = RunOptions::default();
+    options.init_boids = 200;
+    options.window = get_window_size(800, 600);
+
+    let mut flock = Flock::new(&options);
+    assert_eq!(flock.view2().count(), 200, "Should start with 200 boids");
+
+    // Add more boids (simulate doubling)
+    for _ in 0..200 {
+        flock.insert_single(&options);
+    }
+    assert_eq!(flock.view2().count(), 400, "Should have 400 after doubling");
+
+    // Now restart with init_boids = 200
+    options.init_boids = 200;
+    flock.restart(&options);
+    assert_eq!(flock.view2().count(), 200, "Should have 200 after restart");
 }

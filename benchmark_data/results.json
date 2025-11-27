@@ -106,5 +106,59 @@
       }
     },
     "status": "success"
+  },
+  {
+    "timestamp": "2025-11-27T01:20:34.830886",
+    "git": {
+      "commit": "e71c03603ab27ecfe63378fb58d5c38a3f1def31",
+      "commit_short": "e71c036",
+      "branch": "v0.2.0",
+      "dirty": true
+    },
+    "benchmarks": {
+      "2^14": {
+        "time": {
+          "low": 2.3933,
+          "mid": 2.4196,
+          "high": 2.4492,
+          "unit": "s"
+        },
+        "throughput": {
+          "low": 1.7125,
+          "mid": 1.7335,
+          "high": 1.7525,
+          "unit": "Melem/s"
+        }
+      },
+      "2^15": {
+        "time": {
+          "low": 8.2877,
+          "mid": 8.3725,
+          "high": 8.4525,
+          "unit": "s"
+        },
+        "throughput": {
+          "low": 992.45,
+          "mid": 1.0019,
+          "high": 1.0122,
+          "unit": "Melem/s"
+        }
+      },
+      "2^16": {
+        "time": {
+          "low": 2.7634,
+          "mid": 2.8196,
+          "high": 2.8766,
+          "unit": "s"
+        },
+        "throughput": {
+          "low": 569.56,
+          "mid": 581.07,
+          "high": 592.9,
+          "unit": "Kelem/s"
+        }
+      }
+    },
+    "status": "success"
   }
 ]

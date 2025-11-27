@@ -2,7 +2,7 @@ mod utils;
 
 use boids_lib::{
     flock::Flock,
-    options::{self, RunOptions, WindowSize, TrackerType, InitiationStrategy, Distance, Boundary, NoiseModel, SaveOptions},
+    options::{self, RunOptions, WindowSize, TrackerType, InitiationStrategy, Distance, Boundary, NoiseModel, SaveOptions, NeighbourSampling},
 };
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
@@ -63,6 +63,8 @@ pub struct WasmSimulation {
     flock: Flock<'static>,
     options: RunOptions,
     frame_count: u64,
+    /// Original boid count for reset - doesn't change when adding/removing boids
+    initial_boid_count: usize,
 }
 
 #[wasm_bindgen]
@@ -81,6 +83,7 @@ impl WasmSimulation {
         utils::set_panic_hook();
 
         let config: SimulationConfig = serde_wasm_bindgen::from_value(config)?;
+        let initial_boid_count = config.init_boids;
         let options = Self::config_to_run_options(config);
         let flock = Flock::new(&options);
 
@@ -88,6 +91,7 @@ impl WasmSimulation {
             flock,
             options,
             frame_count: 0,
+            initial_boid_count,
         })
     }
 
@@ -247,8 +251,10 @@ impl WasmSimulation {
         }
     }
 
-    /// Reset the simulation with current configuration
+    /// Reset the simulation to initial state (original boid count)
     pub fn reset(&mut self) {
+        // Restore original boid count before restart
+        self.options.init_boids = self.initial_boid_count;
         self.flock.restart(&self.options);
         self.frame_count = 0;
     }
@@ -352,6 +358,7 @@ impl WasmSimulation {
             seek_target_on: false,
             seek_location: None,
             agent_steering: true,
+            neighbour_sampling: NeighbourSampling::default(),
             rng_seed: None, // Use random seed for web simulations
         }
     }

@@ -10,7 +10,17 @@ use boids_lib::{
     options::*,
 };
 use std::fs;
-use std::path::Path;
+
+/// Guard struct to ensure test directory cleanup even on panic
+struct TestDirGuard {
+    path: String,
+}
+
+impl Drop for TestDirGuard {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.path);
+    }
+}
 
 /// Test that birdwatcher captures data at correct sample rate
 #[test]
@@ -88,8 +98,9 @@ fn test_captured_data_validity() {
 /// Test that data can be saved and loaded
 #[test]
 fn test_save_and_load_trajectory() {
-    let test_dir = "/tmp/boids_test_capture";
+    let test_dir = "/tmp/boids_test_capture/";
     let _ = fs::create_dir_all(test_dir);
+    let _guard = TestDirGuard { path: test_dir.to_string() };
 
     let mut options = RunOptions::default();
     options.init_boids = 20;
@@ -111,9 +122,7 @@ fn test_save_and_load_trajectory() {
         assert!(sample.id < 100, "Valid boid ID");
         assert!(sample.time < 200, "Valid time");
     }
-
-    // Cleanup
-    let _ = fs::remove_dir_all(test_dir);
+    // Cleanup happens automatically via TestDirGuard Drop
 }
 
 /// Test flock_base produces consistent output structure
@@ -247,9 +256,15 @@ fn test_replay_tracker_configuration() {
 /// Test that data collection respects save options
 #[test]
 fn test_save_options_filtering() {
+    let test_dir = "/tmp/boids_test_save_options/";
+    let _ = fs::create_dir_all(test_dir);
+    let _guard = TestDirGuard { path: test_dir.to_string() };
+
     let mut options = RunOptions::default();
     options.init_boids = 10;
     options.sample_rate = 5;
+    // Use temp directory to avoid leaving files in the source tree
+    options.save_options.save_locations_path = Some(test_dir.to_string());
 
     let mut flock = Flock::new(&options);
     let mut birdwatcher = Birdwatcher::new(5);
@@ -278,6 +293,7 @@ fn test_save_options_filtering() {
 
     // Behavior might be same (data returned) but flag is respected
     assert!(!data_without_save.is_empty());
+    // Cleanup happens automatically via TestDirGuard Drop
 }
 
 /// Test multiple simulation runs produce different results (non-determinism)

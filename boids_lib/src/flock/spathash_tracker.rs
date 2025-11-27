@@ -68,6 +68,12 @@ pub struct SpatHash1D {
     query_metadata: Option<[[[i32; 2]; 9]; 16]>,
 
     distance: Distance,
+
+    // === Reusable working buffers (avoid per-frame allocations) ===
+    /// Working copy of pivots used during sort phase
+    pivots_work: Vec<SpatHashPiv>,
+    /// Tracks which table entries have been sorted
+    sorted: Vec<bool>,
 }
 
 #[derive(Clone, Debug)]
@@ -90,11 +96,12 @@ impl Default for SpatHashPiv {
 impl Tracker for SpatHash1D {
     fn new(entities: &[Boid], run_options: &RunOptions) -> Self {
         let settings = SpatHash1D::get_tracker_settings(run_options);
+        let cell_count = settings.cell_count;
         let metadata: Vec<BoidMetadata> = entities.iter().map(|e| BoidMetadata::new(e)).collect();
 
         SpatHash1D {
             // initialize vector with both capacity and values prefilled to simplify code in the update_table
-            pivots: vec![Default::default(); settings.cell_count],
+            pivots: vec![Default::default(); cell_count],
             table: entities.to_vec(),
             metadata,
             // initialize vector with both capacity and values prefilled to simplify code in the update_table
@@ -103,6 +110,9 @@ impl Tracker for SpatHash1D {
             query_metadata: None,
             distance: run_options.distance,
             view: entities.iter().map(|b| b.id).collect_vec(),
+            // Reusable working buffers
+            pivots_work: vec![Default::default(); cell_count],
+            sorted: vec![false; entities.len()],
         }
     }
 
@@ -112,6 +122,8 @@ impl Tracker for SpatHash1D {
         let table_resized = self.settings.cell_count as i64 - new_settings.cell_count as i64 != 0;
         if table_resized {
             self.pivots
+                .resize(new_settings.cell_count, Default::default());
+            self.pivots_work
                 .resize(new_settings.cell_count, Default::default());
             self.settings = new_settings;
             self.update_table(run_options);
@@ -168,9 +180,15 @@ impl Tracker for SpatHash1D {
         self.update_table(run_options);
     }
 
-    fn restart(&mut self, entities: &[Boid]) {
+    fn restart(&mut self, entities: &[Boid], run_options: &RunOptions) {
         self.table = entities.to_vec();
         self.view = entities.iter().map(|e| e.id).collect_vec();
+        // Also rebuild metadata and index to match new entity count
+        self.metadata = entities.iter().map(|e| BoidMetadata::new(e)).collect();
+        self.index.resize(entities.len(), 0);
+        self.sorted.resize(entities.len(), false);
+        // Rebuild spatial hash index so update_location has valid cell indices
+        self.update_table(run_options);
     }
 
     fn delete_last(&mut self, run_options: &RunOptions) -> Option<Boid> {
@@ -544,9 +562,11 @@ impl SpatHash1D {
             }
         }
 
-        let mut pivots = self.pivots.to_owned();
+        // Reuse working buffers instead of allocating
+        self.pivots_work.clone_from(&self.pivots);
+        self.sorted.resize(self.table.len(), false);
+        self.sorted.fill(false);
 
-        let mut sorted = vec![false; self.table.len()];
         let mut destination: usize;
 
         let mut e = 0;
@@ -554,7 +574,7 @@ impl SpatHash1D {
         // Now we finally sort through the existing agents using newly created pivots and indeces
         while e < self.table.len() {
             // it has already been taken care of, skip
-            if sorted[e] {
+            if self.sorted[e] {
                 e += 1;
                 continue;
             }
@@ -566,7 +586,7 @@ impl SpatHash1D {
             // when we ocupy a cell's range with one agent or find an agent already in place
             // we decrease the cell's range -> since it is a copy, we are keeping track
             // of which agen'ts need yet to
-            destination = match pivots[self.index[id]].fin {
+            destination = match self.pivots_work[self.index[id]].fin {
                 Some(d) => {
                     if d == 0 {
                         panic!("We are trying to sort through too many units!");
@@ -586,7 +606,7 @@ impl SpatHash1D {
                 //  make a record of where he is
                 // self.view[self.table[destination].id] = destination;
                 // mark as done
-                sorted[destination] = true;
+                self.sorted[destination] = true;
             } else {
                 // check if this index has not been put in place
                 // todo: this might not be required
@@ -596,7 +616,7 @@ impl SpatHash1D {
                 e += 1;
             }
 
-            pivots[self.index[id]].fin = Some(destination);
+            self.pivots_work[self.index[id]].fin = Some(destination);
         }
 
         for e in 0..self.table.len() {

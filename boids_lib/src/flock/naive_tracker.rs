@@ -193,8 +193,10 @@ impl Tracker for NaiveTracker {
         self.entities.push(entity);
     }
 
-    fn restart(&mut self, entities: &[Boid]) {
+    fn restart(&mut self, entities: &[Boid], _run_options: &RunOptions) {
         self.entities = entities.to_vec();
+        // Also rebuild metadata to match new entity count
+        self.metadata = entities.iter().map(|e| BoidMetadata::new(e)).collect();
     }
 
     fn delete_last(&mut self, _run_options: &RunOptions) -> Option<Boid> {

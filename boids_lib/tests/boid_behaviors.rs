@@ -3,7 +3,6 @@
 //! These tests validate that separation, cohesion, alignment, and wander
 //! behaviors produce expected effects on boid movement.
 
-use approx::assert_relative_eq;
 use boids_lib::{boid::*, flock::Flock, math_helpers::distance_and_direction_dyn_boid, options::*};
 use glam::Vec2;
 
@@ -186,43 +185,8 @@ fn test_rules_toggle() {
     );
 }
 
-/// Test that coefficients affect behavior strength
-#[test]
-fn test_coefficient_effects() {
-    let mut options = RunOptions::default();
-    options.init_boids = 20;
-    options.window = get_window_size(800, 600);
-    options.rng_seed = Some(12345); // Use fixed seed for reproducibility
-
-    // Weak separation
-    options.separation_coefficient = 0.1;
-    options.cohesion_coefficient = 0.0;
-    options.alignment_coefficient = 0.0;
-
-    let mut flock_weak = Flock::new(&options);
-    for _ in 0..50 {
-        flock_weak.update(&mut options);
-    }
-
-    let dispersion_weak = calculate_average_neighbor_distance(&flock_weak);
-
-    // Strong separation
-    options.separation_coefficient = 5.0;
-    let mut flock_strong = Flock::new(&options);
-    for _ in 0..50 {
-        flock_strong.update(&mut options);
-    }
-
-    let dispersion_strong = calculate_average_neighbor_distance(&flock_strong);
-
-    // Stronger separation should lead to greater average distance
-    assert!(
-        dispersion_strong > dispersion_weak,
-        "Strong separation ({}) should create more dispersion than weak ({})",
-        dispersion_strong,
-        dispersion_weak
-    );
-}
+// Note: test_coefficient_effects moved to determinism_isolated.rs
+// because it requires deterministic RNG behavior
 
 /// Test field of vision constrains neighbor detection
 #[test]
@@ -297,25 +261,4 @@ fn test_wander_adds_variation() {
         "Wander should cause heading changes in multiple boids, got {} changes",
         heading_changes
     );
-}
-
-// Helper function
-fn calculate_average_neighbor_distance(flock: &Flock) -> f32 {
-    let positions: Vec<Vec2> = flock.view2().map(|(b, _)| b.position).collect();
-
-    if positions.len() < 2 {
-        return 0.0;
-    }
-
-    let mut total_distance = 0.0;
-    let mut count = 0;
-
-    for i in 0..positions.len() {
-        for j in (i + 1)..positions.len() {
-            total_distance += (positions[i] - positions[j]).length();
-            count += 1;
-        }
-    }
-
-    total_distance / count as f32
 }

@@ -67,8 +67,6 @@ fn test_reflective_boundary() {
     // Create a boid moving right near right boundary
     let mut boid = Boid::new(95.0, 0.0, Vec2::new(10.0, 0.0), 0);
 
-    let initial_x_vel = boid.velocity.x;
-
     // Update location should reflect velocity when hitting boundary
     for _ in 0..20 {
         boid.update_location(&options);
