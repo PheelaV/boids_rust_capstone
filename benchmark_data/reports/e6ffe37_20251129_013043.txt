@@ -1,0 +1,21 @@
+============================================================
+BOIDS SCALABILITY BENCHMARK REPORT
+============================================================
+
+Timestamp: 2025-11-29T01:30:43.890166
+Commit:    e6ffe37 (v0.2.0)
+Full SHA:  e6ffe371cb28a3c66b7b753bece4acec31c367ac
+Features:  simd-neon
+Toolchain: nightly
+WARNING:   Working directory has uncommitted changes!
+Status:    SUCCESS
+
+------------------------------------------------------------
+RESULTS
+------------------------------------------------------------
+
+Benchmark    Iters    Time (s)                  Throughput     
+------------ -------- ------------------------- ---------------
+2^14         256      2.316 [2.301-2.333] s     1.81 Melem/s   
+
+============================================================

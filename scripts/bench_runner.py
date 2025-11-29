@@ -7,15 +7,30 @@
 Benchmark runner that records results per git commit.
 
 Usage:
-    uv run scripts/bench_runner.py [--output-dir benchmark_data] [--quick]
+    uv run scripts/bench_runner.py [--output-dir benchmark_data] [--quick] [--features FEATURES]
 
 Options:
-    --quick       Run only 2^14 benchmark for quick iteration/testing
+    --quick              Run only 2^14 benchmark for quick iteration/testing
+    --features FEATURES  Cargo features to enable (e.g., "simd-neon" or "simd-avx2")
+    --nightly           Use cargo +nightly (required for SIMD features)
 
 Results are saved to:
   - benchmark_data/results.json  (structured data for all runs)
   - benchmark_data/logs/<commit>_<timestamp>.log  (raw output)
   - benchmark_data/reports/<commit>_<timestamp>.txt  (human-readable report)
+
+Examples:
+    # Run default benchmarks
+    uv run scripts/bench_runner.py
+
+    # Run with SIMD optimizations (M3 Mac)
+    uv run scripts/bench_runner.py --nightly --features simd-neon
+
+    # Run with SIMD optimizations (AMD Zen 3)
+    uv run scripts/bench_runner.py --nightly --features simd-avx2
+
+    # Quick test with SIMD
+    uv run scripts/bench_runner.py --quick --nightly --features simd-neon
 """
 
 import subprocess
@@ -52,12 +67,19 @@ def get_git_info():
     }
 
 
-def run_benchmark(quick=False):
+def run_benchmark(quick=False, features=None, nightly=False):
     """Run cargo bench and stream output while capturing it.
 
     Returns (output, exit_code, error_message).
     """
-    cmd = ["cargo", "bench", "--bench", "flock_scalability"]
+    if nightly:
+        cmd = ["cargo", "+nightly", "bench", "--bench", "flock_scalability"]
+    else:
+        cmd = ["cargo", "bench", "--bench", "flock_scalability"]
+
+    if features:
+        cmd.extend(["--features", features])
+
     if quick:
         cmd.extend(["--", r"2\^14"])  # Only run 2^14 benchmark (escape ^ for regex)
 
@@ -184,7 +206,7 @@ def infer_iterations(bench_results):
     return result
 
 
-def generate_report(git_info, bench_results, timestamp, error_message=None):
+def generate_report(git_info, bench_results, timestamp, error_message=None, features=None, nightly=False):
     """Generate a human-readable report."""
     lines = []
     lines.append("=" * 60)
@@ -194,6 +216,10 @@ def generate_report(git_info, bench_results, timestamp, error_message=None):
     lines.append(f"Timestamp: {timestamp}")
     lines.append(f"Commit:    {git_info['commit_short']} ({git_info['branch']})")
     lines.append(f"Full SHA:  {git_info['commit']}")
+    if features:
+        lines.append(f"Features:  {features}")
+    if nightly:
+        lines.append(f"Toolchain: nightly")
     if git_info["dirty"]:
         lines.append("WARNING:   Working directory has uncommitted changes!")
     lines.append(f"Status:    {'ERROR' if error_message else 'SUCCESS'}")
@@ -299,12 +325,19 @@ def save_results(filepath, results):
 def main():
     output_dir = Path("benchmark_data")
     quick_mode = "--quick" in sys.argv
+    nightly_mode = "--nightly" in sys.argv
+    features = None
 
     # Parse args
     if "--output-dir" in sys.argv:
         idx = sys.argv.index("--output-dir")
         if idx + 1 < len(sys.argv):
             output_dir = Path(sys.argv[idx + 1])
+
+    if "--features" in sys.argv:
+        idx = sys.argv.index("--features")
+        if idx + 1 < len(sys.argv):
+            features = sys.argv[idx + 1]
 
     # Create directories
     logs_dir = output_dir / "logs"
@@ -326,7 +359,13 @@ def main():
     # Run benchmark (streams to console)
     if quick_mode:
         print("QUICK MODE: Running only 2^14 benchmark\n")
-    output, exit_code, error_message = run_benchmark(quick=quick_mode)
+    if features:
+        print(f"FEATURES: {features}\n")
+    if nightly_mode:
+        print("USING: cargo +nightly\n")
+    output, exit_code, error_message = run_benchmark(
+        quick=quick_mode, features=features, nightly=nightly_mode
+    )
 
     # Save raw log
     log_file = logs_dir / f"{git_info['commit_short']}_{file_timestamp}.log"
@@ -338,7 +377,10 @@ def main():
     bench_results = parse_criterion_output(output)
 
     # Generate report (even if partial/failed)
-    report = generate_report(git_info, bench_results, timestamp, error_message)
+    report = generate_report(
+        git_info, bench_results, timestamp, error_message,
+        features=features, nightly=nightly_mode
+    )
 
     # Save report
     report_file = reports_dir / f"{git_info['commit_short']}_{file_timestamp}.txt"
@@ -357,6 +399,8 @@ def main():
         "git": git_info,
         "benchmarks": bench_results,
         "status": "error" if error_message else "success",
+        "features": features,
+        "nightly": nightly_mode,
     }
     if error_message:
         entry["error"] = error_message

@@ -15,6 +15,12 @@ std = []
 clustering = ["linfa", "linfa-clustering", "linfa-datasets", "linfa-nn", "petal-clustering", "petal-neighbors"]
 wasm = ["getrandom/js"]
 
+# SIMD optimizations - opt-in only, not in default
+# These require nightly Rust for std::simd (portable_simd feature)
+simd = []                  # Base SIMD infrastructure
+simd-neon = ["simd"]       # ARM64 NEON (128-bit, 4x f32)
+simd-avx2 = ["simd"]       # x86-64 AVX2 (256-bit, 8x f32)
+
 [dependencies]
 approx = "0.5"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std", "wasmbind"] }

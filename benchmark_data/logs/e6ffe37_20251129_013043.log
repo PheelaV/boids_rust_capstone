@@ -1,0 +1,21 @@
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /Users/filip/source/repos/boids_rust_capstone/boids_wasm/Cargo.toml
+workspace: /Users/filip/source/repos/boids_rust_capstone/Cargo.toml
+   Compiling boids_lib v0.1.0 (/Users/filip/source/repos/boids_rust_capstone/boids_lib)
+    Finished `bench` profile [optimized] target(s) in 16.31s
+warning: the following packages contain code that will be rejected by a future version of Rust: partitions v0.2.4
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 8`
+     Running benches/flock_scalability.rs (target/release/deps/flock_scalability-a5322ad541b4194a)
+Gnuplot not found, using plotters backend
+Benchmarking flock_scalability/boids/2^14
+Benchmarking flock_scalability/boids/2^14: Warming up for 3.0000 s
+Benchmarking flock_scalability/boids/2^14: Collecting 10 samples in estimated 45.953 s (20 iterations)
+Benchmarking flock_scalability/boids/2^14: Analyzing
+flock_scalability/boids/2^14
+                        time:   [2.3014 s 2.3161 s 2.3327 s]
+                        thrpt:  [1.7980 Melem/s 1.8109 Melem/s 1.8225 Melem/s]
+                 change:
+                        time:   [-10.758% -8.9727% -7.5697%] (p = 0.00 < 0.05)
+                        thrpt:  [+8.1896% +9.8572% +12.055%]
+                        Performance has improved.
+

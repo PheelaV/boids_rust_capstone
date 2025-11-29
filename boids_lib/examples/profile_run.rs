@@ -37,7 +37,7 @@ fn main() {
     // FOV and wander
     ro.field_of_vision_deg = 280.0;
     ro.wander_on = false;
-    ro.size = 5.0;
+
     ro.agent_steering = true;
     ro.rules_impl = false;
 

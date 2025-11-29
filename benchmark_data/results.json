@@ -160,5 +160,61 @@
       }
     },
     "status": "success"
+  },
+  {
+    "timestamp": "2025-11-29T01:01:58.641159",
+    "git": {
+      "commit": "e6ffe371cb28a3c66b7b753bece4acec31c367ac",
+      "commit_short": "e6ffe37",
+      "branch": "v0.2.0",
+      "dirty": true
+    },
+    "benchmarks": {
+      "2^14": {
+        "time": {
+          "low": 3.1535,
+          "mid": 3.1606,
+          "high": 3.1687,
+          "unit": "s"
+        },
+        "throughput": {
+          "low": 1.3237,
+          "mid": 1.3271,
+          "high": 1.3301,
+          "unit": "Melem/s"
+        }
+      }
+    },
+    "status": "success",
+    "features": "simd-neon",
+    "nightly": true
+  },
+  {
+    "timestamp": "2025-11-29T01:30:43.890166",
+    "git": {
+      "commit": "e6ffe371cb28a3c66b7b753bece4acec31c367ac",
+      "commit_short": "e6ffe37",
+      "branch": "v0.2.0",
+      "dirty": true
+    },
+    "benchmarks": {
+      "2^14": {
+        "time": {
+          "low": 2.3014,
+          "mid": 2.3161,
+          "high": 2.3327,
+          "unit": "s"
+        },
+        "throughput": {
+          "low": 1.798,
+          "mid": 1.8109,
+          "high": 1.8225,
+          "unit": "Melem/s"
+        }
+      }
+    },
+    "status": "success",
+    "features": "simd-neon",
+    "nightly": true
   }
 ]

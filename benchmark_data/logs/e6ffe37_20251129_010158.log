@@ -1,0 +1,169 @@
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /Users/filip/source/repos/boids_rust_capstone/boids_wasm/Cargo.toml
+workspace: /Users/filip/source/repos/boids_rust_capstone/Cargo.toml
+   Compiling proc-macro2 v1.0.103
+   Compiling quote v1.0.42
+   Compiling unicode-ident v1.0.22
+   Compiling autocfg v1.5.0
+   Compiling libm v0.2.15
+   Compiling cfg-if v1.0.4
+   Compiling crossbeam-utils v0.8.21
+   Compiling libc v0.2.177
+   Compiling either v1.15.0
+   Compiling zerocopy v0.8.28
+   Compiling rayon-core v1.13.0
+   Compiling rawpointer v0.2.1
+   Compiling serde_core v1.0.228
+   Compiling memchr v2.7.6
+   Compiling thiserror v1.0.69
+   Compiling serde v1.0.228
+   Compiling num-traits v0.2.19
+   Compiling matrixmultiply v0.3.10
+   Compiling itoa v1.0.15
+   Compiling ryu v1.0.20
+   Compiling indexmap v1.9.3
+   Compiling itertools v0.10.5
+   Compiling crossbeam-epoch v0.9.18
+   Compiling crossbeam-deque v0.8.6
+   Compiling linfa v0.6.1
+   Compiling crc32fast v1.5.0
+   Compiling getrandom v0.2.16
+   Compiling semver v1.0.27
+   Compiling rand_core v0.6.4
+   Compiling hashbrown v0.12.3
+   Compiling hashbrown v0.16.1
+   Compiling utf8parse v0.2.2
+   Compiling futures-sink v0.3.31
+   Compiling futures-core v0.3.31
+   Compiling equivalent v1.0.2
+   Compiling winnow v0.7.13
+   Compiling serde_json v1.0.145
+   Compiling aho-corasick v1.1.4
+   Compiling indexmap v2.12.1
+   Compiling toml_parser v1.0.4
+   Compiling futures-channel v0.3.31
+   Compiling num-integer v0.1.46
+   Compiling num-complex v0.4.6
+   Compiling approx v0.4.0
+   Compiling noisy_float v0.2.0
+   Compiling anstyle-parse v0.2.7
+   Compiling rayon v1.11.0
+   Compiling rustc_version v0.4.1
+   Compiling csv-core v0.1.13
+   Compiling pin-project-lite v0.2.16
+   Compiling syn v2.0.110
+   Compiling regex-syntax v0.8.8
+   Compiling anstyle v1.0.13
+   Compiling simd-adler32 v0.3.7
+   Compiling anstyle-query v1.1.5
+   Compiling futures-task v0.3.31
+   Compiling toml_datetime v0.7.3
+   Compiling colorchoice v1.0.4
+   Compiling futures-io v0.3.31
+   Compiling pin-utils v0.1.0
+   Compiling slab v0.4.11
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling adler2 v2.0.1
+   Compiling anstream v0.6.21
+   Compiling toml_edit v0.23.7
+   Compiling rstest_macros v0.23.0
+   Compiling miniz_oxide v0.8.9
+   Compiling ordered-float v2.10.1
+   Compiling kdtree v0.6.0
+   Compiling byteorder v1.5.0
+   Compiling plotters-backend v0.3.7
+   Compiling core-foundation-sys v0.8.7
+   Compiling bit-vec v0.5.1
+   Compiling regex-automata v0.4.13
+   Compiling ciborium-io v0.2.2
+   Compiling heck v0.5.0
+   Compiling thiserror v2.0.17
+   Compiling clap_lex v0.7.6
+   Compiling strsim v0.11.1
+   Compiling ndarray v0.15.6
+   Compiling order-stat v0.1.3
+   Compiling robust v0.2.3
+   Compiling clap_builder v4.5.53
+   Compiling partitions v0.2.4
+   Compiling delaunator v1.0.2
+   Compiling iana-time-zone v0.1.64
+   Compiling csv v1.4.0
+   Compiling plotters-svg v0.3.7
+   Compiling succinct v0.5.2
+   Compiling flate2 v1.1.5
+   Compiling proc-macro-crate v3.4.0
+   Compiling rand_xoshiro v0.6.0
+   Compiling space v0.12.1
+   Compiling cast v0.3.0
+   Compiling fnv v1.0.7
+   Compiling relative-path v1.9.3
+   Compiling same-file v1.0.6
+   Compiling slotmapd v1.0.11
+   Compiling glob v0.3.3
+   Compiling once_cell v1.21.3
+   Compiling walkdir v2.5.0
+   Compiling criterion-plot v0.5.0
+   Compiling plotters v0.3.7
+   Compiling flat_spatial v0.6.1
+   Compiling voronoice v0.2.0
+   Compiling regex v1.12.2
+   Compiling chrono v0.4.42
+   Compiling approx v0.5.1
+   Compiling is-terminal v0.4.17
+   Compiling itertools v0.13.0
+   Compiling oorandom v11.1.5
+   Compiling futures-timer v3.0.3
+   Compiling anes v0.1.6
+   Compiling zerocopy-derive v0.8.28
+   Compiling serde_derive v1.0.228
+   Compiling thiserror-impl v1.0.69
+   Compiling futures-macro v0.3.31
+   Compiling thiserror-impl v2.0.17
+   Compiling clap_derive v4.5.49
+   Compiling futures-util v0.3.31
+   Compiling clap v4.5.53
+   Compiling linfa-linalg v0.1.0
+   Compiling petal-neighbors v0.8.0
+   Compiling futures-executor v0.3.31
+   Compiling futures v0.3.31
+   Compiling ppv-lite86 v0.2.21
+   Compiling half v2.7.1
+   Compiling rstest v0.23.0
+   Compiling rand_chacha v0.3.1
+   Compiling ciborium-ll v0.2.2
+   Compiling rand v0.8.5
+   Compiling ndarray-csv v0.5.1
+   Compiling ciborium v0.2.2
+   Compiling tinytemplate v1.2.1
+   Compiling petal-clustering v0.5.1
+   Compiling rand_distr v0.4.3
+   Compiling ndarray-stats v0.5.1
+   Compiling glam v0.17.3
+   Compiling criterion v0.5.1
+   Compiling ndarray-rand v0.14.0
+   Compiling linfa-nn v0.6.1
+   Compiling linfa-datasets v0.6.1
+   Compiling linfa-clustering v0.6.1
+   Compiling boids_lib v0.1.0 (/Users/filip/source/repos/boids_rust_capstone/boids_lib)
+    Finished `bench` profile [optimized] target(s) in 30.36s
+warning: the following packages contain code that will be rejected by a future version of Rust: partitions v0.2.4
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 8`
+     Running benches/flock_scalability.rs (target/release/deps/flock_scalability-a5322ad541b4194a)
+Gnuplot not found, using plotters backend
+Benchmarking flock_scalability/boids/2^14
+Benchmarking flock_scalability/boids/2^14: Warming up for 3.0000 s
+
+Warning: Unable to complete 10 samples in 30.0s. You may wish to increase target time to 31.3s.
+Benchmarking flock_scalability/boids/2^14: Collecting 10 samples in estimated 31.321 s (10 iterations)
+Benchmarking flock_scalability/boids/2^14: Analyzing
+flock_scalability/boids/2^14
+                        time:   [3.1535 s 3.1606 s 3.1687 s]
+                        thrpt:  [1.3237 Melem/s 1.3271 Melem/s 1.3301 Melem/s]
+                 change:
+                        time:   [+28.979% +30.627% +32.071%] (p = 0.00 < 0.05)
+                        thrpt:  [-24.283% -23.446% -22.468%]
+                        Performance has regressed.
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) low mild
+  1 (10.00%) high severe
+

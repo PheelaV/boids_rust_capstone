@@ -303,6 +303,7 @@ impl WasmSimulation {
             separation_coefficient: config.separation_coefficient,
             sensory_distance: config.sensory_distance,
             max_sensory_distance: config.sensory_distance * 1.15,
+            max_sensory_distance_sq: (config.sensory_distance * 1.15).powi(2),
             alignment_treshold_distance: config.sensory_distance * 1.15,
             cohesion_treshold_distance: config.sensory_distance * 0.95,
             separation_treshold_distance: config.sensory_distance * 0.35,

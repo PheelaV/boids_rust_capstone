@@ -1,3 +1,6 @@
+// Enable portable_simd feature when SIMD is enabled (requires nightly)
+#![cfg_attr(feature = "simd", feature(portable_simd))]
+
 use birdwatcher::{Birdwatcher, BoidData};
 use flock::Flock;
 use options::RunOptions;
@@ -8,6 +11,10 @@ pub mod flock;
 pub mod birdwatcher;
 pub mod math_helpers;
 pub mod options;
+
+// SIMD module - only compiled when simd feature is enabled
+#[cfg(feature = "simd")]
+pub mod simd;
 
 pub fn flock_base(no_iter: u64, run_options: RunOptions) -> Vec<BoidData> {
     let mut ro = run_options;

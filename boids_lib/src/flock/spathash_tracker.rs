@@ -15,6 +15,9 @@ use crate::{
     options::{Distance, NeighbourSampling, RunOptions},
 };
 
+#[cfg(feature = "simd")]
+use crate::simd::process_candidates_callback;
+
 use super::{get_flock_ids, naive_tracker::NaiveTracker, tracker::TrackerSignal, Tracker, MY_RNG};
 
 /// Uses a spatial hashing space division method, where all cells of the underlying
@@ -74,6 +77,16 @@ pub struct SpatHash1D {
     pivots_work: Vec<SpatHashPiv>,
     /// Tracks which table entries have been sorted
     sorted: Vec<bool>,
+
+    // === SIMD-friendly SoA (Structure of Arrays) for positions ===
+    // These shadow arrays mirror table[i].position in contiguous f32 arrays
+    // for efficient SIMD loading. Updated at the end of update_table().
+    #[cfg(feature = "simd")]
+    positions_x: Vec<f32>,
+    #[cfg(feature = "simd")]
+    positions_y: Vec<f32>,
+    #[cfg(feature = "simd")]
+    boid_ids: Vec<usize>,
 }
 
 #[derive(Clone, Debug)]
@@ -99,6 +112,8 @@ impl Tracker for SpatHash1D {
         let cell_count = settings.cell_count;
         let metadata: Vec<BoidMetadata> = entities.iter().map(|e| BoidMetadata::new(e)).collect();
 
+        let n = entities.len();
+
         SpatHash1D {
             // initialize vector with both capacity and values prefilled to simplify code in the update_table
             pivots: vec![Default::default(); cell_count],
@@ -112,7 +127,14 @@ impl Tracker for SpatHash1D {
             view: entities.iter().map(|b| b.id).collect_vec(),
             // Reusable working buffers
             pivots_work: vec![Default::default(); cell_count],
-            sorted: vec![false; entities.len()],
+            sorted: vec![false; n],
+            // SIMD shadow arrays for positions and IDs
+            #[cfg(feature = "simd")]
+            positions_x: entities.iter().map(|b| b.position.x).collect(),
+            #[cfg(feature = "simd")]
+            positions_y: entities.iter().map(|b| b.position.y).collect(),
+            #[cfg(feature = "simd")]
+            boid_ids: entities.iter().map(|b| b.id).collect(),
         }
     }
 
@@ -622,6 +644,20 @@ impl SpatHash1D {
         for e in 0..self.table.len() {
             self.view[self.table[e].id] = e;
         }
+
+        // Update SIMD shadow arrays to mirror the sorted table
+        #[cfg(feature = "simd")]
+        {
+            let n = self.table.len();
+            self.positions_x.resize(n, 0.0);
+            self.positions_y.resize(n, 0.0);
+            self.boid_ids.resize(n, 0);
+            for (i, boid) in self.table.iter().enumerate() {
+                self.positions_x[i] = boid.position.x;
+                self.positions_y[i] = boid.position.y;
+                self.boid_ids[i] = boid.id;
+            }
+        }
     }
 
     /// Returns "hashed" value representing an index for spatial subdivision, handles a zero centered coordinate system
@@ -764,42 +800,109 @@ impl SpatHash1D {
         if run_options.neighbours_cosidered == 0
             || run_options.neighbour_sampling == NeighbourSampling::Biased
         {
-            for cell in cell_iter() {
-                if self.pivots[cell].usg == 0 {
-                    continue;
+            // SIMD-accelerated path
+            #[cfg(feature = "simd")]
+            {
+                let is_toroidal = run_options.distance == Distance::EucToroidal;
+                let half_width = run_options.window.win_right as f32;
+                let half_height = run_options.window.win_top as f32;
+                let width = run_options.window.win_w as f32;
+                let height = run_options.window.win_h as f32;
+                let fov_cos = run_options.field_of_vision_cos;
+                let max_neighbours = run_options.neighbours_cosidered;
+
+                'cell_loop: for cell in cell_iter() {
+                    if self.pivots[cell].usg == 0 {
+                        continue;
+                    }
+
+                    let start = self.pivots[cell].init.unwrap();
+                    let end = self.pivots[cell].fin.unwrap();
+
+                    // Process candidates with callback - no Vec allocation
+                    let completed = process_candidates_callback(
+                        boid.position.x,
+                        boid.position.y,
+                        boid.id,
+                        &self.positions_x,
+                        &self.positions_y,
+                        &self.boid_ids,
+                        start,
+                        end,
+                        run_options.max_sensory_distance_sq,
+                        is_toroidal,
+                        half_width,
+                        half_height,
+                        width,
+                        height,
+                        |idx, distance, dir_x, dir_y| {
+                            let direction = Vec2::new(dir_x, dir_y);
+
+                            // FOV check using already-computed direction
+                            if let Some(ref vel_dir) = vel_norm {
+                                if vel_dir.dot(direction) <= fov_cos {
+                                    return true; // Outside FOV, continue to next
+                                }
+                            }
+
+                            neighbours.push(NeighborData {
+                                boid: &self.table[idx],
+                                distance,
+                                direction,
+                            });
+
+                            // Return false to stop if we have enough neighbours
+                            max_neighbours == 0 || neighbours.len() < max_neighbours
+                        },
+                    );
+
+                    if !completed {
+                        break 'cell_loop;
+                    }
                 }
-                for index in self.pivots[cell].init.unwrap()..self.pivots[cell].fin.unwrap() {
-                    if self.table[index].id == boid.id {
+                return;
+            }
+
+            // Scalar fallback (non-SIMD builds)
+            #[cfg(not(feature = "simd"))]
+            {
+                for cell in cell_iter() {
+                    if self.pivots[cell].usg == 0 {
                         continue;
                     }
+                    for index in self.pivots[cell].init.unwrap()..self.pivots[cell].fin.unwrap() {
+                        if self.table[index].id == boid.id {
+                            continue;
+                        }
 
-                    let (distance, direction) = distance_and_direction_dyn_boid(boid, &self.table[index], run_options);
+                        let (distance, direction) = distance_and_direction_dyn_boid(boid, &self.table[index], run_options);
 
-                    if distance > run_options.max_sensory_distance {
-                        continue;
-                    }
+                        if distance > run_options.max_sensory_distance {
+                            continue;
+                        }
 
-                    // FOV check using already-computed direction
-                    if let Some(ref vel_dir) = vel_norm {
-                        if vel_dir.dot(direction) <= run_options.field_of_vision_cos {
-                            continue; // Outside field of view
+                        // FOV check using already-computed direction
+                        if let Some(ref vel_dir) = vel_norm {
+                            if vel_dir.dot(direction) <= run_options.field_of_vision_cos {
+                                continue; // Outside field of view
+                            }
+                        }
+
+                        neighbours.push(NeighborData {
+                            boid: &self.table[index],
+                            distance,
+                            direction,
+                        });
+
+                        if run_options.neighbours_cosidered != 0
+                            && neighbours.len() >= run_options.neighbours_cosidered
+                        {
+                            return;
                         }
                     }
-
-                    neighbours.push(NeighborData {
-                        boid: &self.table[index],
-                        distance,
-                        direction,
-                    });
-
-                    if run_options.neighbours_cosidered != 0
-                        && neighbours.len() >= run_options.neighbours_cosidered
-                    {
-                        return;
-                    }
                 }
+                return;
             }
-            return;
         }
 
         // Uniform strided sampling across all neighboring cells

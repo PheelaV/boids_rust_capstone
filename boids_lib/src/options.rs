@@ -23,6 +23,8 @@ pub struct RunOptions {
 
     pub sensory_distance: f32,
     pub max_sensory_distance: f32,
+    /// Pre-computed squared max sensory distance for early SIMD filtering
+    pub max_sensory_distance_sq: f32,
 
     pub alignment_treshold_distance: f32,
     pub cohesion_treshold_distance: f32,
@@ -103,6 +105,7 @@ impl RunOptions {
             self.cohesion_treshold_distance
                 .max(self.separation_treshold_distance),
         );
+        self.max_sensory_distance_sq = self.max_sensory_distance * self.max_sensory_distance;
     }
 
     /// updates fov parameters given fov_deg
@@ -170,6 +173,7 @@ impl Default for RunOptions {
             separation_coefficient,
             sensory_distance,
             max_sensory_distance,
+            max_sensory_distance_sq: max_sensory_distance * max_sensory_distance,
             alignment_treshold_distance,
             cohesion_treshold_distance,
             separation_treshold_distance,
