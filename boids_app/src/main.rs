@@ -113,7 +113,6 @@ fn model<'a>(app: &App) -> Model<'a> {
     run_options.alignment_treshold_coefficient = config.alignment_treshold_coefficient;
     run_options.cohesion_treshold_coefficient = config.cohesion_treshold_coefficient;
     run_options.separation_treshold_coefficient = config.separation_treshold_coefficient;
-    run_options.min_speed = config.min_speed;
     run_options.max_speed = config.max_speed;
     run_options.max_steering = config.max_steering;
     run_options.agent_steering = config.agent_steering;
@@ -133,6 +132,16 @@ fn model<'a>(app: &App) -> Model<'a> {
     };
     run_options.size = config.size;
     run_options.rules_impl = config.rules_impl;
+
+    // Physics: Natural motion
+    run_options.velocity_retention = config.velocity_retention;
+    run_options.forward_drive = config.forward_drive;
+    run_options.target_fps = config.target_fps;
+    run_options.fixed_timestep = config.fixed_timestep;
+
+    // SI Units
+    run_options.meters_per_pixel = config.meters_per_pixel;
+    run_options.update_si_units();
 
     let main_window = app
         .new_window()
@@ -392,33 +401,83 @@ fn update(app: &App, model: &mut Model, update: Update) {
             });
 
             ui.horizontal(|ui| {
-                ui.label("baseline speed");
-                ui.add(egui::Slider::new(
-                    &mut run_options.baseline_speed,
-                    0.1..=3.0,
-                ))
+                ui.label("max speed (px/s)");
+                if ui
+                    .add(egui::Slider::new(&mut run_options.max_speed, 0.0..=500.0))
+                    .changed()
+                {
+                    run_options.max_speed_sq = run_options.max_speed * run_options.max_speed;
+                    run_options.update_si_units();
+                }
             });
 
             ui.horizontal(|ui| {
-                ui.label("min speed");
-                ui.add(egui::Slider::new(
-                    &mut run_options.min_speed,
-                    0.0..=run_options.max_speed,
-                ))
+                ui.label("max steering (px/s²)");
+                if ui
+                    .add(egui::Slider::new(
+                        &mut run_options.max_steering,
+                        0.0..=200.0,
+                    ))
+                    .changed()
+                {
+                    run_options.max_steering_sq =
+                        run_options.max_steering * run_options.max_steering;
+                }
             });
 
+            ui.separator();
+
+            ui.label("Physics");
             ui.horizontal(|ui| {
-                ui.label("max speed");
+                ui.label("velocity retention (% kept/s)");
+                ui.add(
+                    egui::Slider::new(&mut run_options.velocity_retention, 0.001..=0.99)
+                        .logarithmic(true),
+                )
+            });
+            ui.horizontal(|ui| {
+                ui.label("forward drive");
                 ui.add(egui::Slider::new(
-                    &mut run_options.max_speed,
-                    run_options.min_speed..=5.0,
+                    &mut run_options.forward_drive,
+                    0.0..=200.0,
                 ))
             });
-
             ui.horizontal(|ui| {
-                ui.label("max steering");
-                ui.add(egui::Slider::new(&mut run_options.max_steering, 0.0..=10.0))
+                ui.label("target fps");
+                ui.add(egui::Slider::new(&mut run_options.target_fps, 10.0..=120.0))
             });
+            ui.horizontal(|ui| {
+                ui.add(egui::Checkbox::new(
+                    &mut run_options.fixed_timestep,
+                    "fixed timestep",
+                ));
+            });
+
+            ui.separator();
+
+            ui.label("SI Units");
+            ui.horizontal(|ui| {
+                ui.label("scale (m/px)");
+                if ui
+                    .add(
+                        egui::Slider::new(&mut run_options.meters_per_pixel, 0.001..=1.0)
+                            .logarithmic(true),
+                    )
+                    .changed()
+                {
+                    run_options.update_si_units();
+                }
+            });
+            {
+                let (world_w, world_h) = run_options.world_size_meters();
+                ui.label(format!(
+                    "World: {:.1}m x {:.1}m | Speed: {:.1} m/s ({:.0} km/h)",
+                    world_w,
+                    world_h,
+                    run_options.max_speed_mps,
+                    run_options.max_speed_mps * 3.6
+                ));
+            }
 
             ui.separator();
 
@@ -444,7 +503,7 @@ fn update(app: &App, model: &mut Model, update: Update) {
                 ui.label("wander coef");
                 ui.add(egui::Slider::new(
                     &mut run_options.wander_coefficient,
-                    0.0..=1.,
+                    0.0..=100.,
                 ))
             });
 
@@ -475,10 +534,16 @@ fn update(app: &App, model: &mut Model, update: Update) {
 
             ui.horizontal(|ui| {
                 ui.label("sensory distance");
-                ui.add(egui::Slider::new(
-                    &mut run_options.sensory_distance,
-                    5.0..=100.0,
-                ))
+                if ui
+                    .add(egui::Slider::new(
+                        &mut run_options.sensory_distance,
+                        5.0..=100.0,
+                    ))
+                    .changed()
+                {
+                    run_options.update_sensory_distances();
+                    run_options.update_si_units();
+                }
             });
 
             ui.horizontal(|ui| {
@@ -617,6 +682,15 @@ fn update(app: &App, model: &mut Model, update: Update) {
     if model.control_state.execution_paused {
         return;
     }
+
+    // Set delta_time from actual frame time (capped at 100ms to prevent physics explosion)
+    let dt = update.since_last.as_secs_f32().min(0.1);
+    run_options.delta_time = if run_options.fixed_timestep {
+        1.0 / run_options.target_fps
+    } else {
+        dt
+    };
+
     flock.update(run_options);
 
     if model.ghost_mode_on {
@@ -705,6 +779,66 @@ fn key_released(_: &App, model: &mut Model, key: Key) -> () {
         model.run_options.seek_location = None;
     }
 }
+
+/// Print current run_options as TOML config to stdout
+fn print_current_config(run_options: &RunOptions) {
+    use crate::cliargs::Config;
+
+    let config = Config {
+        no_boids: run_options.init_boids,
+        sample_rate: run_options.sample_rate,
+        save: run_options.save_options.save_locations,
+        save_timestamp: run_options.save_options.save_locations_timestamp,
+        init_width: run_options.window.win_w as u32,
+        init_height: run_options.window.win_h as u32,
+        sensory_distance: run_options.sensory_distance,
+        alignment_coefficient: run_options.alignment_coefficient,
+        cohesion_coefficient: run_options.cohesion_coefficient,
+        separation_coefficient: run_options.separation_coefficient,
+        alignment_treshold_coefficient: run_options.alignment_treshold_coefficient,
+        cohesion_treshold_coefficient: run_options.cohesion_treshold_coefficient,
+        separation_treshold_coefficient: run_options.separation_treshold_coefficient,
+        max_speed: run_options.max_speed,
+        max_steering: run_options.max_steering,
+        agent_steering: run_options.agent_steering,
+        field_of_vision: run_options.field_of_vision_deg,
+        dbscan_flock_clustering_on: run_options.dbscan_flock_clustering_on,
+        wander_on: run_options.wander_on,
+        wander_random: matches!(run_options.noise_model, NoiseModel::Vicsek),
+        wander_rate: run_options.wander_rate,
+        wander_radius: run_options.wander_radius,
+        wander_distance: run_options.wander_distance,
+        wander_coefficient: run_options.wander_coefficient,
+        size: run_options.size,
+        rules_impl: run_options.rules_impl,
+        velocity_retention: run_options.velocity_retention,
+        forward_drive: run_options.forward_drive,
+        target_fps: run_options.target_fps,
+        fixed_timestep: run_options.fixed_timestep,
+        meters_per_pixel: run_options.meters_per_pixel,
+    };
+
+    match toml::to_string_pretty(&config) {
+        Ok(toml_str) => {
+            let (world_w, world_h) = run_options.world_size_meters();
+            println!("\n# Current configuration (press P to export)");
+            println!("# Copy and save to a .toml file to reuse");
+            println!("# World size: {:.1}m x {:.1}m", world_w, world_h);
+            println!(
+                "# Max speed: {:.2} m/s ({:.1} km/h)",
+                run_options.max_speed_mps,
+                run_options.max_speed_mps * 3.6
+            );
+            println!(
+                "# Sensory distance: {:.2} m\n",
+                run_options.sensory_distance_m
+            );
+            println!("{}", toml_str);
+        }
+        Err(e) => eprintln!("Failed to serialize config: {}", e),
+    }
+}
+
 fn key_pressed(app: &App, model: &mut Model, key: Key) -> () {
     let Model {
         ref mut run_options,
@@ -749,6 +883,7 @@ fn key_pressed(app: &App, model: &mut Model, key: Key) -> () {
     // allow only these actions
     !(key == Key::C
         || key == Key::R
+        || key == Key::P  // export config
         || key == Key::F8
         || key == Key::F9
         || key == Key::F10
@@ -869,6 +1004,9 @@ fn key_pressed(app: &App, model: &mut Model, key: Key) -> () {
         run_options.seek_location = Some(app.mouse.position());
     } else if key == Key::X {
         run_options.clicked_boid_id = usize::MAX;
+    } else if key == Key::P {
+        // Print current config to stdout as TOML
+        print_current_config(run_options);
     }
 }
 

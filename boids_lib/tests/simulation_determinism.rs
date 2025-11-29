@@ -80,7 +80,7 @@ fn test_velocity_bounds() {
     let mut options = RunOptions::default();
     options.init_boids = 50;
     options.max_speed = 5.0;
-    options.min_speed = 1.0;
+    // min_speed is no longer enforced; forward_drive provides natural propulsion
     options.window = get_window_size(800, 600);
 
     let mut flock = Flock::new(&options);
@@ -92,15 +92,17 @@ fn test_velocity_bounds() {
         // Check all velocities are within bounds
         for (boid, _) in flock.view2() {
             let speed = boid.velocity.length();
+            // With forward_drive, boids naturally maintain some minimum speed,
+            // but we don't hard-enforce min_speed anymore
             assert!(
-                speed >= options.min_speed * 0.99, // Small tolerance for numerical errors
-                "Speed {} should be >= min_speed {}",
-                speed,
-                options.min_speed
+                speed > 0.0 || options.forward_drive == 0.0,
+                "Boids with forward_drive should have positive speed, got {}",
+                speed
             );
+            // Soft max speed allows temporary overshoot before exponentially clamping
             assert!(
-                speed <= options.max_speed * 1.01,
-                "Speed {} should be <= max_speed {}",
+                speed <= options.max_speed * 1.05,
+                "Speed {} should be <= max_speed {} (with 5% tolerance for soft clamping)",
                 speed,
                 options.max_speed
             );

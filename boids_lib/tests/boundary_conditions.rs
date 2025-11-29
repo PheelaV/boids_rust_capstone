@@ -65,7 +65,8 @@ fn test_reflective_boundary() {
     options.wander_on = false;
 
     // Create a boid moving right near right boundary
-    let mut boid = Boid::new(95.0, 0.0, Vec2::new(10.0, 0.0), 0);
+    // Velocity is in pixels/second (600 px/s = 10 px/frame at 60fps)
+    let mut boid = Boid::new(95.0, 0.0, Vec2::new(600.0, 0.0), 0);
 
     // Update location should reflect velocity when hitting boundary
     for _ in 0..20 {
@@ -101,11 +102,11 @@ fn test_absorbing_boundary() {
     options.cohesion_on = false;
     options.alignment_on = false;
     options.wander_on = false;
-    options.min_speed = 0.0; // Allow boid to stop completely
-    options.min_speed_sq = 0.0;
+    options.forward_drive = 0.0; // Disable forward drive to allow stopping
 
     // Create a boid moving right towards boundary
-    let mut boid = Boid::new(95.0, 0.0, Vec2::new(10.0, 0.0), 0);
+    // Velocity is in pixels/second (600 px/s = 10 px/frame at 60fps)
+    let mut boid = Boid::new(95.0, 0.0, Vec2::new(600.0, 0.0), 0);
 
     for _ in 0..50 {
         boid.update_location(&options);

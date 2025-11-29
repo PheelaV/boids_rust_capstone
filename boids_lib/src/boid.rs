@@ -1,7 +1,6 @@
 use std::{f32::consts::E, fmt::Debug};
 
 use glam::f32::Vec2;
-use rand::Rng;
 
 use crate::{
     math_helpers::{distance_dyn_boid, tor_vec, MyVec2Ext},
@@ -210,7 +209,9 @@ impl Boid {
         if !others.is_empty() {
             for neighbor in others {
                 // Use cached distance from NeighborData
-                if neighbor.distance > 0. && neighbor.distance < run_options.separation_treshold_distance {
+                if neighbor.distance > 0.
+                    && neighbor.distance < run_options.separation_treshold_distance
+                {
                     count += 1;
 
                     // Use cached direction (negated for separation: we want to move AWAY)
@@ -267,7 +268,8 @@ impl Boid {
 
         for neighbor in others {
             // Use cached distance from NeighborData
-            if neighbor.distance > 0. && neighbor.distance < run_options.cohesion_treshold_distance {
+            if neighbor.distance > 0. && neighbor.distance < run_options.cohesion_treshold_distance
+            {
                 // Reconstruct relative position from cached direction * distance
                 // neighbor.direction points FROM self TO neighbor
                 center += neighbor.direction * neighbor.distance;
@@ -279,7 +281,7 @@ impl Boid {
             center /= count as f32;
             // center is now the average relative position (works for both toroidal and enclosed)
             self.steer(center, run_options) * run_options.cohesion_coefficient
-        } else {
+        } else { 
             Vec2::ZERO
         }
     }
@@ -316,7 +318,8 @@ impl Boid {
 
         for neighbor in others {
             // Use cached distance from NeighborData
-            if neighbor.distance > 0. && neighbor.distance < run_options.alignment_treshold_distance {
+            if neighbor.distance > 0. && neighbor.distance < run_options.alignment_treshold_distance
+            {
                 avg_vel += neighbor.boid.velocity;
                 count += 1.;
             }
@@ -412,46 +415,41 @@ impl Boid {
 
     //
 
-    // Actually shifts the individual's location
+    /// Updates boid position using full SI physics integration.
+    /// All velocities are in pixels/second, accelerations in pixels/second².
     pub fn update_location(&mut self, run_options: &RunOptions) {
-        // let vel_prior = self.velocity;
-        self.velocity += self.acceleration;
+        let dt = run_options.delta_time;
 
-        // self.velocity = self.velocity.limit_length_sq(run_options.max_steering_sq, run_options.max_steering);
-        self.velocity = self
-            .velocity
-            .limit_length_sq(run_options.max_speed_sq, run_options.max_speed);
+        // 1. Apply velocity retention (exponential decay)
+        let retention = run_options.velocity_retention.powf(dt);
+        self.velocity *= retention;
 
-        // this is problematic
-        if self.velocity.length_squared() < run_options.min_speed_sq {
-            self.velocity = self.velocity.normalize() * run_options.min_speed;
-
-            // This was extremely hard to spot and debug.
-            // In this very unlikely case where agents have meat head on with equal
-            // but opposite velocities and accelerations, the normalization above
-            // produces NaN vector.
-
-            // Presuming we have no notion of communication and social interaction:
-            // Real life equivalent would be if you meet someone exactly head on, at the same speed,
-            // and you slow down (at the same rate), to avoid collision, but then you both have to make
-            // a decision, which way to go to avoid standing in place or bumbing into each other again
-            // because it does not matter whether or not you CAN move(accelerate) what matters is to
-            // start moving somewhere (e.g. make a random choice).
-            // This is the resolution, arbitrary in this case:
-            if self.velocity.is_nan() {
-                let mut rng = rand::thread_rng();
-                let x_vel = (rng.gen::<f32>() * 2. - 1.) * run_options.max_speed;
-                let y_vel = (rng.gen::<f32>() * 2. - 1.) * run_options.max_speed;
-                self.velocity.x = x_vel;
-                self.velocity.y = y_vel;
-            }
+        // 2. Forward drive - constant forward acceleration (pixels/s²)
+        let speed_sq = self.velocity.length_squared();
+        if run_options.forward_drive > 0.0 && speed_sq > 0.0001 {
+            let heading = self.velocity.normalize();
+            self.velocity += heading * run_options.forward_drive * dt;
         }
 
+        // 3. Apply acceleration from rules (pixels/s²)
+        self.velocity += self.acceleration * dt;
+
+        // 4. Soft max speed with hard cap
+        let speed = self.velocity.length();
+        if speed > run_options.max_speed {
+            let excess = speed - run_options.max_speed;
+            let new_speed = run_options.max_speed + excess * 0.9_f32.powf(dt * 60.0);
+            let capped_speed = new_speed.min(run_options.max_speed * 1.02);
+            self.velocity = self.velocity.normalize() * capped_speed;
+        }
+
+        // 5. Update position (pixels/s * s = pixels)
         if !run_options.stop_movement {
-            self.position += self.velocity * run_options.baseline_speed;
+            self.position += self.velocity * dt;
         }
 
-        self.acceleration *= 0.0;
+        // 6. Reset acceleration
+        self.acceleration = Vec2::ZERO;
 
         self.boundaries(run_options)
     }

@@ -9,11 +9,10 @@ pub struct RunOptions {
     pub init_boids: usize,
     pub initiation_strat: InitiationStrategy,
 
-    pub baseline_speed: f32,
-    pub min_speed: f32,
-    pub min_speed_sq: f32,
+    /// Maximum speed in pixels/second
     pub max_speed: f32,
     pub max_speed_sq: f32,
+    /// Maximum steering acceleration in pixels/second²
     pub max_steering: f32,
     pub max_steering_sq: f32,
 
@@ -89,6 +88,32 @@ pub struct RunOptions {
 
     /// Optional RNG seed for deterministic simulations. If None, uses random seed.
     pub rng_seed: Option<u64>,
+
+    // Physics: Time integration
+    /// Delta time in seconds since last frame (set by app each frame)
+    pub delta_time: f32,
+    /// Target FPS for fixed timestep mode (default: 60.0)
+    pub target_fps: f32,
+    /// Use fixed timestep (1/target_fps) instead of variable dt
+    pub fixed_timestep: bool,
+
+    // Physics: Natural motion
+    /// Velocity retained per second (0.02 = 2% remains, 0.9 = 90% remains)
+    pub velocity_retention: f32,
+    /// Constant forward acceleration in heading direction (replaces min_speed)
+    pub forward_drive: f32,
+
+    // SI Units: Spatial scale
+    /// Meters per pixel (default: 0.01 = 1px = 1cm)
+    pub meters_per_pixel: f32,
+    /// Pixels per meter (computed: 1/meters_per_pixel)
+    pub pixels_per_meter: f32,
+
+    // SI Units: Display values (computed from internal units)
+    /// Current max speed in m/s (for display)
+    pub max_speed_mps: f32,
+    /// Current sensory distance in meters (for display)
+    pub sensory_distance_m: f32,
 }
 
 impl RunOptions {
@@ -118,6 +143,39 @@ impl RunOptions {
         self.cohesion_fov_half_cos = deg_to_half_rad(self.cohesion_fov_deg).cos();
         self.separation_fov_half_cos = deg_to_half_rad(self.separation_fov_deg).cos();
     }
+
+    /// Updates SI unit display values from internal pixel-based values
+    pub fn update_si_units(&mut self) {
+        self.pixels_per_meter = 1.0 / self.meters_per_pixel;
+        // Convert max_speed (pixels/second) to m/s
+        // pixels/sec * meters/pixel = meters/sec
+        self.max_speed_mps = self.max_speed * self.meters_per_pixel;
+        // Convert sensory_distance (pixels) to meters
+        self.sensory_distance_m = self.sensory_distance * self.meters_per_pixel;
+    }
+
+    /// Set max_speed from m/s value (converts to internal pixels/second)
+    pub fn set_max_speed_mps(&mut self, mps: f32) {
+        // m/s / (meters/pixel) = pixels/sec
+        self.max_speed = mps / self.meters_per_pixel;
+        self.max_speed_sq = self.max_speed * self.max_speed;
+        self.max_speed_mps = mps;
+    }
+
+    /// Set sensory_distance from meters value (converts to internal pixels)
+    pub fn set_sensory_distance_m(&mut self, meters: f32) {
+        self.sensory_distance = meters / self.meters_per_pixel;
+        self.sensory_distance_m = meters;
+        self.update_sensory_distances();
+    }
+
+    /// Get world dimensions in meters
+    pub fn world_size_meters(&self) -> (f32, f32) {
+        (
+            self.window.win_w as f32 * self.meters_per_pixel,
+            self.window.win_h as f32 * self.meters_per_pixel,
+        )
+    }
 }
 
 impl Default for RunOptions {
@@ -126,12 +184,11 @@ impl Default for RunOptions {
         let init_height = 600;
         let init_width = 600;
 
-        let baseline_speed = 1.0;
+        // SI units: pixels/second for speed, pixels/second² for acceleration
+        let max_speed = 250.0;      // pixels/second
+        let max_steering = 42.0;    // pixels/second²
 
-        let min_speed = 0.65;
-        let max_speed = 4.1;
-        let max_steering = 0.7;
-
+        // Behavior coefficients (NOT scaled - max_steering handles SI conversion)
         let alignment_coefficient = 0.02;
         let cohesion_coefficient = 0.002;
         let separation_coefficient = 4.1;
@@ -161,9 +218,6 @@ impl Default for RunOptions {
             init_boids,
             // initiation_strat: InitiationStrategy::CircleCircumferenceIn,
             initiation_strat: InitiationStrategy::RandomRandom,
-            baseline_speed,
-            min_speed,
-            min_speed_sq: min_speed.powf(2.),
             max_speed,
             max_speed_sq: max_speed.powf(2.),
             max_steering,
@@ -230,10 +284,24 @@ impl Default for RunOptions {
             rules_impl: false,
             agent_steering: true,
             rng_seed: None, // Default to random seed
+            // Physics: Time integration
+            delta_time: 1.0 / 60.0,
+            target_fps: 60.0,
+            fixed_timestep: true,
+            // Physics: Natural motion
+            velocity_retention: 0.02,
+            forward_drive: 50.0,
+            // SI Units: Spatial scale (1px = 1cm by default)
+            meters_per_pixel: 0.01,
+            pixels_per_meter: 100.0,
+            // SI Units: Display values (will be computed)
+            max_speed_mps: 0.0,
+            sensory_distance_m: 0.0,
         };
 
         res.update_sensory_distances();
         res.update_fov();
+        res.update_si_units();
 
         res
     }

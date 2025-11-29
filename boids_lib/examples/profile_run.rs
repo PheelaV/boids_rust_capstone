@@ -17,7 +17,7 @@ fn main() {
     ro.window = options::get_window_size(1000, 1000);
     ro.sensory_distance = 20.0;
 
-    // Behavior coefficients from 2normal_s.toml
+    // Behavior coefficients (NOT scaled - max_steering handles SI conversion)
     ro.alignment_coefficient = 0.2;
     ro.cohesion_coefficient = 0.1;
     ro.separation_coefficient = 2.5;
@@ -25,13 +25,10 @@ fn main() {
     ro.cohesion_treshold_coefficient = 0.8;
     ro.separation_treshold_coefficient = 0.3;
 
-    // Speed/steering
-    ro.baseline_speed = 1.0;
-    ro.min_speed = 2.0;
-    ro.min_speed_sq = ro.min_speed * ro.min_speed;
-    ro.max_speed = 2.0;
+    // Speed/steering (SI units: pixels/second, pixels/second²)
+    ro.max_speed = 120.0;  // pixels/second
     ro.max_speed_sq = ro.max_speed * ro.max_speed;
-    ro.max_steering = 0.3;
+    ro.max_steering = 18.0;  // pixels/second²
     ro.max_steering_sq = ro.max_steering * ro.max_steering;
 
     // FOV and wander

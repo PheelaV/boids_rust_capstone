@@ -27,11 +27,6 @@ pub struct Args {
 /// Uses defaults, which can be overwritten by specifying a filepath for the `-c` or `--config` arg option
 #[derive(ClapSerde, Serialize)]
 pub struct Config {
-    #[default(1.)]
-    #[arg(short = 'b', long)]
-    /// number of boids
-    pub baseline_speed: f32,
-
     #[default(1024)]
     #[arg(short = 'n', long)]
     /// number of boids
@@ -66,12 +61,10 @@ pub struct Config {
     #[default(0.2)]
     #[arg(long = "ali_coef")]
     pub alignment_coefficient: f32,
-    // #[default(0.002)]
-    #[default(0.06)]
+    #[default(0.1)]
     #[arg(long = "coh_coef")]
     pub cohesion_coefficient: f32,
-    // #[default(4.1)]
-    #[default(0.3)]
+    #[default(2.5)]
     #[arg(long = "sep_coef")]
     pub separation_coefficient: f32,
 
@@ -85,14 +78,13 @@ pub struct Config {
     #[arg(long = "sep_trs_coef")]
     pub separation_treshold_coefficient: f32,
 
-    #[default(2.1)]
-    #[arg(long = "min_speed")]
-    pub min_speed: f32,
-    #[default(2.1)]
+    #[default(120.0)]
     #[arg(long = "max_speed")]
+    /// Maximum speed in pixels/second
     pub max_speed: f32,
-    #[default(0.65)]
+    #[default(40.0)]
     #[arg(long = "max_steering")]
+    /// Maximum steering acceleration in pixels/second²
     pub max_steering: f32,
     #[default(false)]
     #[arg(long = "steer")]
@@ -128,4 +120,31 @@ pub struct Config {
     #[default(false)]
     #[arg(long = "rules_impl")]
     pub rules_impl: bool,
+
+    // Physics: Natural motion
+    #[default(0.02)]
+    #[arg(long = "vel_retention")]
+    /// Velocity retained per second (0.02 = 2% remains, 0.9 = 90% remains)
+    pub velocity_retention: f32,
+
+    #[default(50.0)]
+    #[arg(long = "forward_drive")]
+    /// Constant forward acceleration in heading direction
+    pub forward_drive: f32,
+
+    #[default(60.0)]
+    #[arg(long = "target_fps")]
+    /// Target FPS for fixed timestep mode
+    pub target_fps: f32,
+
+    #[default(true)]
+    #[arg(long = "fixed_timestep")]
+    /// Use fixed timestep vs variable dt
+    pub fixed_timestep: bool,
+
+    // SI Units
+    #[default(0.01)]
+    #[arg(long = "meters_per_pixel")]
+    /// Spatial scale: meters per pixel (0.01 = 1px = 1cm)
+    pub meters_per_pixel: f32,
 }

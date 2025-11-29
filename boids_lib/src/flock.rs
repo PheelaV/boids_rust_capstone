@@ -88,7 +88,6 @@ impl<'a> Flock<'a> {
         // modifies those and passes them on
         let mut ro = run_options.to_owned();
         ro.max_steering_sq = run_options.max_steering.powf(2.);
-        ro.min_speed_sq = run_options.min_speed.powf(2.);
         ro.max_speed_sq = run_options.max_speed.powf(2.);
 
         ro.alignment_on = run_options.alignment_coefficient != 0. && run_options.alignment_on;
@@ -176,9 +175,7 @@ fn get_boid(run_options: &RunOptions, id: usize) -> Boid {
             // y in [-max_speed, max_speed)
             let y_vel = (rng.gen::<f32>() * 2. - 1.) * run_options.max_speed;
 
-            let mut init_vec = Vec2::new(x_vel, y_vel);
-
-            init_vec = init_vec.ensure_length(run_options.min_speed, run_options.max_speed);
+            let init_vec = Vec2::new(x_vel, y_vel).clamp_length_max(run_options.max_speed);
 
             Boid::new(x, y, init_vec, id)
         }
