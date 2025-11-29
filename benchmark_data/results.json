@@ -216,5 +216,176 @@
     "status": "success",
     "features": "simd-neon",
     "nightly": true
+  },
+  {
+    "timestamp": "2025-11-29T02:36:30.792792",
+    "git": {
+      "commit": "07ffc6e1c28e94489f5cdb369d813b4c010fc6f9",
+      "commit_short": "07ffc6e",
+      "branch": "simd_support",
+      "dirty": true
+    },
+    "benchmarks": {
+      "2^14": {
+        "time": {
+          "low": 2.6828,
+          "mid": 2.69,
+          "high": 2.6991,
+          "unit": "s"
+        },
+        "throughput": {
+          "low": 1.554,
+          "mid": 1.5592,
+          "high": 1.5634,
+          "unit": "Melem/s"
+        }
+      },
+      "2^15": {
+        "time": {
+          "low": 9.177,
+          "mid": 9.1843,
+          "high": 9.1916,
+          "unit": "s"
+        },
+        "throughput": {
+          "low": 912.64,
+          "mid": 913.36,
+          "high": 914.09,
+          "unit": "Kelem/s"
+        }
+      },
+      "2^16": {
+        "time": {
+          "low": 2.8865,
+          "mid": 2.8897,
+          "high": 2.8933,
+          "unit": "s"
+        },
+        "throughput": {
+          "low": 566.27,
+          "mid": 566.97,
+          "high": 567.61,
+          "unit": "Kelem/s"
+        }
+      }
+    },
+    "status": "success",
+    "features": null,
+    "nightly": false,
+    "note": "SoA refactored code"
+  },
+  {
+    "timestamp": "2025-11-29T02:56:21.318411",
+    "git": {
+      "commit": "07ffc6e1c28e94489f5cdb369d813b4c010fc6f9",
+      "commit_short": "07ffc6e",
+      "branch": "simd_support",
+      "dirty": true
+    },
+    "benchmarks": {
+      "2^14": {
+        "time": {
+          "low": 2.6465,
+          "mid": 2.6533,
+          "high": 2.6592,
+          "unit": "s"
+        },
+        "throughput": {
+          "low": 1.5773,
+          "mid": 1.5808,
+          "high": 1.5849,
+          "unit": "Melem/s"
+        }
+      },
+      "2^15": {
+        "time": {
+          "low": 9.3681,
+          "mid": 9.5546,
+          "high": 9.7299,
+          "unit": "s"
+        },
+        "throughput": {
+          "low": 862.15,
+          "mid": 877.97,
+          "high": 895.44,
+          "unit": "Kelem/s"
+        }
+      },
+      "2^16": {
+        "time": {
+          "low": 2.9989,
+          "mid": 3.0214,
+          "high": 3.0454,
+          "unit": "s"
+        },
+        "throughput": {
+          "low": 538.0,
+          "mid": 542.26,
+          "high": 546.34,
+          "unit": "Kelem/s"
+        }
+      }
+    },
+    "status": "success",
+    "features": null,
+    "nightly": false,
+    "note": "Original code (before SoA refactor)"
+  },
+  {
+    "timestamp": "2025-11-29T02:58:00.000000",
+    "git": {
+      "commit": "07ffc6e1c28e94489f5cdb369d813b4c010fc6f9",
+      "commit_short": "07ffc6e",
+      "branch": "simd_support",
+      "dirty": true
+    },
+    "benchmarks": {
+      "2^14": {
+        "time": {
+          "low": 2.4019,
+          "mid": 2.4439,
+          "high": 2.4916,
+          "unit": "s"
+        },
+        "throughput": {
+          "low": 1.6834,
+          "mid": 1.7163,
+          "high": 1.7463,
+          "unit": "Melem/s"
+        }
+      },
+      "2^15": {
+        "time": {
+          "low": 7.8368,
+          "mid": 7.9441,
+          "high": 8.0497,
+          "unit": "s"
+        },
+        "throughput": {
+          "low": 1.0421,
+          "mid": 1.056,
+          "high": 1.0704,
+          "unit": "Melem/s"
+        }
+      },
+      "2^16": {
+        "time": {
+          "low": 2.2855,
+          "mid": 2.2937,
+          "high": 2.306,
+          "unit": "s"
+        },
+        "throughput": {
+          "low": 710.5,
+          "mid": 714.3,
+          "high": 716.87,
+          "unit": "Kelem/s"
+        }
+      }
+    },
+    "status": "success",
+    "features": "simd-neon",
+    "nightly": true,
+    "note": "Original code (before SoA refactor)"
   }
 ]
